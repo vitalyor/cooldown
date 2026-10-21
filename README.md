@@ -81,3 +81,7 @@ Cooldown ничего не отправляет на свои серверы —
 
 - [Codex Auto Resume](https://github.com/progressrdx/codex-auto-resume) by progressrdx (MIT) —
   автопродолжение задач Codex.
+
+## Лицензия
+
+[MIT](LICENSE). Codex Auto Resume, который встраивается в сборку, распространяется по своей лицензии MIT.
