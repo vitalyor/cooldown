@@ -71,13 +71,12 @@ Cooldown shows what is missing under Settings → Readiness:
 
 ## Privacy
 
-Cooldown sends nothing to servers of its own — there are none. Details (in Russian):
-[docs/PRIVACY.md](docs/PRIVACY.md).
+Cooldown sends nothing to servers of its own — there are none. Details: [docs/PRIVACY.md](docs/PRIVACY.md).
 
 ## How it works
 
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (in Russian) — data sources, modules, and how Cooldown
-keeps its resource use low.
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — data sources, modules, and how Cooldown keeps its
+resource use low. Ideas behind the features: [IDEAS.md](IDEAS.md).
 
 ## Thanks
 

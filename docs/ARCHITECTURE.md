@@ -1,55 +1,57 @@
-# Устройство Cooldown
+# How Cooldown is built
 
-Swift Package, SwiftUI + AppKit, без сторонних зависимостей. Окно — стеклянная панель
-(`NSGlassEffectView`) под значком в строке меню.
+**English** · [Русский](ARCHITECTURE.ru.md)
 
-## Модули
+A Swift package, SwiftUI + AppKit, no third-party dependencies. The window is a glass panel
+(`NSGlassEffectView`) under the menu bar icon.
 
-| Папка | Что внутри |
+## Modules
+
+| Folder | What's inside |
 |---|---|
-| `Core/` | `AppModel` (состояние, таймеры), `AgentActivity` (кто работает, ждёт, закончил), хранилища (`HistoryStore`, `DailyLog`, `TurnLog`, `EventLog`), прогноз и темп, хуки, наблюдение за файлами |
-| `Codex/` | лимиты через `codex app-server`, история из файлов сессий, индекс разговоров (`state_*.sqlite`), наблюдатель окончания работы, отложенные задачи |
-| `Claude/` | лимиты (`/usage`, строка статуса, Claude Desktop, claude.ai), окно Claude Desktop через Accessibility, чаты для продолжения, сессии Claude Code |
-| `Relay/` | мост к Codex Auto Resume |
-| `UI/` | панель, вкладки, карточки, настройки, значок в строке меню |
+| `Core/` | `AppModel` (state, timers), `AgentActivity` (who is working, waiting, finished), stores (`HistoryStore`, `DailyLog`, `TurnLog`, `EventLog`), forecast and pace, hooks, file watching |
+| `Codex/` | limits via `codex app-server`, history from session files, the conversation index (`state_*.sqlite`), the finish watcher, deferred tasks |
+| `Claude/` | limits (`/usage`, status line, Claude Desktop, claude.ai), the Claude Desktop window via Accessibility, chats to continue, Claude Code sessions |
+| `Relay/` | the bridge to Codex Auto Resume |
+| `UI/` | the panel, tabs, cards, settings, the menu bar icon |
 
-## Один координатор событий
+## One coordinator for events
 
-Все источники сообщают в `AgentActivity`: файлы сессий Codex, хуки, окно Claude Desktop, claude.ai.
-Он решает, что показать: один и тот же конец работы, увиденный двумя источниками, объявляется один раз;
-короткие ходы не объявляются; длительность и доля лимита считаются от начала хода.
+Every source reports to `AgentActivity`: Codex session files, hooks, the Claude Desktop window,
+claude.ai. It decides what to show: the same end of work seen by two sources is announced once; short
+turns are not announced; duration and the share of the limit are counted from the start of the turn.
 
-## Лимиты Claude
+## Claude limits
 
-Несколько источников сводятся одним правилом (`ClaudeLimits.merge`): для каждого окна берётся текущее
-(самое позднее время сброса), среди показаний этого окна — наибольшее (внутри окна расход только растёт).
-Показания, отставшие больше чем на 20 минут от самого свежего, не учитываются.
+Several sources are merged by one rule (`ClaudeLimits.merge`): for each window the current one is
+taken (the latest reset time), and among readings of that window the highest wins (usage only grows
+within a window). Readings more than 20 minutes older than the freshest are ignored.
 
-## Бережём ресурсы
+## Keeping resource use low
 
-- **События вместо опроса.** Папки сессий — через FSEvents; файл хуков — через dispatch source
-  (`Core/FileWatch.swift`). Таймеры остаются только страховкой и запускаются с допуском, чтобы macOS
-  объединяла пробуждения.
-- **Внешние программы — по необходимости.** Пока Codex работает, лимиты приходят из его файлов,
-  `codex app-server` не запускается. `claude /usage` — раз в 2–30 минут в зависимости от того,
-  работает ли Claude и открыто ли окно; не запускается, пока строка статуса Claude Code приносит свежие
-  числа. Relay опрашивается часто, только пока следит за задачами.
-- **Окно Claude Desktop.** Обычно читается только адрес чата и поле ввода (десятки элементов, один
-  запрос на элемент); всё окно — когда что-то поменялось или раз в минуту. Всё вне главного потока.
-- **Отрисовка.** Свет на линии в строке меню — анимация Core Animation, картинка не перерисовывается.
-  Значок строки меню и частые «признаки жизни» агентов не вызывают перерисовку окна.
-  Скрытое окно ничего не опрашивает.
-- **История** читается кусками по мере дописывания файлов; курсоры переживают перенос файлов Codex
-  между папками.
+- **Events instead of polling.** Session folders are watched with FSEvents; the hook file with a
+  dispatch source (`Core/FileWatch.swift`). Timers remain only as a safety net and run with tolerance,
+  so macOS can group wake-ups.
+- **External programs only when needed.** While Codex works, its limits come from its own files and
+  `codex app-server` is not started. `claude /usage` runs every 2–30 minutes depending on whether
+  Claude is working and the window is open, and not at all while Claude Code's status line brings
+  fresh numbers. Relay is asked often only while it watches tasks.
+- **The Claude Desktop window.** Usually only the chat address and the message box are read (a few
+  dozen elements, one request per element); the whole window only when something changed or once a
+  minute. All of it off the main thread.
+- **Drawing.** The light on the menu bar line is a Core Animation animation; the image is not redrawn.
+  The menu bar icon and frequent "still working" signals from agents don't redraw the window.
+  A hidden window polls nothing.
+- **History** is read in pieces as files grow; read positions survive Codex moving files between folders.
 
-## Диагностика
+## Diagnostics
 
 ```sh
-Cooldown --claude-usage            # что читается из /usage
-Cooldown --hooks status            # состояние хуков (install / uninstall)
-Cooldown --menu-icon out.png       # значок строки меню в разных состояниях
-Cooldown --render --out out.png --provider codex --tab stats   # окно в картинку
+Cooldown --claude-usage            # what is read from /usage
+Cooldown --hooks status            # hook state (install / uninstall)
+Cooldown --menu-icon out.png       # the menu bar icon in different states
+Cooldown --render --out out.png --provider codex --tab stats   # the window as a picture
 ```
 
-Что делали источники и почему была или не была показана карточка — в
+What the sources did and why a card was or wasn't shown is in
 `~/Library/Application Support/Cooldown/activity.log`.
