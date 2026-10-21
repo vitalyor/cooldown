@@ -40,6 +40,15 @@ Everything runs locally on your Mac.
 - Command Line Tools (`xcode-select --install`); Xcode is not required.
 - Codex and/or Claude Code / Claude Desktop — whichever you use.
 
+## Install
+
+Download the latest **Cooldown-x.y.z.dmg** from [Releases](https://github.com/vitalyor/cooldown/releases/latest),
+open it and drag Cooldown to Applications.
+
+Cooldown is not notarized by Apple, so on first launch macOS says it cannot verify the developer.
+Open **System Settings → Privacy & Security** and press **Open Anyway**
+(or run `xattr -dr com.apple.quarantine /Applications/Cooldown.app`).
+
 ## Build and run
 
 ```sh
