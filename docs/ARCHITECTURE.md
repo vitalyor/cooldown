@@ -12,7 +12,7 @@ A Swift package, SwiftUI + AppKit, no third-party dependencies. The window is a 
 | `Core/` | `AppModel` (state, timers), `AgentActivity` (who is working, waiting, finished), stores (`HistoryStore`, `DailyLog`, `TurnLog`, `EventLog`), forecast and pace, hooks, file watching |
 | `Codex/` | limits via `codex app-server`, history from session files, the conversation index (`state_*.sqlite`), the finish watcher, deferred tasks |
 | `Claude/` | limits (`/usage`, status line, Claude Desktop, claude.ai), the Claude Desktop window via Accessibility, chats to continue, Claude Code sessions |
-| `Relay/` | the bridge to Codex Auto Resume |
+| `AutoResume/` | Codex auto-continue: the app's local socket (follower only), the decision policy, the send ledger, the per-task watcher |
 | `UI/` | the panel, tabs, cards, settings, the menu bar icon |
 
 ## One coordinator for events
@@ -35,7 +35,12 @@ within a window). Readings more than 20 minutes older than the freshest are igno
 - **External programs only when needed.** While Codex works, its limits come from its own files and
   `codex app-server` is not started. `claude /usage` runs every 2–30 minutes depending on whether
   Claude is working and the window is open, and not at all while Claude Code's status line brings
-  fresh numbers. Relay is asked often only while it watches tasks.
+  fresh numbers.
+- **Auto-continue reacts, it does not poll.** A watched task is looked at when its session file
+  reports an ended or failed turn, on Codex hooks, when the Codex app starts or quits and when the
+  Mac wakes; while waiting for the limit, a wall-clock timer fires exactly at the reset (+15 s). A
+  slow heartbeat only catches what no event reported. It runs inside Cooldown, with no extra
+  processes; `codex app-server` is started only to read the limits at that moment.
 - **The Claude Desktop window.** Usually only the chat address and the message box are read (a few
   dozen elements, one request per element); the whole window only when something changed or once a
   minute. All of it off the main thread.

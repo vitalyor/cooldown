@@ -62,11 +62,14 @@ private struct HeroRings: View {
     let now: Date
     let render: Bool
     @State private var shown: Double = 0
+    /// The week's ring (or its line in the legend) under the pointer: the big number shows the week.
+    @State private var weekFocused = false
 
     var body: some View {
         let session = snapshot.session?.remaining(at: now)
         let weekly = snapshot.weekly?.remaining(at: now)
-        let main = session ?? weekly ?? 0
+        let showWeek = weekly != nil && (weekFocused || session == nil)
+        let main = (showWeek ? weekly : session) ?? 0
         let sessionColor = Theme.level(remaining: session ?? 100, tint: tint)
         let weeklyColor = Theme.level(remaining: weekly ?? 100, tint: Theme.mint)
         let fill = render ? 1 : shown
@@ -75,14 +78,28 @@ private struct HeroRings: View {
             ZStack {
                 Ring(fraction: (session ?? 0) / 100 * fill, color: sessionColor, width: 15)
                     .frame(width: 148, height: 148)
+                    .opacity(weekFocused && session != nil ? 0.45 : 1)
                 Ring(fraction: (weekly ?? 0) / 100 * fill, color: weeklyColor, width: 10)
                     .frame(width: 108, height: 108)
                 VStack(spacing: 0) {
                     Text(Format.percent(main))
                         .font(Theme.number(32))
                         .contentTransition(.numericText(value: main))
-                    Text("осталось").font(.caption).foregroundStyle(.secondary)
+                    Text(showWeek && session != nil ? "неделя" : "осталось")
+                        .font(.caption)
+                        .foregroundStyle(showWeek && session != nil ? weeklyColor : .secondary)
+                        .contentTransition(.opacity)
                 }
+            }
+            .frame(width: 148, height: 148)
+            .contentShape(Circle())
+            .onContinuousHover { phase in
+                // The inner ring and the space inside it belong to the week; the outer ring to 5 hours.
+                var week = false
+                if case .active(let point) = phase {
+                    week = hypot(point.x - 74, point.y - 74) < 57
+                }
+                setWeekFocus(week)
             }
             VStack(alignment: .leading, spacing: 14) {
                 if let window = snapshot.session {
@@ -90,6 +107,8 @@ private struct HeroRings: View {
                 }
                 if let window = snapshot.weekly {
                     Legend(color: weeklyColor, title: "Неделя", value: window.remaining(at: now), window: window, now: now)
+                        .contentShape(Rectangle())
+                        .onHover { setWeekFocus($0) }
                 }
                 if let credits = snapshot.resetCredits, credits > 0 {
                     Label("\(credits) \(Format.plural(credits, "сброс", "сброса", "сбросов")) в запасе", systemImage: "arrow.counterclockwise")
@@ -103,6 +122,11 @@ private struct HeroRings: View {
         .padding(.top, 4)
         .onAppear { animateIn() }
         .onChange(of: model.openCount) { _, _ in animateIn() }
+    }
+
+    private func setWeekFocus(_ value: Bool) {
+        guard value != weekFocused else { return }
+        withAnimation(.smooth(duration: 0.25)) { weekFocused = value }
     }
 
     private func animateIn() {

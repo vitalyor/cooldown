@@ -23,7 +23,7 @@ Cooldown — приложение в строке меню macOS для тех, 
   через «Универсальный доступ».
 
 **Продолжение после сброса**
-- Codex: задача, упёршаяся в лимит, продолжается сама (через [Codex Auto Resume](https://github.com/progressrdx/codex-auto-resume)).
+- Codex: задача, упёршаяся в лимит, продолжается сама сразу после сброса лимита (встроено, ничего ставить не нужно).
 - Claude Code: сессия продолжается сама через `claude --resume`.
 - Чаты Claude Desktop: Cooldown находит нужный чат и отправляет продолжение — только по вашему нажатию.
 - Отложенные задачи Codex: запускаются, как только у Codex снова есть лимит.
@@ -65,10 +65,6 @@ scripts/make_signing_identity.sh
 Собираете свою версию рядом с оригиналом? Задайте ей свой идентификатор, чтобы настройки и
 разрешения не смешивались: `echo 'COOLDOWN_BUNDLE_ID=com.yourname.cooldown' > local.env`.
 
-Чтобы автопродолжение Codex было встроено в приложение, положите
-[codex-auto-resume](https://github.com/progressrdx/codex-auto-resume) рядом с папкой проекта
-(`../codex-auto-resume`) или укажите путь в `RELAY_SRC` перед сборкой.
-
 ## Первый запуск
 
 Cooldown сам подскажет в «Настройки → Готовность», чего не хватает:
@@ -89,7 +85,8 @@ Cooldown ничего не отправляет на свои серверы —
 ## Благодарности
 
 - [Codex Auto Resume](https://github.com/progressrdx/codex-auto-resume) by progressrdx (MIT) —
-  автопродолжение задач Codex.
+  автопродолжение Codex в Cooldown — перенос на Swift его протокола и правил безопасности; лицензия
+  едет вместе с приложением (`Resources/ThirdParty`).
 
 ## Лицензия
 

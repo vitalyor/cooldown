@@ -44,16 +44,8 @@ if [ -n "${COOLDOWN_VERSION:-}" ]; then
   /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(git rev-list --count HEAD 2>/dev/null || echo 1)" "$APP/Contents/Info.plist"
 fi
 cp Resources/Scriptable/Cooldown.js "$APP/Contents/Resources/Cooldown.js"
-# Relay (Codex auto-continue) travels inside the app, so no separate folder is needed.
-RELAY_SRC="${RELAY_SRC:-../codex-auto-resume}"
-if [ -d "$RELAY_SRC/codex_resume" ]; then
-  mkdir -p "$APP/Contents/Resources/relay"
-  # Python must not write caches into the signed bundle.
-  sed 's/^set -eu$/set -eu\nexport PYTHONDONTWRITEBYTECODE=1/' "$RELAY_SRC/resume" > "$APP/Contents/Resources/relay/resume"
-  rsync -a --exclude '__pycache__' --exclude 'static' "$RELAY_SRC/codex_resume" "$APP/Contents/Resources/relay/"
-  # Relay is MIT-licensed; its notice travels with it.
-  [ -f "$RELAY_SRC/LICENSE" ] && cp "$RELAY_SRC/LICENSE" "$APP/Contents/Resources/relay/LICENSE"
-fi
+# Auto-continue for Codex is a Swift port of codex-auto-resume (MIT); its notice travels with the app.
+cp Resources/ThirdParty/codex-auto-resume-LICENSE.txt "$APP/Contents/Resources/codex-auto-resume-LICENSE.txt"
 if [ -f Resources/AppIcon.icns ]; then
   cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 fi

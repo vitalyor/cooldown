@@ -23,14 +23,19 @@ final class GitHubUpdater: ObservableObject {
     @Published private(set) var checking = false
     private var timer: Timer?
     private var offered: String?
+    /// A downloaded and verified new version, ready to be put in place.
+    private var prepared: (version: String, app: URL)?
+    @Published private(set) var readyVersion: String?
 
     static var repo: String? { Bundle.main.object(forInfoDictionaryKey: "CooldownUpdateRepo") as? String }
     static var current: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0" }
 
     func start() {
-        guard Self.repo != nil else { return }
+        guard Self.repo != nil, Settings.updateMode != "off" else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 60) { Task { await GitHubUpdater.shared.check() } }
-        timer = Timer.every(6 * 3600) { _ in Task { @MainActor in await GitHubUpdater.shared.check() } }
+        timer = Timer.every(6 * 3600) { _ in
+            Task { @MainActor in if Settings.updateMode != "off" { await GitHubUpdater.shared.check() } }
+        }
     }
 
     /// Looks for a newer release; `manual` reports the result even when there is nothing new.
@@ -71,8 +76,28 @@ final class GitHubUpdater: ObservableObject {
         }
     }
 
+    /// The update mode changed in Settings.
+    func modeChanged() {
+        timer?.invalidate()
+        timer = nil
+        start()
+    }
+
     private func announce(_ release: Release) {
-        if Settings.autoUpdate {
+        let mode = Settings.updateMode
+        if mode == "download" {
+            Task {
+                if prepared?.version != release.version { _ = try? await prepare(release) }
+                guard prepared?.version == release.version, offered != release.version else { return }
+                offered = release.version
+                ToastController.shared.show(ToastContent(key: "github-update", kind: .info, provider: nil,
+                                                         title: "Cooldown \(release.version) загружена",
+                                                         body: "Проверена и готова. Установка займёт пару секунд; настройки и история сохранятся.",
+                                                         actions: [.installRelease, .openReleasePage], life: .sticky))
+            }
+            return
+        }
+        if mode == "auto" {
             // Installed when nobody is in the middle of something: the Mac idle a couple of minutes.
             if ToastController.idleSeconds > 120 || ToastController.screenLocked {
                 Task { await install() }
@@ -105,6 +130,25 @@ final class GitHubUpdater: ObservableObject {
     /// `dryRun`: download and check everything, but do not replace the app (for diagnostics).
     func install(dryRun: Bool = false) async {
         guard let release = available else { return }
+        do {
+            let app: URL
+            if let prepared, prepared.version == release.version, FileManager.default.fileExists(atPath: prepared.app.path),
+               Self.signedLikeMe(prepared.app) {
+                app = prepared.app
+            } else {
+                app = try await prepare(release)
+            }
+            if dryRun { state = "Проверено: \(release.version) готова к установке."; return }
+            state = "Устанавливаю \(release.version)…"
+            Self.swap(to: app)
+        } catch {
+            state = "Обновление не установлено: \(error.localizedDescription)"
+            ToastController.shared.show(ToastCatalog.failure("Обновление не установлено", error.localizedDescription))
+        }
+    }
+
+    /// Downloads the release and checks it (checksum, same signature); returns the new app.
+    private func prepare(_ release: Release) async throws -> URL {
         state = "Загружаю \(release.version)…"
         do {
             let folder = FileManager.default.temporaryDirectory.appendingPathComponent("cooldown-update-\(UUID().uuidString)")
@@ -125,12 +169,13 @@ final class GitHubUpdater: ObservableObject {
             let app = folder.appendingPathComponent("Cooldown.app")
             guard FileManager.default.fileExists(atPath: app.path) else { throw UpdateError.unpack }
             guard Self.signedLikeMe(app) else { throw UpdateError.signature }
-            if dryRun { state = "Проверено: \(release.version) готова к установке."; return }
-            state = "Устанавливаю \(release.version)…"
-            Self.swap(to: app)
+            prepared = (release.version, app)
+            readyVersion = release.version
+            state = nil
+            return app
         } catch {
-            state = "Обновление не установлено: \(error.localizedDescription)"
-            ToastController.shared.show(ToastCatalog.failure("Обновление не установлено", error.localizedDescription))
+            state = "Не удалось загрузить \(release.version): \(error.localizedDescription)"
+            throw error
         }
     }
 

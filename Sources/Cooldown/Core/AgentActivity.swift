@@ -161,6 +161,11 @@ final class AgentActivity: ObservableObject {
         let id = "\(provider.rawValue):\(key)"
         let session = sessions.removeValue(forKey: id)
         changed()
+        if provider == .claude {
+            // The answer has used some of the limit: read it again shortly (the server counts it in a moment).
+            ClaudeUsageCLI.turnFinished = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 8) { Task { await AppModel.shared.claude.refreshLimits(force: true) } }
+        }
         let length = startUnknown ? nil : (duration ?? session.map { date.timeIntervalSince($0.started) })
         Self.trace("finish \(provider.rawValue) \(source.rawValue) \(key) length=\(length.map { String(Int($0)) } ?? "?")")
         // The same turn told by a second source (hooks and files both saw it) is said once; a new

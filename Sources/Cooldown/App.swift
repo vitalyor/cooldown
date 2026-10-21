@@ -56,6 +56,23 @@ enum Entry {
             RunLoop.main.run()
             exit(0)
         }
+        if let index = arguments.firstIndex(of: "--resume-check"), index + 1 < arguments.count {
+            // Diagnostic, read-only: what auto-continue sees for one Codex conversation.
+            let started = Date()
+            let list = CodexThreadIndex.conversations()
+            print("conversations:", list?.count ?? -1, String(format: "(%.0f ms)", Date().timeIntervalSince(started) * 1000))
+            do {
+                let check = try AutoResume.inspect(arguments[index + 1])
+                print(check.taskState, check.canMonitor ? "can watch" : "cannot watch", "-", check.reason, check.model ?? "")
+            } catch { print("error:", error.localizedDescription) }
+            print(String(format: "%.0f ms", Date().timeIntervalSince(started) * 1000))
+            exit(0)
+        }
+        if arguments.contains("--resume-selftest") {
+            let failures = ResumeSelfTest.run()
+            print(failures.isEmpty ? "auto-continue self-test: all passed" : "FAILED:\n" + failures.joined(separator: "\n"))
+            exit(failures.isEmpty ? 0 : 1)
+        }
         if arguments.contains("--update-check") {
             // Diagnostic: finds the latest GitHub release, downloads and verifies it, installs nothing.
             Task { @MainActor in

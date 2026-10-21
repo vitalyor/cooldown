@@ -298,6 +298,7 @@ final class HookEventReader {
             key = codexThreads[path] ?? key
         }
         guard !key.isEmpty else { return }
+        if event == "Stop" || event == "PermissionRequest" { AutoResume.shared.poke(key) }
         let thread = CodexThreadIndex.thread(id: key)
         if let thread, !thread.isUser { return }                 // Codex's own reviewers and helpers
         let title = thread?.title ?? AppModel.shared.knownTitle(key) ?? CodexFinishWatcher.indexTitle(key) ?? ""

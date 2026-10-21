@@ -25,6 +25,11 @@ actor ClaudeUsageCLI {
     private var last: LimitSnapshot?
     private var lastError: Error?
     private var lastAttempt = Date.distantPast
+    /// Failed readings in a row: after a failure the next try comes soon (1, 2, 4… minutes),
+    /// not after the full pause, so a hiccup does not leave old numbers on screen for long.
+    private var failuresInRow = 0
+    /// Set when Claude just finished an answer: the share used has moved, so a minute's pause is enough.
+    nonisolated(unsafe) static var turnFinished = false
     private var running: Task<LimitSnapshot, Error>?
 
     /// How often Claude Code is started for /usage. Starting it costs a second of CPU and a
@@ -52,7 +57,10 @@ actor ClaudeUsageCLI {
     }
 
     func read(binary: URL, force: Bool = false, pace: Pace = Pace()) async throws -> LimitSnapshot {
-        if !force, Date().timeIntervalSince(lastAttempt) < Self.interval(pace) {
+        var pause = Self.interval(pace)
+        if failuresInRow > 0 { pause = min(pause, 60 * pow(2, Double(min(failuresInRow, 4) - 1))) }
+        if Self.turnFinished { pause = min(pause, 60) }
+        if !force, Date().timeIntervalSince(lastAttempt) < pause {
             if let last { return last }
             if let lastError { throw lastError }
         }
@@ -68,6 +76,8 @@ actor ClaudeUsageCLI {
             let snapshot = try await task.value
             last = snapshot
             lastError = nil
+            failuresInRow = 0
+            Self.turnFinished = false
             await MainActor.run {
                 ClaudeUsageStatus.shared.needsPermission = false
                 ClaudeUsageStatus.shared.problem = nil
@@ -75,6 +85,7 @@ actor ClaudeUsageCLI {
             return snapshot
         } catch {
             lastError = error
+            failuresInRow += 1
             let needsPermission = (error as? UsageError) == .trust
             await MainActor.run {
                 ClaudeUsageStatus.shared.needsPermission = needsPermission
@@ -160,8 +171,11 @@ actor ClaudeUsageCLI {
         _ = fcntl(master, F_SETFL, fcntl(master, F_GETFL) | O_NONBLOCK)
         var bytes = Data()
         var chunk = [UInt8](repeating: 0, count: 65536)
-        let deadline = Date().addingTimeInterval(25)
+        var deadline = Date().addingTimeInterval(25)
         var settleUntil: Date?
+        // "Failed to load usage data" is usually a passing server hiccup: press "r" like a person.
+        var retries = 0
+        var retryAt: Date?
         while Date() < deadline {
             if let settleUntil, Date() > settleUntil { break }
             var descriptor = pollfd(fd: master, events: Int16(POLLIN), revents: 0)
@@ -171,7 +185,23 @@ actor ClaudeUsageCLI {
             }
             if settleUntil == nil {
                 let text = plain(bytes)
-                if text.replacingOccurrences(of: " ", with: "").localizedCaseInsensitiveContains("trustthisfolder") { break }
+                let flat = text.replacingOccurrences(of: " ", with: "")
+                if flat.localizedCaseInsensitiveContains("trustthisfolder") { break }
+                let failures = flat.components(separatedBy: "Failedtoloadusagedata").count - 1
+                if failures > retries {
+                    if retries >= 3 { break }
+                    if let at = retryAt {
+                        if Date() >= at {
+                            var key = UInt8(ascii: "r")
+                            _ = Darwin.write(master, &key, 1)
+                            retries += 1
+                            retryAt = nil
+                            deadline = max(deadline, Date().addingTimeInterval(12))
+                        }
+                    } else {
+                        retryAt = Date().addingTimeInterval(Double(retries + 1) * 1.5)
+                    }
+                }
                 // Claude Code sometimes draws spaces as cursor jumps, so words may arrive glued together.
                 if text.range(of: #"Current\s*week"#, options: .regularExpression) != nil,
                    text.components(separatedBy: "Resets").count > 2 {
@@ -200,6 +230,7 @@ actor ClaudeUsageCLI {
             throw UsageError.signedOut
         }
         if text.localizedCaseInsensitiveContains("trust") { throw UsageError.trust }
+        if text.replacingOccurrences(of: " ", with: "").contains("Failedtoloadusagedata") { throw UsageError.serverFailed }
         throw UsageError.unreadable
     }
 
@@ -292,7 +323,7 @@ actor ClaudeUsageCLI {
     }
 
     enum UsageError: LocalizedError {
-        case terminal, signedOut, trust, unreadable, missing
+        case terminal, signedOut, trust, unreadable, missing, serverFailed
 
         var errorDescription: String? {
             switch self {
@@ -301,6 +332,7 @@ actor ClaudeUsageCLI {
             case .signedOut: return "Claude Code не вошёл в аккаунт. Запустите claude в Терминале и войдите."
             case .trust: return "Claude Code ждёт разрешения работать в пустой папке Cooldown."
             case .unreadable: return "Не удалось прочитать экран /usage в Claude Code."
+            case .serverFailed: return "Claude Code не смог загрузить лимиты с сервера; Cooldown повторит через минуту."
             }
         }
     }

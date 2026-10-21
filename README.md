@@ -24,7 +24,7 @@ Everything runs locally on your Mac.
   via Accessibility.
 
 **Continuing after a reset**
-- Codex: a task that hit the limit continues by itself (via [Codex Auto Resume](https://github.com/progressrdx/codex-auto-resume)).
+- Codex: a task that hit the limit continues by itself, right after the limit resets (built in, nothing else to install).
 - Claude Code: a session continues by itself via `claude --resume`.
 - Claude Desktop chats: Cooldown finds the chat and sends the continuation — only when you press the button.
 - Deferred Codex tasks: start as soon as Codex has limit again.
@@ -66,10 +66,6 @@ scripts/make_signing_identity.sh
 Building your own version next to the original? Give it its own bundle id so settings and
 permissions don't mix: `echo 'COOLDOWN_BUNDLE_ID=com.yourname.cooldown' > local.env`.
 
-To bundle Codex auto-continue into the app, put
-[codex-auto-resume](https://github.com/progressrdx/codex-auto-resume) next to the project folder
-(`../codex-auto-resume`) or set `RELAY_SRC` before building.
-
 ## First launch
 
 Cooldown shows what is missing under Settings → Readiness:
@@ -90,7 +86,8 @@ resource use low. Ideas behind the features: [IDEAS.md](IDEAS.md).
 ## Thanks
 
 - [Codex Auto Resume](https://github.com/progressrdx/codex-auto-resume) by progressrdx (MIT) —
-  auto-continue for Codex tasks.
+  Cooldown's auto-continue for Codex is a Swift port of its protocol and safety rules; its license
+  ships with the app (`Resources/ThirdParty`).
 
 ## License
 
