@@ -234,21 +234,24 @@ final class ClaudeDesktopWatcher {
         var busy = false
         var answer: String?
         var promptButtons: [(label: String, parent: AXUIElement?)] = []
+        // Diagnostics (defaults write <bundle id> debugClaudeAX -bool YES): every button seen.
+        let debug = UserDefaults.standard.bool(forKey: "debugClaudeAX")
+        var allButtons: [String] = []
         while let element = stack.popLast(), visited < 8000 {
             visited += 1
             // One request for the three things needed from each element.
-            let values = ClaudeSender.values(element, [kAXRoleAttribute, kAXDescriptionAttribute, kAXChildrenAttribute])
+            let values = ClaudeSender.values(element, [kAXRoleAttribute, kAXDescriptionAttribute, kAXChildrenAttribute, kAXTitleAttribute])
             let role = values[0] as? String
             if role == "AXWebArea", chat == nil, let found = ClaudeSender.chat(of: element) {
                 chat = found
                 page = element
             } else if role == "AXTextArea", input == nil {
                 input = element
-            } else if role == "AXButton", let label = values[1] as? String, !label.isEmpty {
+            } else if role == "AXButton", debug {
+                allButtons.append("[\(values[1] as? String ?? "")] [\(values[3] as? String ?? "")]")
+            }
+            if role == "AXButton", let label = values[1] as? String, !label.isEmpty {
                 if stopLabels.contains(label) { busy = true }
-                if permissionRole(label) != nil {
-                    promptButtons.append((label, ClaudeSender.value(element, kAXParentAttribute).map { $0 as! AXUIElement }))
-                }
                 // Message action buttons are labelled with the message's first words; the last
                 // Claude one in reading order is the latest answer.
                 for marker in answerMarkers {
@@ -257,6 +260,11 @@ final class ClaudeDesktopWatcher {
                         break
                     }
                 }
+            }
+            // Web buttons carry their words as a description or as a title.
+            if role == "AXButton", let label = [values[1] as? String, values[3] as? String].compactMap({ $0 }).first(where: { !$0.isEmpty }),
+               permissionRole(label) != nil {
+                promptButtons.append((label, ClaudeSender.value(element, kAXParentAttribute).map { $0 as! AXUIElement }))
             }
             stack.append(contentsOf: ((values[2] as? [AXUIElement]) ?? []).reversed())
         }
@@ -268,6 +276,12 @@ final class ClaudeDesktopWatcher {
             composer = (parent as! AXUIElement)
         }
         let prompt = Self.prompt(from: promptButtons)
+        if debug {
+            let logs = Settings.appSupport.appendingPathComponent("logs", isDirectory: true)
+            try? FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true)
+            try? (["chat \(chat.id) busy=\(busy) prompt=\(String(describing: prompt))"] + allButtons).joined(separator: "\n")
+                .write(to: logs.appendingPathComponent("claude-window-buttons.txt"), atomically: true, encoding: .utf8)
+        }
         // A prompt pauses the answer: the turn is not over while it waits.
         return (Look(chat: chat, busy: busy || prompt != nil, answer: answer, prompt: prompt), page, composer)
     }
@@ -310,9 +324,11 @@ final class ClaudeDesktopWatcher {
             var buttons: [(label: String, element: AXUIElement, parent: AXUIElement?)] = []
             while let element = stack.popLast(), visited < 8000 {
                 visited += 1
-                let values = ClaudeSender.values(element, [kAXRoleAttribute, kAXDescriptionAttribute, kAXChildrenAttribute])
+                let values = ClaudeSender.values(element, [kAXRoleAttribute, kAXDescriptionAttribute, kAXChildrenAttribute, kAXTitleAttribute])
                 if values[0] as? String == "AXWebArea", page == nil { page = ClaudeSender.chat(of: element) }
-                if values[0] as? String == "AXButton", let text = values[1] as? String, permissionRole(text) != nil {
+                if values[0] as? String == "AXButton",
+                   let text = [values[1] as? String, values[3] as? String].compactMap({ $0 }).first(where: { !$0.isEmpty }),
+                   permissionRole(text) != nil {
                     buttons.append((text, element, ClaudeSender.value(element, kAXParentAttribute).map { $0 as! AXUIElement }))
                 }
                 stack.append(contentsOf: ((values[2] as? [AXUIElement]) ?? []).reversed())

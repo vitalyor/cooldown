@@ -110,12 +110,19 @@ enum ClaudeLimits {
         guard let newest = candidates.map(\.fetchedAt).max() else { return nil }
         let recent = candidates.filter { newest.timeIntervalSince($0.fetchedAt) < 20 * 60 }
         func pick(_ kind: WindowKind) -> (LimitWindow, [String])? {
-            let windows = recent.compactMap { snapshot in (kind == .session ? snapshot.session : snapshot.weekly).map { ($0, snapshot.source ?? "") } }
+            let windows = recent.compactMap { snapshot in (kind == .session ? snapshot.session : snapshot.weekly).map { ($0, snapshot.source ?? "", snapshot.fetchedAt) } }
             guard let current = windows.max(by: { $0.0.resetsAt < $1.0.resetsAt }) else { return nil }
-            let same = windows.filter { abs($0.0.resetsAt.timeIntervalSince(current.0.resetsAt)) < 10 * 60 }
+            var same = windows.filter { abs($0.0.resetsAt.timeIntervalSince(current.0.resetsAt)) < 10 * 60 }
+            // Usage only grows within a window — except when a reset is used: then the newest
+            // reading is right. So the highest figure wins only among readings taken together.
+            if let newestRead = same.map({ $0.2 }).max() {
+                same = same.filter { newestRead.timeIntervalSince($0.2) < 5 * 60 }
+            }
             var best = same.max(by: { $0.0.usedPercent < $1.0.usedPercent })!.0
             var sources = same.filter { $0.0.usedPercent == best.usedPercent }.map(\.1)
-            if let desktop, now.timeIntervalSince(desktop.at) < 20 * 60, desktop.at > best.start, desktop.at < best.resetsAt,
+            let lastRead = same.map { $0.2 }.max() ?? .distantPast
+            if let desktop, now.timeIntervalSince(desktop.at) < 20 * 60, desktop.at > best.start, desktop.at > lastRead,
+               desktop.at < best.resetsAt,
                let used = kind == .session ? desktop.session : desktop.weekly, used > best.usedPercent {
                 best.usedPercent = min(100, used)
                 sources = ["Claude Desktop"]

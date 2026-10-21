@@ -155,7 +155,8 @@ actor ClaudeUsageCLI {
         var environment = ProcessInfo.processInfo.environment
         let home = NSHomeDirectory()
         environment["TERM"] = "xterm-256color"
-        environment["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = "1"
+        // Not CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: with it, /usage only shows its cached
+        // numbers (marked "Refreshing…") and never fetches fresh ones.
         environment["DISABLE_AUTOUPDATER"] = "1"
         environment["COLUMNS"] = "120"
         environment["LINES"] = "60"
@@ -176,12 +177,35 @@ actor ClaudeUsageCLI {
         // "Failed to load usage data" is usually a passing server hiccup: press "r" like a person.
         var retries = 0
         var retryAt: Date?
+        // /usage first draws the numbers it cached last time ("Refreshing…"), then fetches and
+        // updates only what changed on screen. Once it is quiet again, a one-column resize makes
+        // it draw the whole screen afresh, and only that drawing is read.
+        var lastOutput = Date()
+        var sawLimits: Date?
+        var redrawFrom: Int?
         while Date() < deadline {
             if let settleUntil, Date() > settleUntil { break }
             var descriptor = pollfd(fd: master, events: Int16(POLLIN), revents: 0)
-            if poll(&descriptor, 1, 200) > 0 {
+            if poll(&descriptor, 1, 100) > 0 {
                 let count = Darwin.read(master, &chunk, chunk.count)
-                if count > 0 { bytes.append(chunk, count: count) } else if count == 0 { break }
+                if count > 0 { bytes.append(chunk, count: count); lastOutput = Date() } else if count == 0 { break }
+            }
+            if let redrawFrom {
+                if Date().timeIntervalSince(lastOutput) > 0.5, bytes.count > redrawFrom { break }
+                if !process.isRunning { break }
+                continue
+            }
+            if let seen = sawLimits {
+                let quiet = Date().timeIntervalSince(lastOutput)
+                if quiet > 0.9 || Date().timeIntervalSince(seen) > 10 {
+                    redrawFrom = bytes.count
+                    lastOutput = Date()
+                    var wider = winsize(ws_row: 60, ws_col: 121, ws_xpixel: 0, ws_ypixel: 0)
+                    _ = ioctl(master, TIOCSWINSZ, &wider)
+                    kill(process.processIdentifier, SIGWINCH)
+                    deadline = max(deadline, Date().addingTimeInterval(5))
+                }
+                continue
             }
             if settleUntil == nil {
                 let text = plain(bytes)
@@ -203,9 +227,10 @@ actor ClaudeUsageCLI {
                     }
                 }
                 // Claude Code sometimes draws spaces as cursor jumps, so words may arrive glued together.
+                // /usage first draws its cached numbers with "Refreshing…", then the fresh ones.
                 if text.range(of: #"Current\s*week"#, options: .regularExpression) != nil,
                    text.components(separatedBy: "Resets").count > 2 {
-                    settleUntil = Date().addingTimeInterval(0.6)
+                    sawLimits = Date()
                 }
             }
             if !process.isRunning { break }
@@ -222,7 +247,9 @@ actor ClaudeUsageCLI {
 
         clearTranscripts()
         let text = plain(bytes)
-        if let snapshot = parse(text, now: Date()) { return snapshot }
+        // Only the full drawing made after the refresh counts: earlier ones show the cache.
+        let latest = latestScreen(redrawFrom.map { plain(bytes.suffix(from: bytes.startIndex + $0)) } ?? text)
+        if redrawFrom != nil, !latest.contains("Refreshing"), let snapshot = parse(latest, now: Date()) { return snapshot }
         let logs = Settings.appSupport.appendingPathComponent("logs", isDirectory: true)
         try? FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true)
         try? text.write(to: logs.appendingPathComponent("claude-usage-unread.txt"), atomically: true, encoding: .utf8)
@@ -232,6 +259,14 @@ actor ClaudeUsageCLI {
         if text.localizedCaseInsensitiveContains("trust") { throw UsageError.trust }
         if text.replacingOccurrences(of: " ", with: "").contains("Failedtoloadusagedata") { throw UsageError.serverFailed }
         throw UsageError.unreadable
+    }
+
+    /// The last drawing of the limits (from the last "Current session" on).
+    static func latestScreen(_ text: String) -> String {
+        guard let regex = try? NSRegularExpression(pattern: #"Current\s*session"#, options: .caseInsensitive),
+              let last = regex.matches(in: text, range: NSRange(text.startIndex..., in: text)).last,
+              let range = Range(last.range, in: text) else { return text }
+        return String(text[range.lowerBound...])
     }
 
     /// Terminal output without colours and cursor commands; cursor moves to the right become spaces.
