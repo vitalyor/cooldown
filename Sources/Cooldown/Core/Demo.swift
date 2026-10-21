@@ -167,9 +167,9 @@ final class DemoController: ObservableObject {
                             samples: history(left: codexLeft, reset: codexReset, now: now))
         model.claude.setDemo(snapshot(.claude, left: claudeLeft, reset: claudeReset, week: 81, credits: nil),
                              samples: history(left: claudeLeft, reset: claudeReset, now: now))
-        let watch = RelayWatch(threadId: taskID, enabled: index < 8, maxResumes: 3, status: status, reason: reason,
-                               updated: now, attempts: attempts, processGone: false)
-        model.setDemoTasks([watch], threads: [RelayThread(id: taskID, title: "Рефакторинг парсера", cwd: nil, updatedAt: now, archived: false)])
+        let watch = ResumeWatch(threadId: taskID, enabled: index < 8, maxResumes: 3, status: status, reason: reason,
+                               updated: now, attempts: attempts)
+        model.setDemoTasks([watch], threads: [CodexConversation(id: taskID, title: "Рефакторинг парсера", cwd: nil, updatedAt: now, archived: false)])
     }
 
     private func snapshot(_ provider: ProviderID, left: Double, reset: Date, week: Double, credits: Int?) -> LimitSnapshot {

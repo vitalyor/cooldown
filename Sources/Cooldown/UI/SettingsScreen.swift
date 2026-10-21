@@ -31,12 +31,11 @@ struct SettingsScreen: View {
     @AppStorage(SettingsKey.notifyProjects) private var notifyProjects = true
     @AppStorage(SettingsKey.weeklySummary) private var weeklySummary = true
     @AppStorage(SettingsKey.soundFinished) private var soundFinished = false
-    @AppStorage(SettingsKey.autoUpdate) private var autoUpdate = true
+    @AppStorage(SettingsKey.updateMode) private var updateMode = Settings.updateMode
     @ObservedObject private var updater = GitHubUpdater.shared
     @AppStorage(SettingsKey.soundAttention) private var soundAttention = false
     @AppStorage(SettingsKey.soundReset) private var soundReset = false
     @AppStorage(SettingsKey.claudeUsageCLI) private var claudeUsageCLI = true
-    @AppStorage(SettingsKey.relayPath) private var relayPath = ""
     @AppStorage(SettingsKey.codexPath) private var codexPath = ""
     @AppStorage(SettingsKey.claudePath) private var claudePath = ""
     @State private var launchAtLogin = LoginItem.isEnabled
@@ -159,7 +158,7 @@ struct SettingsScreen: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Версия \(GitHubUpdater.current)")
                             if let available = updater.available {
-                                Text("Доступна \(available.version)").font(.caption).foregroundStyle(Theme.mint)
+                                Text(updater.readyVersion == available.version ? "Загружена \(available.version), готова к установке" : "Доступна \(available.version)").font(.caption).foregroundStyle(Theme.mint)
                             } else if let state = updater.state {
                                 Text(state).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                             }
@@ -172,8 +171,18 @@ struct SettingsScreen: View {
                                 .buttonStyle(.glass).disabled(updater.checking)
                         }
                     }
-                    Toggle("Устанавливать обновления сами", isOn: $autoUpdate).toggleStyle(.switch)
-                    Text("Новые версии берутся из релизов на GitHub. Перед установкой Cooldown проверяет контрольную сумму и что версия подписана тем же сертификатом. Ставится, когда Mac пару минут без дела.")
+                    Picker("Новые версии", selection: $updateMode) {
+                        Text("Не проверять").tag("off")
+                        Text("Только скачивать").tag("download")
+                        Text("Скачивать и ставить").tag("auto")
+                    }
+                    .pickerStyle(.menu)
+                    .onChange(of: updateMode) { _, _ in updater.modeChanged() }
+                    Text(updateMode == "off"
+                         ? "Cooldown сам не проверяет новые версии; кнопка «Проверить» работает всегда."
+                         : updateMode == "download"
+                         ? "Новая версия загружается и проверяется заранее, а ставится по одному нажатию на карточке или здесь."
+                         : "Новая версия ставится сама, когда Mac пару минут без дела. Перед установкой проверяются контрольная сумма и подпись тем же сертификатом.")
                         .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
                 group("Хуки агентов") {
@@ -194,13 +203,6 @@ struct SettingsScreen: View {
                         if let path = choose(directory: false) {
                             codexPath = path
                             Task { await model.refreshLimits() }
-                        }
-                    }
-                    Divider().opacity(0.5)
-                    PathRow(label: "Папка Relay для автопродолжения", path: Settings.relayPath, ok: model.relayAvailable) {
-                        if let path = choose(directory: true) {
-                            relayPath = path
-                            Task { await model.refreshRelay() }
                         }
                     }
                 }

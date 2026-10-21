@@ -415,23 +415,6 @@ final class ToastController: ObservableObject {
     }
 }
 
-enum CodexApp {
-    /// Opens Codex on that conversation (the app's own codex:// link), or just the app.
-    static func open(thread id: String) {
-        guard UUID(uuidString: id) != nil, let url = URL(string: "codex://threads/\(id.lowercased())") else { open(); return }
-        NSWorkspace.shared.open(url)
-    }
-
-    static func open() {
-        for id in ["com.openai.codex", "com.openai.chat"] {
-            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) {
-                NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
-                return
-            }
-        }
-    }
-}
-
 // MARK: The card
 
 private struct ToastView: View {

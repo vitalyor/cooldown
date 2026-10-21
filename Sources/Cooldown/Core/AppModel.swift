@@ -177,10 +177,10 @@ final class AppModel: ObservableObject {
     /// Counts openings of the window, so views can replay their entrance.
     @Published private(set) var openCount = 0
 
-    // Codex auto-resume through Relay.
-    @Published private(set) var watches: [RelayWatch] = []
+    // Codex auto-continue (built in, see AutoResume).
+    @Published private(set) var watches: [ResumeWatch] = []
     @Published private(set) var relayError: String?
-    @Published private(set) var threads: [RelayThread] = []
+    @Published private(set) var threads: [CodexConversation] = []
     @Published private(set) var threadsError: String?
     @Published private(set) var loadingThreads = false
 
@@ -194,7 +194,6 @@ final class AppModel: ObservableObject {
     var isRenderMode = false
 
     private var timers: [Timer] = []
-    private var relayBusy = false
     private var lastThreadsLoad: Date?
     private var previousStatuses: [String: String] = [:]
     private(set) var displayedLines: [MenuLine] = []
@@ -207,8 +206,8 @@ final class AppModel: ObservableObject {
 
     func store(_ id: ProviderID) -> ProviderStore { id == .codex ? codex : claude }
 
-    var relay: RelayBridge { RelayBridge(path: Settings.relayPath) }
-    var relayAvailable: Bool { relay.isAvailable }
+    /// Auto-continue needs the Codex desktop app (its local socket) — nothing else to install.
+    var relayAvailable: Bool { CodexApp.url != nil }
 
     // MARK: Lifecycle
 
@@ -241,6 +240,8 @@ final class AppModel: ObservableObject {
         UpdateWatch.start()
         GitHubUpdater.shared.start()
         GitHubUpdater.shared.greetIfUpdated()
+        AutoResume.shared.onChange = { rows in AppModel.shared.resumeChanged(rows) }
+        AutoResume.shared.start()
         ClaudeDesktopWatcher.shared.start()
         // Keep the hook script current if hooks are installed (it is tiny and versioned with the app).
         if AgentHooks.Agent.allCases.contains(where: { AgentHooks.status($0) != .off }) { try? AgentHooks.writeScript() }
@@ -298,13 +299,6 @@ final class AppModel: ObservableObject {
                         ClaudeChatList.shared.limitReset()
                     }
                     AppModel.shared.checkResets()
-                    // Relay is a separate program: asked every 30 s only while it watches tasks or
-                    // the window is open; otherwise every 5 minutes is enough to notice changes.
-                    let model = AppModel.shared
-                    if model.watches.contains(where: \.enabled) || model.panelVisible
-                        || Date().timeIntervalSince(model.lastRelayCheck) > 5 * 60 {
-                        await model.refreshRelay()
-                    }
                 }
             },
         ]
@@ -386,6 +380,8 @@ final class AppModel: ObservableObject {
         for provider in ProviderID.allCases {
             guard let pending = Settings.pendingReset(provider), Date() >= pending else { continue }
             Settings.setPendingReset(provider, nil)
+            // Watched Codex tasks re-read the limits right away (they also wake at the reset by themselves).
+            if provider == .codex { AutoResume.shared.pokeAll(after: 15) }
             // Chats chosen for Claude get their own "Продолжить «…»?" cards.
             if provider == .claude, !isRenderMode, !ClaudeChatList.shared.entries.isEmpty {
                 EventLog.shared.add(CooldownEvent(kind: .reset, provider: .claude, title: "Лимит Claude восстановлен",
@@ -409,12 +405,11 @@ final class AppModel: ObservableObject {
         updateMenuImage(animated: true)
     }
 
-    // MARK: Relay (Codex tasks)
 
     // MARK: Demo
 
-    private var realWatches: [RelayWatch] = []
-    private var realThreads: [RelayThread] = []
+    private var realWatches: [ResumeWatch] = []
+    private var realThreads: [CodexConversation] = []
     var demoActive: Bool { DemoController.shared.active }
 
     func enterDemo() {
@@ -424,7 +419,7 @@ final class AppModel: ObservableObject {
         realThreads = threads
     }
 
-    func setDemoTasks(_ rows: [RelayWatch], threads fake: [RelayThread]) {
+    func setDemoTasks(_ rows: [ResumeWatch], threads fake: [CodexConversation]) {
         watches = rows
         threads = fake
         relayError = nil
@@ -440,33 +435,22 @@ final class AppModel: ObservableObject {
         Task { await refreshAll() }
     }
 
-    private(set) var lastRelayCheck = Date.distantPast
     var historyDirty = true
     var lastScan = Date.distantPast
     private var historyWatch: FolderWatch?
 
     func refreshRelay() async {
         guard !demoActive else { return }
-        lastRelayCheck = Date()
-        let bridge = relay
-        guard bridge.isAvailable else {
-            relayError = RelayError.notFound(bridge.root.path).localizedDescription
-            watches = []
-            return
-        }
-        guard !relayBusy else { return }
-        relayBusy = true
-        defer { relayBusy = false }
-        do {
-            let rows = try await bridge.status()
-            guard !demoActive else { return }
-            notifyRelayChanges(rows)
-            withAnimation(.smooth) { watches = rows }
-            relayError = nil
-            if rows.contains(where: { knownTitle($0.threadId) == nil }) { await loadThreads(force: false) }
-        } catch {
-            relayError = RelayError.friendly(error)
-        }
+        resumeChanged(await AutoResume.shared.watches())
+    }
+
+    /// Watches changed (pushed by AutoResume the moment they do — no polling).
+    func resumeChanged(_ rows: [ResumeWatch]) {
+        guard !demoActive else { return }
+        relayError = CodexApp.url == nil ? "Не найдено приложение Codex — автопродолжение работает через него." : nil
+        notifyRelayChanges(rows)
+        if rows != watches { withAnimation(.smooth) { watches = rows } }
+        if rows.contains(where: { knownTitle($0.threadId) == nil }) { Task { await loadThreads(force: false) } }
         updateMenuImage(animated: false)
     }
 
@@ -474,7 +458,7 @@ final class AppModel: ObservableObject {
     @Published var route: Screen?
 
     /// A dialog picked on the Tasks tab, opened straight away by the add-task screen.
-    @Published var pendingThread: RelayThread?
+    @Published var pendingThread: CodexConversation?
 
     func loadThreads(force: Bool, maxAge: TimeInterval = 600) async {
         if demoActive { return }
@@ -484,29 +468,28 @@ final class AppModel: ObservableObject {
         defer { loadingThreads = false }
         lastThreadsLoad = Date()
         do {
-            threads = try await relay.threads()
+            threads = try await AutoResume.shared.conversations()
             threadsError = nil
         } catch {
-            threadsError = RelayError.friendly(error)
+            threadsError = ResumeError.friendly(error)
         }
     }
 
     func knownTitle(_ id: String) -> String? { threads.first { $0.id == id }?.title }
     func title(for id: String) -> String { knownTitle(id) ?? "Диалог \(id.prefix(8))" }
 
-    func check(_ id: String) async throws -> RelayCheck { try await relay.check(id) }
+    func check(_ id: String) async throws -> ResumeCheck { try await AutoResume.shared.check(id) }
 
     func startTask(_ id: String, maxResumes: Int) async throws {
-        try await relay.start(id, maxResumes: maxResumes)
-        await refreshRelay()
+        try await AutoResume.shared.start(id, maxResumes: maxResumes)
+        await loadThreads(force: true)
     }
 
     func stopTask(_ id: String) async throws {
-        try await relay.stop(id)
-        await refreshRelay()
+        await AutoResume.shared.stop(id)
     }
 
-    private func notifyRelayChanges(_ rows: [RelayWatch]) {
+    private func notifyRelayChanges(_ rows: [ResumeWatch]) {
         for watch in rows {
             let old = previousStatuses[watch.threadId]
             previousStatuses[watch.threadId] = watch.status
@@ -647,7 +630,7 @@ final class AppModel: ObservableObject {
     }
 }
 
-/// Task states shared by Relay (Codex) and Cooldown's own Claude tasks.
+/// Task states shared by Codex auto-continue and Cooldown's own Claude tasks.
 enum TaskStatus {
     static func title(_ status: String) -> String {
         switch status {

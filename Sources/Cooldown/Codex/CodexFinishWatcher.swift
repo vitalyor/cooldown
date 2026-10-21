@@ -120,6 +120,11 @@ final class CodexFinishWatcher {
             if text.contains("\"task_complete\"") { kind = "complete" }
             else if text.contains("\"task_started\"") { kind = "started" }
             else if text.contains("\"turn_aborted\"") || text.contains("\"task_aborted\"") { kind = "aborted" }
+            else if text.contains("\"type\":\"error\"") {
+                // A failed turn (the usage limit among others): a watched task looks at it now.
+                if let threadId { AutoResume.shared.poke(threadId) }
+                continue
+            }
             else if text.contains("\"token_count\"") {
                 activity.touch(.codex, key: key)
                 // One parse for both: the running token total and the account limits.
@@ -144,6 +149,7 @@ final class CodexFinishWatcher {
             // Codex rewrites whole conversations into new files (continuations, archiving):
             // only what happened in the last few minutes is news.
             guard Date().timeIntervalSince(date) < 5 * 60 else { continue }
+            if kind != "started", let threadId { AutoResume.shared.poke(threadId) }
             switch kind {
             case "started":
                 turnStart[key] = lastTotal[key]

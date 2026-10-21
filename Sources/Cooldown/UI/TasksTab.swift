@@ -11,7 +11,6 @@ struct TaskItem: Identifiable, Equatable {
     var maxResumes: Int
     var enabled: Bool
     var updated: Date
-    var processGone = false
 }
 
 struct TasksTab: View {
@@ -139,7 +138,7 @@ struct TasksTab: View {
     }
 
     /// Codex dialogs active in the last half hour that are not under auto-continue yet.
-    private var working: [RelayThread] {
+    private var working: [CodexConversation] {
         let watched = Set(model.watches.filter(\.enabled).map(\.threadId))
         let since = Date().addingTimeInterval(-30 * 60)
         return model.threads
@@ -152,8 +151,7 @@ struct TasksTab: View {
         if store.id == .codex {
             return model.watches.map {
                 TaskItem(id: $0.threadId, title: model.title(for: $0.threadId), status: $0.status, reason: $0.reason,
-                         attempts: $0.attempts, maxResumes: $0.maxResumes, enabled: $0.enabled, updated: $0.updated,
-                         processGone: $0.processGone)
+                         attempts: $0.attempts, maxResumes: $0.maxResumes, enabled: $0.enabled, updated: $0.updated)
             }
         }
         return tasks.tasks.map {
@@ -250,8 +248,8 @@ private struct TaskRow: View {
                 Text("\(TaskStatus.title(item.status)), попыток \(item.attempts) из \(item.maxResumes), \(Format.relative(item.updated))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                if TaskStatus.needsAttention(item.status) || (item.enabled && item.processGone) || (item.enabled && provider == .claude) {
-                    Text(item.processGone ? "Фоновый процесс завершился. Проверьте задачу и включите её заново." : item.reason)
+                if TaskStatus.needsAttention(item.status) || (item.enabled && provider == .claude) {
+                    Text(item.reason)
                         .font(.caption)
                         .foregroundStyle(TaskStatus.needsAttention(item.status) ? Theme.amber : .secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -279,7 +277,7 @@ private struct TaskRow: View {
         stopping = true
         Task {
             if provider == .codex {
-                do { try await model.stopTask(item.id); error = nil } catch { self.error = RelayError.friendly(error) }
+                do { try await model.stopTask(item.id); error = nil } catch { self.error = ResumeError.friendly(error) }
             } else {
                 model.claudeTasks.stop(item.id)
             }
@@ -434,8 +432,8 @@ private struct CodexAddFlow: View {
     @Binding var screen: Screen
     let render: Bool
     @State private var query = ""
-    @State private var selected: RelayThread?
-    @State private var result: RelayCheck?
+    @State private var selected: CodexConversation?
+    @State private var result: ResumeCheck?
     @State private var checking = false
     @State private var error: String?
     @State private var maxResumes = 2
@@ -457,7 +455,7 @@ private struct CodexAddFlow: View {
         .animation(.smooth(duration: 0.25), value: result)
     }
 
-    private var candidates: [RelayThread] {
+    private var candidates: [CodexConversation] {
         let watched = Set(model.watches.filter(\.enabled).map(\.threadId))
         let term = query.trimmingCharacters(in: .whitespaces).lowercased()
         return model.threads
@@ -485,7 +483,7 @@ private struct CodexAddFlow: View {
         }
     }
 
-    private func detail(_ thread: RelayThread) -> some View {
+    private func detail(_ thread: CodexConversation) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Well {
                 Text(thread.title).font(.system(size: 14, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
@@ -497,7 +495,7 @@ private struct CodexAddFlow: View {
                     }
                 }
                 if let result {
-                    Text(RelayStatus.taskStateTitle(result.taskState))
+                    Text(ResumeStatus.taskStateTitle(result.taskState))
                         .font(.callout.weight(.semibold))
                         .foregroundStyle(result.canMonitor ? Theme.mint : Theme.amber)
                     Text(result.reason).font(.callout).fixedSize(horizontal: false, vertical: true)
@@ -512,7 +510,7 @@ private struct CodexAddFlow: View {
         }
     }
 
-    private func choose(_ thread: RelayThread) {
+    private func choose(_ thread: CodexConversation) {
         selected = thread
         result = nil
         error = nil
@@ -523,13 +521,13 @@ private struct CodexAddFlow: View {
                 let check = try await model.check(thread.id)
                 if selected?.id == thread.id { result = check }
             } catch {
-                if selected?.id == thread.id { self.error = RelayError.friendly(error) }
+                if selected?.id == thread.id { self.error = ResumeError.friendly(error) }
             }
             checking = false
         }
     }
 
-    private func start(_ thread: RelayThread) {
+    private func start(_ thread: CodexConversation) {
         starting = true
         error = nil
         Task {
@@ -538,7 +536,7 @@ private struct CodexAddFlow: View {
                 reset()
                 screen = .home
             } catch {
-                self.error = RelayError.friendly(error)
+                self.error = ResumeError.friendly(error)
                 result = nil
                 confirmed = false
             }

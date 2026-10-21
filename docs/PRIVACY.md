@@ -18,7 +18,7 @@ Cooldown runs on your Mac. The project has no servers, analytics or telemetry.
 
 ## Runs
 
-- `codex app-server` — the `account/rateLimits/read` request (Codex's official client).
+- `codex app-server` — the `account/rateLimits/read` request (Codex's official client); for auto-continue also `thread/list` and `thread/read` — read-only.
 - `claude /usage` — Claude Code's limits screen (official client). Hooks, the status line and Claude
   Code's background traffic are turned off for this run.
 - `codex exec` — only tasks you deferred yourself.
@@ -36,6 +36,7 @@ A Cooldown hook only appends one line to
 ## Sends
 
 - Into a Claude Desktop chat — one continuation message, **only when you press the button**.
+- Into a Codex conversation you chose — one continuation message per turn stopped by the limit, after it resets. Through the Codex app's local socket (`~/.codex/ipc/ipc.sock`), as a follower only: Cooldown approves nothing and answers none of the app's requests. The send ledger lives in `~/Library/Application Support/Cooldown/AutoResume/` (yours only); an unconfirmed send is never repeated.
 - To claude.ai — only if you signed in to claude.ai in Cooldown's settings yourself: reading limits
   and the chat list (at most every 2 and 5 minutes). These are the site's internal endpoints, not an
   official API; automated access is restricted by Anthropic's terms — turn it on deliberately.

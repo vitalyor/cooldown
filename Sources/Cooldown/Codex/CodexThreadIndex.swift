@@ -57,6 +57,52 @@ enum CodexThreadIndex {
         }
     }
 
+    /// Whether a conversation is archived; nil when the index cannot say.
+    static func isArchived(id: String) -> Bool? {
+        var result: Bool?
+        rows("SELECT archived FROM threads WHERE id = ? LIMIT 1", bind: {
+            sqlite3_bind_text($0, 1, id.lowercased(), -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+        }) { result = sqlite3_column_int64($0, 0) != 0 }
+        return result
+    }
+
+    /// Every conversation the person can see in Codex (not its own reviewer runs), newest first.
+    static func conversations() -> [CodexConversation]? {
+        var list: [CodexConversation] = []
+        let sql = """
+            SELECT id, name, COALESCE(NULLIF(preview, ''), title), cwd, COALESCE(updated_at_ms, updated_at * 1000), archived
+            FROM threads WHERE COALESCE(thread_source, '') <> 'guardian_review' AND (preview <> '' OR title <> '')
+            ORDER BY COALESCE(updated_at_ms, updated_at * 1000) DESC
+            """
+        let ok = rows(sql, bind: { _ in }) { statement in
+            func text(_ column: Int32) -> String? { sqlite3_column_text(statement, column).map { String(cString: $0) } }
+            guard let id = text(0) else { return }
+            let row = CodexConversation(id: id.lowercased(), name: text(1), preview: text(2), cwd: text(3),
+                                        updatedAt: Date(timeIntervalSince1970: Double(sqlite3_column_int64(statement, 4)) / 1000),
+                                        archived: sqlite3_column_int64(statement, 5) != 0)
+            if row.title != "Guardian review" { list.append(row) }
+        }
+        return ok ? list : nil
+    }
+
+    @discardableResult
+    private static func rows(_ sql: String, bind: (OpaquePointer?) -> Void, each: (OpaquePointer?) -> Void) -> Bool {
+        guard let url = databaseURL else { return false }
+        var db: OpaquePointer?
+        guard sqlite3_open_v2(url.path, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_NOMUTEX, nil) == SQLITE_OK else {
+            sqlite3_close(db)
+            return false
+        }
+        defer { sqlite3_close(db) }
+        sqlite3_busy_timeout(db, 500)
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else { return false }
+        defer { sqlite3_finalize(statement) }
+        bind(statement)
+        while sqlite3_step(statement) == SQLITE_ROW { each(statement) }
+        return true
+    }
+
     private static func query(_ tail: String, bind: (OpaquePointer?) -> Void) -> [Thread]? {
         guard let url = databaseURL else { return nil }
         var db: OpaquePointer?

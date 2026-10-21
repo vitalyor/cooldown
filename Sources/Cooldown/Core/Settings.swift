@@ -3,7 +3,6 @@ import ServiceManagement
 
 enum SettingsKey {
     static let refreshInterval = "refreshInterval"
-    static let relayPath = "relayPath"
     static let codexPath = "codexPath"
     static let claudePath = "claudePath"
     static let showPercent = "showPercent"
@@ -26,6 +25,7 @@ enum SettingsKey {
     static let weeklySummary = "weeklySummary"
     static let soundFinished = "soundFinished"
     static let autoUpdate = "autoUpdate"
+    static let updateMode = "updateMode"
     static let soundAttention = "soundAttention"
     static let soundReset = "soundReset"
     static let finishedMinSeconds = "finishedMinSeconds"
@@ -51,24 +51,9 @@ enum Settings {
         return directory
     }
 
-    /// Relay ships inside Cooldown.app when it was there at build time; otherwise its folder is
-    /// chosen in Settings.
-    static var defaultRelayPath: String {
-        if let bundled = Bundle.main.resourceURL?.appendingPathComponent("relay"),
-           FileManager.default.fileExists(atPath: bundled.appendingPathComponent("resume").path) {
-            return bundled.path
-        }
-        return ""
-    }
-
     static var refreshInterval: TimeInterval {
         let value = defaults.double(forKey: SettingsKey.refreshInterval)
         return value >= 15 ? value : 60
-    }
-
-    static var relayPath: String {
-        let value = defaults.string(forKey: SettingsKey.relayPath) ?? ""
-        return value.isEmpty ? defaultRelayPath : value
     }
 
     static var codexPath: String { defaults.string(forKey: SettingsKey.codexPath) ?? "" }
@@ -104,7 +89,13 @@ enum Settings {
     static var weeklySummary: Bool { bool(SettingsKey.weeklySummary, true) }
     static var soundFinished: Bool { bool(SettingsKey.soundFinished, false) }
     /// Install new releases from GitHub by itself (when the Mac is idle a moment).
-    static var autoUpdate: Bool { bool(SettingsKey.autoUpdate, true) }
+    /// How new versions arrive: "off" (only when checked by hand), "download" (fetched and
+    /// verified in the background, installed with one press) or "auto" (installed when the Mac is idle).
+    static var updateMode: String {
+        if let mode = defaults.string(forKey: SettingsKey.updateMode), ["off", "download", "auto"].contains(mode) { return mode }
+        // The earlier on/off switch: off meant "ask first", the nearest is "download only".
+        return bool(SettingsKey.autoUpdate, true) ? "auto" : "download"
+    }
     static var soundAttention: Bool { bool(SettingsKey.soundAttention, false) }
     static var soundReset: Bool { bool(SettingsKey.soundReset, false) }
     static var finishedMinSeconds: Double {
