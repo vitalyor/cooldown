@@ -239,6 +239,8 @@ final class AppModel: ObservableObject {
         HookEventReader.shared.start()
         FocusWatch.start()
         UpdateWatch.start()
+        GitHubUpdater.shared.start()
+        GitHubUpdater.shared.greetIfUpdated()
         ClaudeDesktopWatcher.shared.start()
         // Keep the hook script current if hooks are installed (it is tiny and versioned with the app).
         if AgentHooks.Agent.allCases.contains(where: { AgentHooks.status($0) != .off }) { try? AgentHooks.writeScript() }

@@ -112,6 +112,24 @@ final class AgentActivity: ObservableObject {
 
     private func lastSign(_ id: String, _ session: Session) -> Date { max(session.updated, pulse[id] ?? .distantPast) }
 
+    /// Codex asks for permission for every command that needs it — also when "approve for me"
+    /// is on and its own reviewer answers in seconds. So the card waits: if within 20 seconds
+    /// the reviewer worked or the turn moved on, nobody needed to be asked.
+    func permissionAsked(_ provider: ProviderID, key: String, title: String, reason: String, opener: Opener, at date: Date) {
+        let id = "\(provider.rawValue):\(key)"
+        Self.trace("permission \(id) — checking in 20 s")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 20) {
+            let activity = AgentActivity.shared
+            if let moved = activity.pulse[id], moved > date { Self.trace("  \(id): moved on"); return }
+            if let session = activity.sessions[id], session.updated > date { Self.trace("  \(id): changed"); return }
+            if activity.sessions[id] == nil { Self.trace("  \(id): turn over"); return }
+            if provider == .codex, CodexThreadIndex.reviewerActive(since: date.addingTimeInterval(-2)) {
+                Self.trace("  \(id): Codex's reviewer decides"); return
+            }
+            activity.waiting(provider, key: key, title: title, reason: reason, opener: opener)
+        }
+    }
+
     /// The agent stopped to ask the person (permission, a question).
     func waiting(_ provider: ProviderID, key: String, title: String, reason: String, opener: Opener) {
         let id = "\(provider.rawValue):\(key)"

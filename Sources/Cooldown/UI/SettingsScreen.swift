@@ -31,6 +31,8 @@ struct SettingsScreen: View {
     @AppStorage(SettingsKey.notifyProjects) private var notifyProjects = true
     @AppStorage(SettingsKey.weeklySummary) private var weeklySummary = true
     @AppStorage(SettingsKey.soundFinished) private var soundFinished = false
+    @AppStorage(SettingsKey.autoUpdate) private var autoUpdate = true
+    @ObservedObject private var updater = GitHubUpdater.shared
     @AppStorage(SettingsKey.soundAttention) private var soundAttention = false
     @AppStorage(SettingsKey.soundReset) private var soundReset = false
     @AppStorage(SettingsKey.claudeUsageCLI) private var claudeUsageCLI = true
@@ -151,6 +153,28 @@ struct SettingsScreen: View {
                             ok: ClaudePaths.binary(override: claudePath) != nil) {
                         if let path = choose(directory: false) { claudePath = path }
                     }
+                }
+                group("Обновления") {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Версия \(GitHubUpdater.current)")
+                            if let available = updater.available {
+                                Text("Доступна \(available.version)").font(.caption).foregroundStyle(Theme.mint)
+                            } else if let state = updater.state {
+                                Text(state).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        Spacer()
+                        if updater.available != nil {
+                            Button("Обновить") { Task { await updater.install() } }.buttonStyle(.glassProminent)
+                        } else {
+                            Button(updater.checking ? "Проверяю…" : "Проверить") { Task { await updater.check(manual: true) } }
+                                .buttonStyle(.glass).disabled(updater.checking)
+                        }
+                    }
+                    Toggle("Устанавливать обновления сами", isOn: $autoUpdate).toggleStyle(.switch)
+                    Text("Новые версии берутся из релизов на GitHub. Перед установкой Cooldown проверяет контрольную сумму и что версия подписана тем же сертификатом. Ставится, когда Mac пару минут без дела.")
+                        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
                 group("Хуки агентов") {
                     HookRow(agent: .claude)
