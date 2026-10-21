@@ -34,7 +34,7 @@ final class GitHubUpdater: ObservableObject {
     }
 
     /// Looks for a newer release; `manual` reports the result even when there is nothing new.
-    func check(manual: Bool = false) async {
+    func check(manual: Bool = false, announce shouldAnnounce: Bool = true) async {
         guard let repo = Self.repo, !checking else { return }
         checking = true
         defer { checking = false }
@@ -65,7 +65,7 @@ final class GitHubUpdater: ObservableObject {
                                   notes: object["body"] as? String ?? "")
             available = release
             state = nil
-            announce(release)
+            if shouldAnnounce { announce(release) }
         } catch {
             if manual { state = "Нет связи с GitHub." }
         }

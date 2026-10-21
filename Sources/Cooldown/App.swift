@@ -60,7 +60,7 @@ enum Entry {
             // Diagnostic: finds the latest GitHub release, downloads and verifies it, installs nothing.
             Task { @MainActor in
                 let updater = GitHubUpdater.shared
-                await updater.check(manual: true)
+                await updater.check(manual: true, announce: false)
                 print("current", GitHubUpdater.current, "latest", updater.available?.version ?? "none", updater.state ?? "")
                 if updater.available != nil {
                     await updater.install(dryRun: true)
@@ -88,6 +88,12 @@ enum Entry {
         if arguments.contains("--render") {
             RenderMode.run(arguments: arguments)
             return
+        }
+        // One Cooldown at a time: a second copy (opened again, or from another folder) steps aside.
+        if let me = Bundle.main.bundleIdentifier,
+           NSRunningApplication.runningApplications(withBundleIdentifier: me).contains(where: { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }),
+           !arguments.contains("--snapshot") {
+            exit(0)
         }
         let app = NSApplication.shared
         let delegate = AppDelegate()
