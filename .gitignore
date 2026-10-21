@@ -1,0 +1,8 @@
+.build/
+build/
+local.env
+diag*.txt
+*.p12
+*.mobileprovision
+*.pem
+.DS_Store
