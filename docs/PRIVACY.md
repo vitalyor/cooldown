@@ -1,47 +1,49 @@
-# Что Cooldown читает и куда обращается
+# What Cooldown reads and where it connects
 
-Cooldown работает на вашем Mac. У проекта нет серверов, аналитики и телеметрии.
+**English** · [Русский](PRIVACY.ru.md)
 
-## Читает (только чтение)
+Cooldown runs on your Mac. The project has no servers, analytics or telemetry.
 
-| Что | Зачем |
+## Reads (read-only)
+
+| What | Why |
 |---|---|
-| `~/.codex/sessions`, `~/.codex/archived_sessions` | токены, лимиты, начало и конец работы Codex |
-| `~/.codex/state_*.sqlite` (только чтение) | список разговоров Codex и где лежат их файлы |
-| `~/.codex/session_index.jsonl` | названия разговоров |
-| `~/.claude/projects` | токены Claude Code |
-| `~/Library/Application Support/Claude/plan-usage-history.json` | история лимитов, которую ведёт Claude Desktop |
-| `~/Library/Application Support/Claude/claude-code-sessions` | названия сессий Claude Code из Claude Desktop |
-| Окно Claude Desktop через «Универсальный доступ» | какой чат открыт, пишет ли Claude ответ, первые слова ответа |
+| `~/.codex/sessions`, `~/.codex/archived_sessions` | Codex tokens, limits, when work starts and ends |
+| `~/.codex/state_*.sqlite` (opened read-only) | the list of Codex conversations and where their files are |
+| `~/.codex/session_index.jsonl` | conversation names |
+| `~/.claude/projects` | Claude Code tokens |
+| `~/Library/Application Support/Claude/plan-usage-history.json` | the limit history Claude Desktop keeps itself |
+| `~/Library/Application Support/Claude/claude-code-sessions` | names of Claude Code sessions started from Claude Desktop |
+| The Claude Desktop window, via Accessibility | which chat is open, whether Claude is writing an answer, the first words of the answer |
 
-## Запускает
+## Runs
 
-- `codex app-server` — запрос лимитов `account/rateLimits/read` (официальный клиент Codex).
-- `claude /usage` — экран лимитов Claude Code (официальный клиент). Хуки, строка статуса и фоновый
-  трафик Claude Code для этого запуска выключены.
-- `codex exec` — только задачи, которые вы сами отложили.
-- `claude -p … --resume` — только сессии Claude Code, которые вы сами поставили на продолжение.
+- `codex app-server` — the `account/rateLimits/read` request (Codex's official client).
+- `claude /usage` — Claude Code's limits screen (official client). Hooks, the status line and Claude
+  Code's background traffic are turned off for this run.
+- `codex exec` — only tasks you deferred yourself.
+- `claude -p … --resume` — only Claude Code sessions you set to continue yourself.
 
-## Меняет (только с вашего согласия)
+## Changes (only with your consent)
 
-- `~/.claude/settings.json` — строка статуса и хуки Cooldown, если вы их включили. Перед записью
-  рядом сохраняется копия. Чужие записи (например, Coucou) не трогаются.
-- `~/.codex/hooks.json` — хуки Cooldown, если вы их включили. Codex попросит их разрешить.
+- `~/.claude/settings.json` — Cooldown's status line and hooks, if you turned them on. A copy is saved
+  next to the file before writing. Other tools' entries (Coucou, for example) are left untouched.
+- `~/.codex/hooks.json` — Cooldown's hooks, if you turned them on. Codex asks you to approve them.
 
-Хук Cooldown только дописывает одну строку в
-`~/Library/Application Support/Cooldown/hook-events.jsonl` и сразу выходит.
+A Cooldown hook only appends one line to
+`~/Library/Application Support/Cooldown/hook-events.jsonl` and exits.
 
-## Отправляет
+## Sends
 
-- В чат Claude Desktop — одно сообщение-продолжение, **только по вашему нажатию**.
-- На claude.ai — только если вы сами вошли в claude.ai в настройках Cooldown: чтение лимитов и
-  списка чатов (не чаще раза в 2 и 5 минут). Это внутренние адреса сайта, не официальный API;
-  автоматический доступ ограничен условиями Anthropic — включайте осознанно.
+- Into a Claude Desktop chat — one continuation message, **only when you press the button**.
+- To claude.ai — only if you signed in to claude.ai in Cooldown's settings yourself: reading limits
+  and the chat list (at most every 2 and 5 minutes). These are the site's internal endpoints, not an
+  official API; automated access is restricted by Anthropic's terms — turn it on deliberately.
 
-Вход Claude Code (токен из Связки ключей) Cooldown не использует: Anthropic разрешает его только
-в собственных приложениях.
+Cooldown does not use Claude Code's sign-in (the token in the Keychain): Anthropic allows it only in
+its own apps.
 
-## Хранит
+## Stores
 
-Всё в `~/Library/Application Support/Cooldown/`: история лимитов и токенов (45 дней), итоги по дням,
-события, выбранные чаты, записи для диагностики (`activity.log`, до 256 КБ).
+Everything in `~/Library/Application Support/Cooldown/`: limit and token history (45 days), daily
+totals, events, chosen chats, diagnostic records (`activity.log`, up to 256 KB).

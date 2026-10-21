@@ -70,11 +70,12 @@ Cooldown сам подскажет в «Настройки → Готовнос�
 
 ## Приватность
 
-Cooldown ничего не отправляет на свои серверы — их нет. Подробно: [docs/PRIVACY.md](docs/PRIVACY.md).
+Cooldown ничего не отправляет на свои серверы — их нет. Подробно: [docs/PRIVACY.ru.md](docs/PRIVACY.ru.md).
 
 ## Как устроено
 
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — источники данных, модули, как Cooldown экономит ресурсы.
+[docs/ARCHITECTURE.ru.md](docs/ARCHITECTURE.ru.md) — источники данных, модули, как Cooldown экономит ресурсы.
+Идеи, с которых начинались функции: [IDEAS.ru.md](IDEAS.ru.md).
 
 ## Благодарности
 
