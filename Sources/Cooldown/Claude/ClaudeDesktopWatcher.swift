@@ -25,6 +25,26 @@ final class ClaudeDesktopWatcher {
     nonisolated private static let stopLabels: Set<String> = ["Остановить ответ", "Stop response", "Stop generating", "Остановить генерацию"]
     nonisolated private static let answerMarkers = ["Ответ Claude:", "Claude responded:", "Claude said:", "Claude’s response:"]
 
+    /// Buttons of a permission prompt in a chat (a connector or tool asking to run), in the
+    /// app's own words. A group of two or more of them is a prompt.
+    nonisolated static func permissionRole(_ label: String) -> RequestChoice.Role? {
+        let text = label.lowercased().trimmingCharacters(in: .whitespaces)
+        guard text.count < 40 else { return nil }
+        if text.hasPrefix("разрешить") || text.hasPrefix("всегда разрешать") || text.hasPrefix("allow") || text.hasPrefix("always allow")
+            || text == "одобрить" || text == "approve" { return .allow }
+        if text == "запретить" || text == "отклонить" || text == "не разрешать" || text == "deny" || text == "don't allow"
+            || text == "decline" || text == "reject" { return .decline }
+        return nil
+    }
+
+    /// A permission prompt seen in a chat: its words and its buttons.
+    struct Prompt: Sendable, Equatable {
+        var text: String
+        var buttons: [String]
+    }
+
+    private var prompts: [String: Prompt] = [:]
+
     func start() {
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { _ in
@@ -50,7 +70,9 @@ final class ClaudeDesktopWatcher {
         reading = true
         let pid = app.processIdentifier
         let writingKeys = Set(writing.keys)
-        let full = tick % 20 == 0
+        // While Claude writes, a fuller look every 9 s catches a permission prompt (it pauses
+        // the answer); while one waits, every look, so an answer given in the app clears it.
+        let full = tick % 20 == 0 || !prompts.isEmpty || (!writing.isEmpty && tick % 3 == 0)
         let cache = self.cache
         Task.detached(priority: .utility) {
             let looks = Self.read(pid: pid, cache: cache, writing: writingKeys, full: full)
@@ -155,6 +177,41 @@ final class ClaudeDesktopWatcher {
         }
         activity.replace(.claude, source: .window, with: Set(writing.keys))
         firstLook = false
+        updatePrompts(seen)
+    }
+
+    private func updatePrompts(_ seen: [String: Look]) {
+        for (key, look) in seen {
+            let old = prompts[key]
+            guard old != look.prompt else { continue }
+            if let old { RequestCenter.shared.resolved(Self.promptKey(key, old)) }
+            prompts[key] = look.prompt
+            guard let prompt = look.prompt else { continue }
+            let chat = look.chat
+            let choices = prompt.buttons.map { label in
+                RequestChoice(id: "press:" + label, title: label, role: Self.permissionRole(label) ?? .normal)
+            } + [RequestChoice(id: "open", title: "Открыть чат", role: .open)]
+            let lines = prompt.text.split(separator: "\n").map(String.init)
+            let request = AgentRequest(key: Self.promptKey(key, prompt), provider: .claude, chat: "«\(chat.title)»",
+                                       headline: lines.first ?? "Claude просит разрешение",
+                                       detail: lines.dropFirst().joined(separator: "\n"), choices: choices,
+                                       appBundleIDs: ["com.anthropic.claudefordesktop"],
+                                       threadId: nil)
+            RequestCenter.shared.post(request, open: { Task { await ClaudeSender.reveal(chat) } }) { choice in
+                guard choice.id.hasPrefix("press:"), let pid = ClaudeSender.claudeApp?.processIdentifier else {
+                    throw ResumeError.refused("Claude не открыт.")
+                }
+                let label = String(choice.id.dropFirst("press:".count))
+                let pressed = await Task.detached(priority: .userInitiated) { Self.press(label, prompt: prompt, chat: chat, pid: pid) }.value
+                guard pressed else { throw ResumeError.refused("Запрос в чате уже закрыт или выглядит иначе.") }
+                AgentActivity.trace("claude desktop prompt in \(chat.id): pressed «\(label)»")
+            }
+        }
+        // Chats out of sight keep their prompt (they may still wait); none are guessed away.
+    }
+
+    nonisolated private static func promptKey(_ chat: String, _ prompt: Prompt) -> String {
+        "claude-desktop|\(chat)|\(prompt.text.hashValue)|\(prompt.buttons.joined(separator: "/"))"
     }
 
     nonisolated private static func key(_ chat: ClaudeChat) -> String { "chat:" + (chat.id.isEmpty ? chat.title : chat.id) }
@@ -163,6 +220,7 @@ final class ClaudeDesktopWatcher {
         var chat: ClaudeChat
         var busy: Bool
         var answer: String?
+        var prompt: Prompt? = nil
     }
 
     /// One window, walked whole: its chat, whether an answer is being written, the latest
@@ -175,6 +233,7 @@ final class ClaudeDesktopWatcher {
         var input: AXUIElement?
         var busy = false
         var answer: String?
+        var promptButtons: [(label: String, parent: AXUIElement?)] = []
         while let element = stack.popLast(), visited < 8000 {
             visited += 1
             // One request for the three things needed from each element.
@@ -187,6 +246,9 @@ final class ClaudeDesktopWatcher {
                 input = element
             } else if role == "AXButton", let label = values[1] as? String, !label.isEmpty {
                 if stopLabels.contains(label) { busy = true }
+                if permissionRole(label) != nil {
+                    promptButtons.append((label, ClaudeSender.value(element, kAXParentAttribute).map { $0 as! AXUIElement }))
+                }
                 // Message action buttons are labelled with the message's first words; the last
                 // Claude one in reading order is the latest answer.
                 for marker in answerMarkers {
@@ -205,7 +267,61 @@ final class ClaudeDesktopWatcher {
             guard let current = composer, let parent = ClaudeSender.value(current, kAXParentAttribute) else { break }
             composer = (parent as! AXUIElement)
         }
-        return (Look(chat: chat, busy: busy, answer: answer), page, composer)
+        let prompt = Self.prompt(from: promptButtons)
+        // A prompt pauses the answer: the turn is not over while it waits.
+        return (Look(chat: chat, busy: busy || prompt != nil, answer: answer, prompt: prompt), page, composer)
+    }
+
+    /// Two or more permission buttons side by side make a prompt; its words are the texts
+    /// around them (a couple of levels up).
+    nonisolated private static func prompt(from buttons: [(label: String, parent: AXUIElement?)]) -> Prompt? {
+        var groups: [CFHashCode: (parent: AXUIElement, labels: [String])] = [:]
+        for button in buttons {
+            guard let parent = button.parent else { continue }
+            groups[CFHash(parent), default: (parent, [])].labels.append(button.label)
+        }
+        guard let group = groups.values.first(where: { $0.labels.count >= 2 }) else { return nil }
+        var container = group.parent
+        for _ in 0..<2 {
+            if let up = ClaudeSender.value(container, kAXParentAttribute) { container = (up as! AXUIElement) }
+        }
+        var texts: [String] = []
+        var stack = [container]
+        var visited = 0
+        while let element = stack.popLast(), visited < 300 {
+            visited += 1
+            let values = ClaudeSender.values(element, [kAXRoleAttribute, kAXValueAttribute, kAXChildrenAttribute])
+            if values[0] as? String == "AXStaticText", let text = (values[1] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !text.isEmpty, !group.labels.contains(text), texts.count < 6 {
+                texts.append(text)
+            }
+            stack.append(contentsOf: ((values[2] as? [AXUIElement]) ?? []).reversed())
+        }
+        return Prompt(text: texts.joined(separator: "\n"), buttons: group.labels)
+    }
+
+    /// Presses the chosen button of a prompt in that chat, after finding the very same prompt.
+    nonisolated static func press(_ label: String, prompt: Prompt, chat: ClaudeChat, pid: pid_t) -> Bool {
+        let root = AXUIElementCreateApplication(pid)
+        for window in (ClaudeSender.value(root, kAXWindowsAttribute) as? [AXUIElement]) ?? [] {
+            var stack = [window]
+            var visited = 0
+            var page: ClaudeChat?
+            var buttons: [(label: String, element: AXUIElement, parent: AXUIElement?)] = []
+            while let element = stack.popLast(), visited < 8000 {
+                visited += 1
+                let values = ClaudeSender.values(element, [kAXRoleAttribute, kAXDescriptionAttribute, kAXChildrenAttribute])
+                if values[0] as? String == "AXWebArea", page == nil { page = ClaudeSender.chat(of: element) }
+                if values[0] as? String == "AXButton", let text = values[1] as? String, permissionRole(text) != nil {
+                    buttons.append((text, element, ClaudeSender.value(element, kAXParentAttribute).map { $0 as! AXUIElement }))
+                }
+                stack.append(contentsOf: ((values[2] as? [AXUIElement]) ?? []).reversed())
+            }
+            guard page?.id == chat.id, Self.prompt(from: buttons.map { ($0.label, $0.parent) }) == prompt,
+                  let target = buttons.first(where: { $0.label == label }) else { continue }
+            return AXUIElementPerformAction(target.element, kAXPressAction as CFString) == .success
+        }
+        return false
     }
 }
 

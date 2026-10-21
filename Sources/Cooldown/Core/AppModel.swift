@@ -242,9 +242,13 @@ final class AppModel: ObservableObject {
         GitHubUpdater.shared.greetIfUpdated()
         AutoResume.shared.onChange = { rows in AppModel.shared.resumeChanged(rows) }
         AutoResume.shared.start()
+        CodexRequestWatcher.shared.start()
         ClaudeDesktopWatcher.shared.start()
         // Keep the hook script current if hooks are installed (it is tiny and versioned with the app).
         if AgentHooks.Agent.allCases.contains(where: { AgentHooks.status($0) != .off }) { try? AgentHooks.writeScript() }
+        // Hooks from an earlier version get the newer events (Claude Code's permission cards).
+        if AgentHooks.needsUpdate(.claude) { try? AgentHooks.install(.claude) }
+        ClaudeAsks.shared.start()
         claude.importSamples(ClaudeDesktopUsage.samples(fitting: claude.samples))
         DailyLog.shared.start()
         Task { await refreshAll() }

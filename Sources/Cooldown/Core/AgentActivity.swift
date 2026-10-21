@@ -59,7 +59,7 @@ final class AgentActivity: ObservableObject {
     // MARK: Reports
 
     /// A short trail of what the sources reported and what was decided (activity.log, kept small).
-    static func trace(_ text: String) {
+    nonisolated static func trace(_ text: String) {
         let url = Settings.appSupport.appendingPathComponent("activity.log")
         let line = "\(ISO8601DateFormatter().string(from: Date())) \(text)\n"
         if let handle = try? FileHandle(forWritingTo: url) {
@@ -126,12 +126,14 @@ final class AgentActivity: ObservableObject {
             if provider == .codex, CodexThreadIndex.reviewerActive(since: date.addingTimeInterval(-2)) {
                 Self.trace("  \(id): Codex's reviewer decides"); return
             }
-            activity.waiting(provider, key: key, title: title, reason: reason, opener: opener)
+            // Codex's requests arrive as cards with the answers on them (CodexRequestWatcher).
+            activity.waiting(provider, key: key, title: title, reason: reason, opener: opener,
+                             announce: !(provider == .codex && CodexRequestWatcher.shared.live))
         }
     }
 
     /// The agent stopped to ask the person (permission, a question).
-    func waiting(_ provider: ProviderID, key: String, title: String, reason: String, opener: Opener) {
+    func waiting(_ provider: ProviderID, key: String, title: String, reason: String, opener: Opener, announce: Bool = true) {
         let id = "\(provider.rawValue):\(key)"
         let now = Date()
         var session = sessions[id] ?? Session(provider: provider, key: key, title: title, state: .waiting, started: now, updated: now, source: .hook)
@@ -142,7 +144,7 @@ final class AgentActivity: ObservableObject {
         if !title.isEmpty { session.title = title }
         sessions[id] = session
         changed()
-        guard !wasWaiting, Settings.notifyAttention, !AppModel.shared.demoActive else { return }
+        guard !wasWaiting, announce, Settings.notifyAttention, !AppModel.shared.demoActive else { return }
         let name = session.title.isEmpty ? provider.displayName : session.title
         Notifier.shared.post(id: "wait-\(id)-\(Int(now.timeIntervalSince1970))",
                              title: "\(provider.displayName) ждёт вас: «\(name)»", body: reason,
@@ -277,6 +279,9 @@ final class AgentActivity: ObservableObject {
 
     private func changed() {
         AppModel.shared.activityChanged()
+        // Codex conversations at work are followed for their requests (permissions, questions).
+        CodexRequestWatcher.shared.follow(Set(sessions.values.filter { $0.provider == .codex && UUID(uuidString: $0.key) != nil }
+            .map { $0.key.lowercased() }))
         // A plain record of what is busy now, for checking Cooldown from outside.
         let rows = sessions.values.map { ["agent": $0.provider.rawValue, "key": $0.key, "title": $0.title,
                                           "state": $0.state == .working ? "working" : "waiting", "source": $0.source.rawValue,
