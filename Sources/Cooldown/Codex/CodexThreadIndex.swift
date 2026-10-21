@@ -31,6 +31,25 @@ enum CodexThreadIndex {
         query("WHERE id = ? LIMIT 1") { sqlite3_bind_text($0, 1, id.lowercased(), -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self)) }?.first
     }
 
+    /// Whether one of Codex's own reviewers ("approve for me") worked since `since`: then a
+    /// permission request is being decided by Codex, not waiting for the person.
+    static func reviewerActive(since: Date) -> Bool {
+        guard let url = databaseURL else { return false }
+        var db: OpaquePointer?
+        guard sqlite3_open_v2(url.path, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_NOMUTEX, nil) == SQLITE_OK else {
+            sqlite3_close(db)
+            return false
+        }
+        defer { sqlite3_close(db) }
+        sqlite3_busy_timeout(db, 500)
+        var statement: OpaquePointer?
+        let sql = "SELECT 1 FROM threads WHERE thread_source = 'guardian_review' AND COALESCE(updated_at_ms, updated_at * 1000) >= ? LIMIT 1"
+        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else { return false }
+        defer { sqlite3_finalize(statement) }
+        sqlite3_bind_int64(statement, 1, Int64(since.timeIntervalSince1970 * 1000))
+        return sqlite3_step(statement) == SQLITE_ROW
+    }
+
     /// Conversations updated since `since`, newest first; nil when the index cannot be read.
     static func updated(since: Date) -> [Thread]? {
         query("WHERE updated_at >= ? AND archived = 0 ORDER BY updated_at DESC LIMIT 50") {

@@ -314,8 +314,9 @@ final class HookEventReader {
                               duration: nil, source: .hook, opener: opener, at: time)
         case "PermissionRequest":
             let tool = p["tool_name"] as? String
-            activity.waiting(.codex, key: key, title: title,
-                             reason: tool.map { "Codex просит разрешение: \($0)." } ?? "Codex просит разрешение.", opener: opener)
+            activity.permissionAsked(.codex, key: key, title: title,
+                                     reason: tool.map { "Codex просит разрешение: \($0)." } ?? "Codex просит разрешение.",
+                                     opener: opener, at: time)
         case "Interrupt", "SessionEnd":
             activity.ended(.codex, key: key)
         default:

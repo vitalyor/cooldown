@@ -56,6 +56,20 @@ enum Entry {
             RunLoop.main.run()
             exit(0)
         }
+        if arguments.contains("--update-check") {
+            // Diagnostic: finds the latest GitHub release, downloads and verifies it, installs nothing.
+            Task { @MainActor in
+                let updater = GitHubUpdater.shared
+                await updater.check(manual: true)
+                print("current", GitHubUpdater.current, "latest", updater.available?.version ?? "none", updater.state ?? "")
+                if updater.available != nil {
+                    await updater.install(dryRun: true)
+                    print(updater.state ?? "")
+                }
+                exit(0)
+            }
+            RunLoop.main.run()
+        }
         if let index = arguments.firstIndex(of: "--hooks"), index + 1 < arguments.count {
             // `--hooks install|uninstall|status [claude|codex]`: the same as the buttons in Settings.
             let agents = arguments.count > index + 2 ? [AgentHooks.Agent(rawValue: arguments[index + 2])].compactMap { $0 } : AgentHooks.Agent.allCases

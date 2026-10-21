@@ -25,6 +25,7 @@ enum SettingsKey {
     static let notifyProjects = "notifyProjects"
     static let weeklySummary = "weeklySummary"
     static let soundFinished = "soundFinished"
+    static let autoUpdate = "autoUpdate"
     static let soundAttention = "soundAttention"
     static let soundReset = "soundReset"
     static let finishedMinSeconds = "finishedMinSeconds"
@@ -102,6 +103,8 @@ enum Settings {
     /// A short summary of the week on Sunday evening.
     static var weeklySummary: Bool { bool(SettingsKey.weeklySummary, true) }
     static var soundFinished: Bool { bool(SettingsKey.soundFinished, false) }
+    /// Install new releases from GitHub by itself (when the Mac is idle a moment).
+    static var autoUpdate: Bool { bool(SettingsKey.autoUpdate, true) }
     static var soundAttention: Bool { bool(SettingsKey.soundAttention, false) }
     static var soundReset: Bool { bool(SettingsKey.soundReset, false) }
     static var finishedMinSeconds: Double {

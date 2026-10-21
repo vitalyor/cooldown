@@ -15,6 +15,8 @@ enum ToastAction: Equatable {
     case continueAllClaude([ClaudeChat])
     case openSchedule
     case installUpdate
+    case installRelease
+    case openReleasePage
     case openFeed
 
     var title: String {
@@ -22,6 +24,8 @@ enum ToastAction: Equatable {
         case .openFeed: return "Посмотреть"
         case .openSchedule: return "Отложить задачу"
         case .installUpdate: return "Перезапустить"
+        case .installRelease: return "Обновить"
+        case .openReleasePage: return "Что нового"
         case .continueClaudeChat: return "Продолжить"
         case .continueAllClaude(let chats): return "Продолжить все (\(chats.count))"
         case .openPanel: return "Открыть Cooldown"
@@ -353,6 +357,10 @@ final class ToastController: ObservableObject {
             StatusController.shared?.open(to: .feed)
         case .installUpdate:
             UpdateWatch.install()
+        case .installRelease:
+            Task { await GitHubUpdater.shared.install() }
+        case .openReleasePage:
+            GitHubUpdater.shared.openReleasePage()
         case .openSchedule:
             AppModel.shared.selected = .codex
             StatusController.shared?.open(to: .schedule)

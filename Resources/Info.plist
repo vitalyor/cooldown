@@ -22,6 +22,8 @@
     <string>26.0</string>
     <key>NSFocusStatusUsageDescription</key>
     <string>Cooldown молчит, пока включена фокусировка («Не беспокоить», «Сон» и другие), если вы так выбрали в настройках.</string>
+    <key>CooldownUpdateRepo</key>
+    <string>vitalyor/cooldown</string>
     <key>LSUIElement</key>
     <true/>
     <key>CFBundleIconFile</key>
