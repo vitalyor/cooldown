@@ -1,87 +1,89 @@
 # Cooldown
 
+**English** · [Русский](README.ru.md)
+
 **A macOS menu bar app for people who work with Codex and Claude all day: limits at a glance,
 what each agent is doing, a card when work is done, and continuing after a limit resets.**
+Everything runs locally on your Mac.
 
-Cooldown — приложение в строке меню macOS для тех, кто работает с Codex и Claude: лимиты одним
-взглядом, что сейчас делает каждый агент, карточка, когда работа готова, и продолжение работы
-после сброса лимита. Всё работает локально, на вашем Mac.
+> Unofficial project, not affiliated with OpenAI or Anthropic. Codex and Claude are trademarks of their owners.
+> The app's interface is currently in Russian.
 
-> Неофициальный проект. Не связан с OpenAI или Anthropic. Названия Codex и Claude принадлежат их владельцам.
+## Features
 
-## Что умеет
+**Limits**
+- The 5-hour and weekly limits of Codex and Claude in the menu bar: a number and a bar coloured by what is left.
+- Forecast: when the limit runs out at the current pace, whether it lasts until the reset, how much you can spend per day.
+- Comparison with your usual pace and with previous weeks.
 
-**Лимиты**
-- 5-часовой и недельный лимит Codex и Claude в строке меню: число и линия, цвет — по остатку.
-- Прогноз: когда кончится лимит при текущем темпе, хватит ли до сброса, сколько можно тратить в день.
-- Сравнение с вашим обычным темпом и с прошлыми неделями.
+**What the agents are doing**
+- While an agent works, a soft light runs along its bar in the menu bar; an orange dot means it is waiting for your decision.
+- Cards under the menu bar icon: "finished" (with the start of the answer, time spent and share of the limit),
+  "waiting for your decision", "limit is back", "silent for 15 minutes", "stopped with an error".
+- Sources: Codex session files, Codex and Claude Code hooks (optional), the Claude Desktop window
+  via Accessibility.
 
-**Что делают агенты**
-- Пока агент работает, по его линии в строке меню пробегает мягкий свет; оранжевая точка — ждёт вашего решения.
-- Карточки под значком: «закончил» (с началом ответа, временем и долей лимита), «ждёт решения»,
-  «лимит восстановился», «молчит 15 минут», «остановился с ошибкой».
-- Источники: файлы сессий Codex, хуки Codex и Claude Code (по желанию), окно Claude Desktop
-  через «Универсальный доступ».
+**Continuing after a reset**
+- Codex: a task that hit the limit continues by itself (via [Codex Auto Resume](https://github.com/progressrdx/codex-auto-resume)).
+- Claude Code: a session continues by itself via `claude --resume`.
+- Claude Desktop chats: Cooldown finds the chat and sends the continuation — only when you press the button.
+- Deferred Codex tasks: start as soon as Codex has limit again.
 
-**Продолжение после сброса**
-- Codex: задача, упёршаяся в лимит, продолжается сама (через [Codex Auto Resume](https://github.com/progressrdx/codex-auto-resume)).
-- Claude Code: сессия продолжается сама через `claude --resume`.
-- Чаты Claude Desktop: Cooldown находит нужный чат и отправляет продолжение — только по вашему нажатию.
-- Отложенные задачи Codex: запускаются, как только у Codex снова есть лимит.
+**Statistics**
+- Tokens, projects, models and the approximate API price of the same work.
+- "Year of work" — a day-by-day grid, like on GitHub.
+- The most expensive tasks, a weekly summary, CSV export.
 
-**Статистика**
-- Токены, проекты, модели и примерная цена той же работы по API.
-- «Год работы» — сетка по дням, как на GitHub.
-- Самые дорогие задачи, итоги недели, выгрузка в CSV.
+## Requirements
 
-## Требования
+- macOS 26 (Tahoe) or later.
+- Command Line Tools (`xcode-select --install`); Xcode is not required.
+- Codex and/or Claude Code / Claude Desktop — whichever you use.
 
-- macOS 26 (Tahoe) или новее.
-- Command Line Tools (`xcode-select --install`); Xcode не нужен.
-- Codex и/или Claude Code / Claude Desktop — то, что вы используете.
-
-## Сборка и запуск
+## Build and run
 
 ```sh
-./build.sh            # собрать build/Cooldown.app
-./build.sh --install  # собрать, положить в /Applications и запустить
+./build.sh            # build build/Cooldown.app
+./build.sh --install  # build, copy to /Applications and launch
 ```
 
-Необязательно, но удобно — постоянная локальная подпись, чтобы macOS не забывала выданные
-разрешения после каждой сборки:
+Optional but handy — a stable local signing identity, so macOS keeps the permissions it granted
+across builds:
 
 ```sh
 scripts/make_signing_identity.sh
 ```
 
-Собираете свою версию рядом с оригиналом? Задайте ей свой идентификатор, чтобы настройки и
-разрешения не смешивались: `echo 'COOLDOWN_BUNDLE_ID=com.yourname.cooldown' > local.env`.
+Building your own version next to the original? Give it its own bundle id so settings and
+permissions don't mix: `echo 'COOLDOWN_BUNDLE_ID=com.yourname.cooldown' > local.env`.
 
-Чтобы автопродолжение Codex было встроено в приложение, положите
-[codex-auto-resume](https://github.com/progressrdx/codex-auto-resume) рядом с папкой проекта
-(`../codex-auto-resume`) или укажите путь в `RELAY_SRC` перед сборкой.
+To bundle Codex auto-continue into the app, put
+[codex-auto-resume](https://github.com/progressrdx/codex-auto-resume) next to the project folder
+(`../codex-auto-resume`) or set `RELAY_SRC` before building.
 
-## Первый запуск
+## First launch
 
-Cooldown сам подскажет в «Настройки → Готовность», чего не хватает:
-- **Уведомления** — для карточек, когда вас нет за Mac.
-- **Универсальный доступ** — чтобы видеть, что Claude Desktop пишет ответ, и продолжать чаты.
-- **Хуки агентов** (по желанию) — мгновенные события от Codex и Claude Code. Codex попросит один раз
-  разрешить новые хуки.
+Cooldown shows what is missing under Settings → Readiness:
+- **Notifications** — for cards when you are away from the Mac.
+- **Accessibility** — to see that Claude Desktop is writing an answer, and to continue chats.
+- **Agent hooks** (optional) — instant events from Codex and Claude Code. Codex asks once to
+  approve the new hooks.
 
-## Приватность
+## Privacy
 
-Cooldown ничего не отправляет на свои серверы — их нет. Подробно: [docs/PRIVACY.md](docs/PRIVACY.md).
+Cooldown sends nothing to servers of its own — there are none. Details (in Russian):
+[docs/PRIVACY.md](docs/PRIVACY.md).
 
-## Как устроено
+## How it works
 
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — источники данных, модули, как Cooldown экономит ресурсы.
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (in Russian) — data sources, modules, and how Cooldown
+keeps its resource use low.
 
-## Благодарности
+## Thanks
 
 - [Codex Auto Resume](https://github.com/progressrdx/codex-auto-resume) by progressrdx (MIT) —
-  автопродолжение задач Codex.
+  auto-continue for Codex tasks.
 
-## Лицензия
+## License
 
-[MIT](LICENSE). Codex Auto Resume, который встраивается в сборку, распространяется по своей лицензии MIT.
+[MIT](LICENSE). Codex Auto Resume, bundled into the build, is distributed under its own MIT license.
