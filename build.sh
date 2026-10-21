@@ -33,6 +33,11 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/Cooldown"
 sed "s/__BUNDLE_ID__/$BUNDLE_ID/" Resources/Info.plist > "$APP/Contents/Info.plist"
+# Release builds carry the version being released and a build number from the history.
+if [ -n "${COOLDOWN_VERSION:-}" ]; then
+  /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $COOLDOWN_VERSION" "$APP/Contents/Info.plist"
+  /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(git rev-list --count HEAD 2>/dev/null || echo 1)" "$APP/Contents/Info.plist"
+fi
 cp Resources/Scriptable/Cooldown.js "$APP/Contents/Resources/Cooldown.js"
 # Relay (Codex auto-continue) travels inside the app, so no separate folder is needed.
 RELAY_SRC="${RELAY_SRC:-../codex-auto-resume}"
@@ -48,7 +53,10 @@ if [ -f Resources/AppIcon.icns ]; then
   cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 fi
 # Where this build lives, so the installed app can notice a newer build here and offer it.
-echo "$(cd "$(dirname "$APP")" && pwd)/$(basename "$APP")" > "$APP/Contents/Resources/build-source.txt"
+# Not in release builds: they go to other Macs, where this path means nothing (and is private).
+if [ -z "${COOLDOWN_RELEASE:-}" ]; then
+  echo "$(cd "$(dirname "$APP")" && pwd)/$(basename "$APP")" > "$APP/Contents/Resources/build-source.txt"
+fi
 # A stable local identity keeps macOS permissions (Accessibility, notifications) across builds.
 # Created once by scripts/make_signing_identity.sh; ad-hoc signing is the fallback.
 KC="$HOME/Library/Keychains/cooldown-signing.keychain-db"

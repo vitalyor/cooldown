@@ -39,6 +39,15 @@ Cooldown — приложение в строке меню macOS для тех, 
 - Command Line Tools (`xcode-select --install`); Xcode не нужен.
 - Codex и/или Claude Code / Claude Desktop — то, что вы используете.
 
+## Установка
+
+Скачайте последний **Cooldown-x.y.z.dmg** в [Releases](https://github.com/vitalyor/cooldown/releases/latest),
+откройте и перетащите Cooldown в «Программы».
+
+Cooldown не заверен Apple, поэтому при первом запуске macOS скажет, что не может проверить разработчика.
+Откройте **Системные настройки → Конфиденциальность и безопасность** и нажмите **Всё равно открыть**
+(или выполните `xattr -dr com.apple.quarantine /Applications/Cooldown.app`).
+
 ## Сборка и запуск
 
 ```sh
