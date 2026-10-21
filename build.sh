@@ -33,6 +33,11 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/Cooldown"
 sed "s/__BUNDLE_ID__/$BUNDLE_ID/" Resources/Info.plist > "$APP/Contents/Info.plist"
+# Release builds drop debug symbols: smaller, and the build machine's folder paths that the
+# linker records for debugging do not travel to other Macs.
+if [ -n "${COOLDOWN_RELEASE:-}" ]; then
+  strip -S -x "$APP/Contents/MacOS/Cooldown"
+fi
 # Release builds carry the version being released and a build number from the history.
 if [ -n "${COOLDOWN_VERSION:-}" ]; then
   /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $COOLDOWN_VERSION" "$APP/Contents/Info.plist"
