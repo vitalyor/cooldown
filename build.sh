@@ -5,11 +5,11 @@
 set -eu
 cd "$(dirname "$0")"
 
-# Personal settings stay out of the repository: local.env (ignored by git) may set
+# The bundle id decides where macOS keeps Cooldown's settings and permissions. A fork that is
+# built alongside the original can set its own in local.env (ignored by git):
 #   COOLDOWN_BUNDLE_ID=com.yourname.cooldown
-# The bundle id decides where macOS keeps Cooldown's settings and permissions.
 [ -f local.env ] && . ./local.env
-BUNDLE_ID="${COOLDOWN_BUNDLE_ID:-com.example.cooldown}"
+BUNDLE_ID="${COOLDOWN_BUNDLE_ID:-com.vitalyor.cooldown}"
 
 # Command Line Tools ship the macOS 27 SDK, where SwiftUI's @State is a macro whose plugin only
 # comes with Xcode. Without Xcode, build against the macOS 26 SDK that the tools also include.
