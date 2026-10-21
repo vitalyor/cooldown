@@ -106,6 +106,10 @@ final class CodexIPCConnection {
     private var snapshotValue: [String: Any]?
     private var snapshotPending = false
     private(set) var stateGeneration = 0
+    /// Every broadcast that arrives (used by the request watcher, which follows several conversations).
+    var onBroadcast: (([String: Any]) -> Void)?
+    /// The socket, for waiting on several things at once.
+    var descriptor: Int32 { fd }
 
     init(timeout: TimeInterval = 12) { self.timeout = timeout }
 
@@ -232,6 +236,7 @@ final class CodexIPCConnection {
             // In particular: never become an approval handler or a conversation's owner.
             try send(["type": "response", "requestId": message["requestId"] ?? NSNull(), "resultType": "error", "error": "unsupported-by-cooldown"])
         }
+        if type == "broadcast" { onBroadcast?(message) }
         if type == "broadcast", message["method"] as? String == "thread-stream-state-changed",
            let params = message["params"] as? [String: Any], let threadId,
            params["conversationId"] as? String == threadId, params["hostId"] as? String == "local",
@@ -276,9 +281,31 @@ final class CodexIPCConnection {
 
     private func follow(_ enabled: Bool) throws {
         guard let owner, let threadId else { return }
+        try setFollowing(threadId, owner: owner, enabled)
+    }
+
+    /// Asks the conversation's owner window to stream (or stop streaming) its state to us.
+    func setFollowing(_ thread: String, owner: String, _ enabled: Bool) throws {
         try send(["type": "broadcast", "method": "thread-stream-following-changed", "sourceClientId": clientId,
                   "targetClientIds": [owner], "version": 1,
-                  "params": ["hostId": "local", "conversationId": threadId, "following": enabled]])
+                  "params": ["hostId": "local", "conversationId": thread, "following": enabled]])
+    }
+
+    /// Which window of the app owns the conversation right now.
+    func discoverOwner(_ thread: String) throws -> String {
+        let reply = try request("thread-owner-discovery", ["hostId": "local", "conversationId": thread], version: 1)
+        guard let handler = reply["handledByClientId"] as? String else { throw CodexIPCError.app("Не указан владелец задачи в приложении") }
+        return handler
+    }
+
+    /// Answers one pending request of the conversation the way the app's own follower windows
+    /// do (`thread-follower-…`), after `snapshot` confirmed it is still there.
+    func answer(_ method: String, params: [String: Any]) throws {
+        guard let owner else { throw CodexIPCError.app("Не указан владелец задачи в приложении") }
+        let reply = try request(method, params, version: 1, target: owner)
+        guard (reply["result"] as? [String: Any])?["ok"] as? Bool == true else {
+            throw CodexIPCError.app("Приложение не подтвердило ответ")
+        }
     }
 
     // MARK: Conversation state

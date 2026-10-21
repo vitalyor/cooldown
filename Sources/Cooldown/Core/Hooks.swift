@@ -36,13 +36,49 @@ enum AgentHooks {
     exit 0
     """
 
+    static var askScript: URL { directory.appendingPathComponent("cooldown-hook-ask") }
+    static var asks: URL { Settings.appSupport.appendingPathComponent("asks", isDirectory: true) }
+
+    /// Claude Code's permission hook. At the terminal (or with Cooldown not running) it returns
+    /// at once and Claude Code asks as usual; while you are away, Cooldown shows the request as
+    /// a card and this waits (up to an hour) for the answer pressed there.
+    private static let askText = """
+    #!/bin/sh
+    # Cooldown: Claude Code's permission request as a card while you are away from the terminal.
+    # Prints the answer pressed on the card; prints nothing (Claude Code asks as usual) otherwise.
+    dir="$HOME/Library/Application Support/Cooldown/asks"
+    pgrep -xq Cooldown || exit 0
+    mkdir -p "$dir" 2>/dev/null || exit 0
+    id="$$-$(date +%s)"
+    head -c 1048576 > "$dir/$id.tmp" 2>/dev/null || exit 0
+    mv "$dir/$id.tmp" "$dir/$id.req" || exit 0
+    i=0
+    while [ $i -lt 14000 ]; do
+      if [ -f "$dir/$id.res" ]; then cat "$dir/$id.res"; rm -f "$dir/$id.res" "$dir/$id.req" "$dir/$id.ack"; exit 0; fi
+      if [ $i -eq 30 ] && [ ! -f "$dir/$id.ack" ]; then rm -f "$dir/$id.req"; exit 0; fi
+      if [ $i -lt 40 ]; then sleep 0.05; else sleep 0.25; fi
+      i=$((i+1))
+    done
+    rm -f "$dir/$id.req" "$dir/$id.ack"
+    exit 0
+    """
+
     static func writeScript() throws {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let current = try? String(contentsOf: script, encoding: .utf8)
-        if current != scriptText {
-            try scriptText.write(to: script, atomically: true, encoding: .utf8)
+        for (url, text) in [(script, scriptText), (askScript, askText)] {
+            let current = try? String(contentsOf: url, encoding: .utf8)
+            if current != text { try text.write(to: url, atomically: true, encoding: .utf8) }
+            try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
         }
-        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
+    }
+
+    /// Hooks installed by an earlier version, missing a newer event (Claude's permission cards).
+    static func needsUpdate(_ agent: Agent) -> Bool {
+        guard status(agent) != .off, agent == .claude,
+              let root = try? read(agent), let hooks = root["hooks"] as? [String: Any] else { return false }
+        return plan(agent).contains { item in
+            !((hooks[item.event] as? [[String: Any]]) ?? []).contains(where: isOurs)
+        }
     }
 
     // MARK: Where each agent keeps hooks
@@ -60,7 +96,9 @@ enum AgentHooks {
         switch agent {
         case .claude:
             let handler: [String: Any] = ["type": "command", "command": "\(quoted) claude", "async": true, "timeout": 5]
+            let ask: [String: Any] = ["type": "command", "command": "\"\(askScript.path)\"", "timeout": 3600]
             return ["UserPromptSubmit", "Stop", "StopFailure", "Notification", "SessionEnd"].map { ($0, handler) }
+                + [("PermissionRequest", ask)]
         case .codex:
             let command = "/bin/sh \(quoted) codex"
             // Codex has no name field for a hook; `statusMessage` is the only words it can show,

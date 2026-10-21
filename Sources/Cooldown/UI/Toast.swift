@@ -54,6 +54,10 @@ struct ToastContent: Equatable {
     var actions: [ToastAction] = []
     var life: Life = .auto(8)
     var threadId: String? = nil
+    /// Request cards: the exact thing asked about, the answers, and which request they answer.
+    var detail: String? = nil
+    var choices: [RequestChoice] = []
+    var requestKey: String? = nil
 
     /// The app the news is about: while it is in front, the person already sees what happened.
     var appBundleIDs: [String] {
@@ -175,6 +179,9 @@ final class ToastController: ObservableObject {
         @Published var content: ToastContent
         @Published var remaining: Double = 1
         @Published var paused = false
+        @Published var busy = false
+        @Published var problem: String?
+        @Published var showExtra = false
         init(_ content: ToastContent) { self.content = content }
     }
 
@@ -214,7 +221,34 @@ final class ToastController: ObservableObject {
         CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: CGEventType(rawValue: ~0)!)
     }
 
-    private func reveal(_ content: ToastContent) {
+    func dismiss(key: String) {
+        waiting.removeAll { $0.key == key }
+        if let card = cards.first(where: { $0.content.key == key }) { remove(card) }
+    }
+
+    func setBusy(key: String, _ busy: Bool) {
+        cards.first { $0.content.key == key }?.model.busy = busy
+    }
+
+    func setProblem(key: String, _ text: String) {
+        guard let card = cards.first(where: { $0.content.key == key }) else { return }
+        card.model.problem = text
+        DispatchQueue.main.async { self.resize(card) }
+    }
+
+    /// A card's content grew (more buttons, a problem line): fit the panel to it.
+    func resize(_ card: Card) {
+        guard let hosting = (card.panel.contentView?.subviews.first as? NSGlassEffectView)?.contentView else { return }
+        let height = max(96, hosting.fittingSize.height)
+        guard abs(card.panel.frame.height - height) > 1 else { return }
+        var frame = card.panel.frame
+        frame.origin.y += frame.height - height
+        frame.size.height = height
+        card.panel.setFrame(frame, display: true)
+        relayout(animated: true)
+    }
+
+    func reveal(_ content: ToastContent, force: Bool = false) {
         if let card = cards.first(where: { $0.content.key == content.key }) {
             card.content = content
             card.model.content = content
@@ -241,6 +275,15 @@ final class ToastController: ObservableObject {
         let card = Card(content: content, panel: panel, model: model)
         let view = ToastView(model: model,
                              act: { [weak self, weak card] action in if let card { self?.perform(action, from: card) } },
+                             choose: { [weak card] choice in
+                                 guard let card, let key = card.content.requestKey else { return }
+                                 if choice.id == "__more" {
+                                     card.model.showExtra = true
+                                     DispatchQueue.main.async { ToastController.shared.resize(card) }
+                                     return
+                                 }
+                                 RequestCenter.shared.answer(key, choice)
+                             },
                              close: { [weak self, weak card] in if let card { self?.remove(card) } },
                              hover: { [weak card] inside in card?.model.paused = inside })
         let hosting = NSHostingView(rootView: view)
@@ -420,6 +463,7 @@ final class ToastController: ObservableObject {
 private struct ToastView: View {
     @ObservedObject var model: ToastController.CardModel
     let act: (ToastAction) -> Void
+    let choose: (RequestChoice) -> Void
     let close: () -> Void
     let hover: (Bool) -> Void
 
@@ -453,8 +497,13 @@ private struct ToastView: View {
                         .buttonStyle(.plain)
                     }
                     Text(content.title).font(.system(size: 14, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
-                    Text(content.body).font(.callout).foregroundStyle(.secondary).lineLimit(3)
-                        .fixedSize(horizontal: false, vertical: true)
+                    if !content.body.isEmpty {
+                        Text(content.body).font(.callout).foregroundStyle(.secondary).lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if content.requestKey != nil {
+                        RequestBlock(model: model, choose: choose)
+                    } else {
                     HStack(spacing: 8) {
                         ForEach(Array(content.actions.enumerated()), id: \.offset) { index, action in
                             Button(action.title) { act(action) }
@@ -463,6 +512,7 @@ private struct ToastView: View {
                         Button("OK", action: close).buttonStyle(ToastButton(fill: .primary, prominent: false))
                     }
                     .padding(.top, 4)
+                    }
                 }
             }
             .padding(14)
@@ -486,21 +536,104 @@ private struct ToastView: View {
     }
 }
 
+/// The asked-about thing and the answers. No answer is the default: only a click sends one.
+private struct RequestBlock: View {
+    @ObservedObject var model: ToastController.CardModel
+    let choose: (RequestChoice) -> Void
+
+    var body: some View {
+        let content = model.content
+        let main = content.choices.filter { !$0.extra }
+        let extra = content.choices.filter(\.extra)
+        let options = main.filter { $0.role == .normal }
+        VStack(alignment: .leading, spacing: 8) {
+            if let detail = content.detail, !detail.isEmpty {
+                Text(detail)
+                    .font(.system(size: 11.5, design: .monospaced))
+                    .lineLimit(6)
+                    .truncationMode(.middle)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.07)))
+            }
+            if let problem = model.problem {
+                Text(problem).font(.caption).foregroundStyle(Theme.signal).fixedSize(horizontal: false, vertical: true)
+            }
+            if model.busy {
+                HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Отправляю…").font(.caption).foregroundStyle(.secondary) }
+            } else {
+                // Answer options of a question: one per line, the whole text visible.
+                ForEach(options) { choice in
+                    Button { choose(choice) } label: {
+                        Text(choice.title).multilineTextAlignment(.leading).frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(ToastButton(fill: content.tint, prominent: false, wide: true))
+                }
+                let buttons = main.filter { $0.role != .normal } + (model.showExtra ? extra : [])
+                FlowRow(spacing: 6) {
+                    ForEach(buttons) { choice in
+                        Button(choice.title) { choose(choice) }
+                            .buttonStyle(ToastButton(fill: choice.role == .decline ? Theme.signal : content.tint,
+                                                     prominent: choice.role == .allow))
+                    }
+                    if !extra.isEmpty && !model.showExtra {
+                        Button("Ещё…") { choose(RequestChoice(id: "__more", title: "")) }
+                            .buttonStyle(ToastButton(fill: .primary, prominent: false))
+                    }
+                }
+            }
+        }
+        .padding(.top, 4)
+    }
+}
+
+/// Lays buttons out left to right, wrapping to the next line when the card is full.
+private struct FlowRow: Layout {
+    var spacing: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? 300
+        var x: CGFloat = 0, y: CGFloat = 0, line: CGFloat = 0
+        for view in subviews {
+            let size = view.sizeThatFits(.unspecified)
+            if x > 0 && x + size.width > width { x = 0; y += line + spacing; line = 0 }
+            x += size.width + spacing
+            line = max(line, size.height)
+        }
+        return CGSize(width: width, height: y + line)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX, y = bounds.minY, line: CGFloat = 0
+        for view in subviews {
+            let size = view.sizeThatFits(.unspecified)
+            if x > bounds.minX && x + size.width > bounds.maxX { x = bounds.minX; y += line + spacing; line = 0 }
+            view.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            line = max(line, size.height)
+        }
+    }
+}
+
 /// Buttons drawn by hand: the card never becomes the active window, and system buttons
 /// would look disabled there.
 private struct ToastButton: ButtonStyle {
     let fill: Color
     let prominent: Bool
+    var wide = false
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 12, weight: .semibold))
             .foregroundStyle(prominent ? Color.white : Color.primary)
             .padding(.horizontal, 12)
-            .padding(.vertical, 5)
-            .background(Capsule().fill(prominent ? fill.opacity(configuration.isPressed ? 0.7 : 0.9)
-                                                 : fill.opacity(configuration.isPressed ? 0.2 : 0.12)))
-            .contentShape(Capsule())
+            .padding(.vertical, wide ? 7 : 5)
+            .background(RoundedRectangle(cornerRadius: wide ? 10 : 20, style: .continuous)
+                .fill(prominent ? fill.opacity(configuration.isPressed ? 0.7 : 0.9)
+                                : fill.opacity(configuration.isPressed ? 0.2 : 0.12)))
+            .contentShape(Rectangle())
     }
 }
 

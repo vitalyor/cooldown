@@ -30,12 +30,17 @@ Cooldown runs on your Mac. The project has no servers, analytics or telemetry.
   next to the file before writing. Other tools' entries (Coucou, for example) are left untouched.
 - `~/.codex/hooks.json` — Cooldown's hooks, if you turned them on. Codex asks you to approve them.
 
+Claude Code's permission hook is the exception: while you are away from the app running that
+session, it waits for the answer you press on Cooldown's card (up to an hour) and passes it on;
+at that app, or with Cooldown not running, it returns at once and Claude Code asks as usual.
+
 A Cooldown hook only appends one line to
 `~/Library/Application Support/Cooldown/hook-events.jsonl` and exits.
 
 ## Sends
 
 - Into a Claude Desktop chat — one continuation message, **only when you press the button**.
+- Answers to agents' requests (permissions, questions) — **only the button you press on a card**: to Codex through its app's follower commands, to Claude Code through its permission hook, to a Claude Desktop chat by pressing the same button there. Before sending, Cooldown checks that the very same request is still waiting.
 - Into a Codex conversation you chose — one continuation message per turn stopped by the limit, after it resets. Through the Codex app's local socket (`~/.codex/ipc/ipc.sock`), as a follower only: Cooldown approves nothing and answers none of the app's requests. The send ledger lives in `~/Library/Application Support/Cooldown/AutoResume/` (yours only); an unconfirmed send is never repeated.
 - To claude.ai — only if you signed in to claude.ai in Cooldown's settings yourself: reading limits
   and the chat list (at most every 2 and 5 minutes). These are the site's internal endpoints, not an
