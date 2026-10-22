@@ -677,7 +677,7 @@ private struct ClaudeChatsSection: View {
                                 Button("Продолжить сейчас") { send(entry) }
                                 Button("Убрать") { list.remove(entry) }
                             } label: { Image(systemName: "ellipsis") }
-                            .menuStyle(.borderlessButton).frame(width: 24)
+                            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().frame(width: 28, height: 22)
                         }
                     }
                 }
