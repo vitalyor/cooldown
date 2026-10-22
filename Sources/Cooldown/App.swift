@@ -102,6 +102,18 @@ enum Entry {
             }
             exit(0)
         }
+        if let index = arguments.firstIndex(of: "--settings-window") {
+            // Diagnostic: the settings window on one pane, for a look at the layout.
+            let pane = index + 1 < arguments.count ? SettingsPane(rawValue: arguments[index + 1]) : nil
+            let app = NSApplication.shared
+            app.setActivationPolicy(.regular)
+            Task { @MainActor in
+                await AppModel.shared.prepareForRender(scan: false)
+                SettingsWindow.shared.show(pane ?? .general)
+            }
+            app.run()
+            return
+        }
         if arguments.contains("--render") {
             RenderMode.run(arguments: arguments)
             return
@@ -147,7 +159,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         if let provider = value("--provider").flatMap(ProviderID.init(rawValue:)) { AppModel.shared.selected = provider }
         RootView.debugTab = value("--tab").flatMap(MainTab.init(rawValue:))
-        let screens: [String: Screen] = ["settings": .settings, "add": .addTask, "schedule": .schedule, "feed": .feed]
+        let screens: [String: Screen] = ["add": .addTask, "schedule": .schedule, "feed": .feed]
         RootView.debugScreen = value("--screen").flatMap { screens[$0] }
         if let step = value("--demo").flatMap(Int.init) {
             DemoController.shared.start()
@@ -170,7 +182,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 /// `Cooldown --render --out file.png [--provider codex|claude] [--tab limits|stats|tasks]
-/// [--stats limits|tokens|projects] [--range day|week|month] [--screen settings|add] [--dark] [--scan]`
+/// [--stats limits|tokens|projects] [--range day|week|month] [--screen add] [--dark] [--scan]`
 /// draws the window with real data into a picture, for checking layout without the menu bar.
 /// Glass is not drawn there; the window itself shows it.
 enum RenderMode {
@@ -192,7 +204,7 @@ enum RenderMode {
             if let provider = value("--provider").flatMap(ProviderID.init(rawValue:)) { model.selected = provider }
             await model.prepareForRender(scan: arguments.contains("--scan"))
 
-            let screen: Screen = value("--screen") == "settings" ? .settings : value("--screen") == "add" ? .addTask : .home
+            let screen: Screen = value("--screen") == "add" ? .addTask : .home
             let tab = MainTab(rawValue: value("--tab") ?? "") ?? .limits
             let stats = StatsTab(rawValue: value("--stats") ?? "") ?? .limits
             let range = StatsRange(rawValue: value("--range") ?? "") ?? .day

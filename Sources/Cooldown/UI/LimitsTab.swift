@@ -42,7 +42,7 @@ struct LimitsTab: View {
         } else if let error = store.limitError {
             Well {
                 Note(symbol: "exclamationmark.triangle.fill", text: error, color: Theme.amber)
-                Button("Открыть настройки") { screen = .settings }.buttonStyle(.link)
+                Button("Открыть настройки") { SettingsWindow.shared.show(store.id == .codex ? .codex : .claude) }.buttonStyle(.link)
             }
         } else {
             HStack(spacing: 8) {

@@ -68,7 +68,7 @@ permissions don't mix: `echo 'COOLDOWN_BUNDLE_ID=com.yourname.cooldown' > local.
 
 ## First launch
 
-Cooldown shows what is missing under Settings → Readiness:
+Cooldown shows what is missing in its Settings window (⌘, or the gear) → General → Readiness:
 - **Notifications** — for cards when you are away from the Mac.
 - **Accessibility** — to see that Claude Desktop is writing an answer, and to continue chats.
 - **Agent hooks** (optional) — instant events from Codex and Claude Code. Codex asks once to
