@@ -243,6 +243,7 @@ final class AppModel: ObservableObject {
         AutoResume.shared.onChange = { rows in AppModel.shared.resumeChanged(rows) }
         AutoResume.shared.start()
         CodexRequestWatcher.shared.start()
+        ResetReminder.schedule()
         ClaudeDesktopWatcher.shared.start()
         // Keep the hook script current if hooks are installed (it is tiny and versioned with the app).
         if AgentHooks.Agent.allCases.contains(where: { AgentHooks.status($0) != .off }) { try? AgentHooks.writeScript() }
@@ -363,6 +364,16 @@ final class AppModel: ObservableObject {
             ClaudeSender.rememberChatForReset()
         }
         guard Settings.notifyThresholds else { return }
+        // Spent: say when work can go on, at the Mac too — that is the useful part.
+        if session.remainingPercent < 0.5 || fresh.limitReached == true {
+            let key = "out-\(fresh.provider.rawValue)-\(Int(session.resetsAt.timeIntervalSince1970))"
+            if !Settings.notifiedKeys.contains(key) {
+                Settings.notifiedKeys += [key]
+                Notifier.shared.post(id: key, title: "Лимит \(name) исчерпан", body: "Снова можно работать в \(Format.clock(session.resetsAt)).",
+                                     toast: ToastCatalog.limitOut(fresh.provider, reset: session.resetsAt))
+            }
+            return
+        }
         // At the Mac the percentages in the menu bar already say this; only notify when away.
         if ToastController.shared.canShow { return }
         let remaining = session.remainingPercent

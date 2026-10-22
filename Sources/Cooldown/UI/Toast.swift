@@ -18,10 +18,14 @@ enum ToastAction: Equatable {
     case installRelease
     case openReleasePage
     case openFeed
+    case remindBeforeReset(ProviderID, Date)
+    case openFile(URL)
 
     var title: String {
         switch self {
         case .openFeed: return "Посмотреть"
+        case .remindBeforeReset: return "Напомнить за 10 мин"
+        case .openFile: return "Открыть отчёт"
         case .openSchedule: return "Отложить задачу"
         case .installUpdate: return "Перезапустить"
         case .installRelease: return "Обновить"
@@ -101,6 +105,17 @@ enum ToastCatalog {
                             body: critical ? "Лимит на 5 часов почти кончился. Сброс в \(Format.time(reset))."
                                            : "Лимит на 5 часов заканчивается. Сброс в \(Format.time(reset)).",
                             actions: [.openPanel], life: .auto(critical ? 14 : 9))
+    }
+
+    /// The limit is spent: when work can go on, with a reminder and (Codex) a task for that moment.
+    static func limitOut(_ provider: ProviderID, reset: Date) -> ToastContent {
+        var actions: [ToastAction] = []
+        if ResetReminder.possible(before: reset) { actions.append(.remindBeforeReset(provider, reset)) }
+        if provider == .codex { actions.append(.openSchedule) }
+        return ToastContent(key: "out-\(provider.rawValue)", kind: .warning, provider: provider,
+                            title: "Лимит \(provider.displayName) исчерпан",
+                            body: "Снова можно работать в \(Format.clock(reset)) — через \(Format.duration(max(60, reset.timeIntervalSinceNow))).",
+                            actions: actions.isEmpty ? [.openPanel] : actions, life: .sticky)
     }
 
     static func limitReset(_ provider: ProviderID, demo: Bool = false) -> ToastContent {
@@ -252,6 +267,9 @@ final class ToastController: ObservableObject {
         if let card = cards.first(where: { $0.content.key == content.key }) {
             card.content = content
             card.model.content = content
+            card.model.busy = false
+            card.model.problem = nil
+            DispatchQueue.main.async { ToastController.shared.resize(card) }
             startTimer(card)
             relayout(animated: true)
             return
@@ -398,6 +416,10 @@ final class ToastController: ObservableObject {
             StatusController.shared?.open()
         case .openFeed:
             StatusController.shared?.open(to: .feed)
+        case .remindBeforeReset(let provider, let reset):
+            ResetReminder.set(provider, reset: reset)
+        case .openFile(let url):
+            NSWorkspace.shared.open(url)
         case .installUpdate:
             UpdateWatch.install()
         case .installRelease:

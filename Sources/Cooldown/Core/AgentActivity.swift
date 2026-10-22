@@ -159,7 +159,8 @@ final class AgentActivity: ObservableObject {
     /// `startUnknown`: the source only saw the turn midway (Cooldown started during it), so its
     /// own start time says nothing about how long the turn ran.
     func finished(_ provider: ProviderID, key: String, title: String, message: String, duration: TimeInterval?,
-                  source: Source, opener: Opener, at date: Date = Date(), startUnknown: Bool = false, tokens: Int? = nil) {
+                  source: Source, opener: Opener, at date: Date = Date(), startUnknown: Bool = false, tokens: Int? = nil,
+                  project: String? = nil, model: String? = nil) {
         let id = "\(provider.rawValue):\(key)"
         let session = sessions.removeValue(forKey: id)
         changed()
@@ -199,8 +200,14 @@ final class AgentActivity: ObservableObject {
         let summary = cost.joined(separator: " · ")
         var detail = text.isEmpty ? (minutes.map { "Работал \($0) мин." } ?? "Готово.") : String(text.prefix(200))
         if !summary.isEmpty && !text.isEmpty { detail += "\n" + summary }
+        // Codex's own index knows each conversation's folder, model and reasoning level.
+        var project = project, model = model
+        if provider == .codex, let thread = Self.thread(opener), let info = CodexThreadIndex.thread(id: thread) {
+            if project == nil, !info.cwd.isEmpty { project = info.cwd }
+            if model == nil, !info.model.isEmpty { model = info.effort.isEmpty ? info.model : "\(info.model) · \(info.effort)" }
+        }
         TurnLog.shared.add(TurnLog.Turn(provider: provider, title: name, ended: date, seconds: length, tokens: tokens,
-                                        limitShare: limitShare, thread: Self.thread(opener)))
+                                        limitShare: limitShare, thread: Self.thread(opener), project: project, model: model))
         DailyLog.shared.countFinished(provider, at: date)
         EventLog.shared.add(CooldownEvent(kind: .finished, provider: provider, title: "\(provider.displayName) закончил «\(name)»",
                                           body: detail, threadId: Self.thread(opener)))

@@ -58,7 +58,7 @@ final class SettingsNavigation: ObservableObject {
 }
 
 enum SettingsPane: String, CaseIterable, Identifiable {
-    case general, menubar, notifications, quiet, codex, claude, updates, data, about
+    case general, menubar, notifications, quiet, codex, claude, updates, data, diagnostics, about
 
     var id: String { rawValue }
 
@@ -72,6 +72,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .claude: return "Claude"
         case .updates: return "Обновления"
         case .data: return "Статистика"
+        case .diagnostics: return "Диагностика"
         case .about: return "О Cooldown"
         }
     }
@@ -86,6 +87,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .claude: return "Источники лимитов, Claude Desktop и Claude Code"
         case .updates: return "Новые версии с GitHub"
         case .data: return "История, таблица и демо"
+        case .diagnostics: return "Проверить, что всё работает"
         case .about: return "Версия, лицензия и благодарности"
         }
     }
@@ -100,6 +102,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .claude: return "sparkle"
         case .updates: return "arrow.down.circle.fill"
         case .data: return "chart.bar.fill"
+        case .diagnostics: return "stethoscope"
         case .about: return "info.circle.fill"
         }
     }
@@ -114,6 +117,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .claude: return Color(red: 0.86, green: 0.47, blue: 0.32)
         case .updates: return Color(red: 0.2, green: 0.72, blue: 0.4)
         case .data: return Color(red: 0.62, green: 0.36, blue: 0.9)
+        case .diagnostics: return Color(red: 0.1, green: 0.66, blue: 0.7)
         case .about: return Color(white: 0.45)
         }
     }
@@ -129,6 +133,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .claude: return "claude code desktop usage аккаунт строка статуса хуки окно"
         case .updates: return "версия github обновить скачивать"
         case .data: return "csv таблица экспорт пересобрать демо iphone home assistant"
+        case .diagnostics: return "проверка отчёт ошибки не работает тест"
         case .about: return "лицензия mit благодарности выйти"
         }
     }
@@ -214,6 +219,7 @@ private struct PaneView: View {
             case .claude: ClaudePane()
             case .updates: UpdatesPane()
             case .data: DataPane()
+            case .diagnostics: DiagnosticsPane()
             case .about: AboutPane()
             }
         }
@@ -734,6 +740,85 @@ private struct DataPane: View {
             message = "Сохранено: \(url.lastPathComponent)"
         } catch {
             message = "Не сохранилось: \(error.localizedDescription)"
+        }
+    }
+}
+
+// MARK: Диагностика
+
+private struct DiagnosticsPane: View {
+    @ObservedObject private var diagnostics = Diagnostics.shared
+    @State private var copied = false
+
+    var body: some View {
+        Section {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(headline).font(.headline)
+                    Footnote(text: "Cooldown по очереди пробует каждое звено: приложения, лимиты, хуки, окно Claude, уведомления, обновления и свои правила безопасности. Ничего не отправляет и не меняет.")
+                }
+                Spacer()
+                Button {
+                    diagnostics.run()
+                } label: {
+                    if diagnostics.running { ProgressView().controlSize(.small) } else { Text(diagnostics.checks.isEmpty ? "Проверить всё" : "Проверить снова") }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(diagnostics.running)
+            }
+            .padding(.vertical, 2)
+        }
+        if !diagnostics.checks.isEmpty {
+            Section {
+                ForEach(diagnostics.checks) { check in
+                    HStack(alignment: .top, spacing: 10) {
+                        icon(check.verdict).frame(width: 18).padding(.top, 1)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(check.title)
+                            if !check.detail.isEmpty { Footnote(text: check.detail) }
+                            if let advice = check.advice {
+                                Text(advice).font(.caption).foregroundStyle(Theme.amber).fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        Spacer()
+                        if let millis = check.millis, millis > 300 {
+                            Text(String(format: "%.1f с", Double(millis) / 1000)).font(.caption).monospacedDigit().foregroundStyle(.tertiary)
+                        }
+                    }
+                }
+            } footer: {
+                HStack {
+                    Spacer()
+                    Button(copied ? "Скопировано" : "Скопировать отчёт") {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(diagnostics.report, forType: .string)
+                        copied = true
+                    }
+                    .disabled(diagnostics.running)
+                }
+            }
+        }
+    }
+
+    private var headline: String {
+        if diagnostics.running { return "Проверяю…" }
+        guard diagnostics.finished != nil else { return "Проверка всех связей" }
+        let summary = diagnostics.summary
+        if summary.failed == 0 && summary.warnings == 0 { return "Всё работает" }
+        var parts: [String] = []
+        if summary.failed > 0 { parts.append("не работает: \(summary.failed)") }
+        if summary.warnings > 0 { parts.append("стоит посмотреть: \(summary.warnings)") }
+        return parts.joined(separator: ", ").capitalizedFirst
+    }
+
+    @ViewBuilder
+    private func icon(_ verdict: Diagnostics.Verdict) -> some View {
+        switch verdict {
+        case .running: ProgressView().controlSize(.mini)
+        case .ok: Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.mint)
+        case .warning: Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Theme.amber)
+        case .failed: Image(systemName: "xmark.octagon.fill").foregroundStyle(Theme.signal)
+        case .skipped: Image(systemName: "minus.circle").foregroundStyle(.secondary)
         }
     }
 }

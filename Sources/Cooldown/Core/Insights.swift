@@ -133,7 +133,10 @@ enum Insights {
         let top = Stats.projects(model.codex.buckets + model.claude.buckets, .week, now: now).first
         if let top { parts.append("больше всего — «\(top.name)»") }
         guard !parts.isEmpty else { return }
+        // The week as a picture to keep or share.
+        let report = WeeklyReport.render(now: now)
         ToastController.shared.show(ToastContent(key: "week", kind: .info, provider: nil, title: "Итоги недели",
-                                                 body: parts.joined(separator: ", ") + ".", actions: [.openPanel], life: .sticky))
+                                                 body: parts.joined(separator: ", ") + ".",
+                                                 actions: report.map { [.openFile($0), .openPanel] } ?? [.openPanel], life: .sticky))
     }
 }

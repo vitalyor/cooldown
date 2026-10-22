@@ -12,6 +12,9 @@ enum CodexThreadIndex {
         let rolloutPath: String
         let isUser: Bool
         let updatedAt: Date
+        var cwd: String = ""
+        var model: String = ""
+        var effort: String = ""
     }
 
     /// The newest state database (the number in its name goes up with Codex's schema).
@@ -113,7 +116,8 @@ enum CodexThreadIndex {
         defer { sqlite3_close(db) }
         sqlite3_busy_timeout(db, 500)
         let sql = """
-            SELECT id, COALESCE(NULLIF(name, ''), title), rollout_path, COALESCE(thread_source, ''), updated_at
+            SELECT id, COALESCE(NULLIF(name, ''), title), rollout_path, COALESCE(thread_source, ''), updated_at,
+                   cwd, COALESCE(model, ''), COALESCE(reasoning_effort, '')
             FROM threads \(tail)
             """
         var statement: OpaquePointer?
@@ -126,7 +130,8 @@ enum CodexThreadIndex {
             let source = text(3)
             result.append(Thread(id: text(0).lowercased(), title: text(1), rolloutPath: text(2),
                                  isUser: source.isEmpty || source == "user",
-                                 updatedAt: Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(statement, 4)))))
+                                 updatedAt: Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(statement, 4))),
+                                 cwd: text(5), model: text(6), effort: text(7)))
         }
         return result
     }

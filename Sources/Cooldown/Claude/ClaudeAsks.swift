@@ -144,6 +144,19 @@ final class ClaudeAsks {
                   let options = question["options"] as? [[String: Any]], options.indices.contains(index),
                   let label = options[index]["label"] as? String else { throw ResumeError.refused("Вариант ответа не найден.") }
             decision = ["behavior": "allow", "updatedInput": ["questions": toolInput["questions"] ?? [Any](), "answers": [text: label]]]
+        case let picks where picks.hasPrefix("answers:") && tool == "AskUserQuestion":
+            let indices = picks.dropFirst("answers:".count).split(separator: ",").compactMap { Int($0) }
+            let questions = toolInput["questions"] as? [[String: Any]] ?? []
+            guard indices.count == questions.count else { throw ResumeError.refused("Ответы не совпадают с вопросами.") }
+            var answers: [String: String] = [:]
+            for (question, index) in zip(questions, indices) {
+                guard let text = question["question"] as? String, let options = question["options"] as? [[String: Any]],
+                      options.indices.contains(index), let label = options[index]["label"] as? String else {
+                    throw ResumeError.refused("Вариант ответа не найден.")
+                }
+                answers[text] = label
+            }
+            decision = ["behavior": "allow", "updatedInput": ["questions": toolInput["questions"] ?? [Any](), "answers": answers]]
         default:
             throw ResumeError.refused("Такой ответ здесь не поддерживается.")
         }
@@ -198,6 +211,21 @@ final class ClaudeAsks {
                 }
                 choices.append(RequestChoice(id: "open", title: "Свой ответ там", role: .open))
                 return make("Claude спрашивает", question["question"] as? String, choices)
+            }
+            let steps = questions.map { question -> RequestStep? in
+                guard JSON.bool(question["multiSelect"]) != true, let options = question["options"] as? [[String: Any]], !options.isEmpty else { return nil }
+                var choices = options.enumerated().compactMap { index, option -> RequestChoice? in
+                    guard let label = option["label"] as? String else { return nil }
+                    let note = (option["description"] as? String).flatMap { $0.isEmpty ? nil : " — " + $0 } ?? ""
+                    return RequestChoice(id: "option:\(index)", title: label + note)
+                }
+                choices.append(RequestChoice(id: "open", title: "Ответить там", role: .open))
+                return RequestStep(headline: "Claude спрашивает", detail: question["question"] as? String, choices: choices)
+            }
+            if questions.count > 1, steps.allSatisfy({ $0 != nil }) {
+                var request = make("Claude спрашивает", nil, [open])
+                request.steps = steps.compactMap { $0 }
+                return request
             }
             let text = questions.compactMap { $0["question"] as? String }.joined(separator: "\n")
             return make(questions.count > 1 ? "Claude задал \(questions.count) вопроса" : "Claude спрашивает", text, [open])

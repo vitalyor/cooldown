@@ -272,6 +272,18 @@ final class HookEventReader {
 
     // MARK: Claude Code
 
+    /// The model of the session's latest answer, from the end of its transcript.
+    nonisolated static func lastModel(_ path: String?) -> String? {
+        guard let path, let handle = FileHandle(forReadingAtPath: path) else { return nil }
+        defer { try? handle.close() }
+        let size = (try? handle.seekToEnd()) ?? 0
+        try? handle.seek(toOffset: size > 65536 ? size - 65536 : 0)
+        guard let data = try? handle.readToEnd(), let text = String(data: data, encoding: .utf8) else { return nil }
+        guard let range = text.range(of: #""model":"(claude-[^"]+)""#, options: [.regularExpression, .backwards]) else { return nil }
+        let match = String(text[range]).replacingOccurrences(of: #""model":""#, with: "").dropLast()
+        return String(match)
+    }
+
     private func claude(_ p: [String: Any], at time: Date) {
         guard p["agent_id"] == nil, let session = p["session_id"] as? String else { return }   // subagents: the main turn speaks
         // Cooldown's own /usage reads run Claude Code too; they are not the person's work.
@@ -285,7 +297,8 @@ final class HookEventReader {
             activity.started(.claude, key: session, title: info.title, source: .hook, at: time)
         case "Stop":
             activity.finished(.claude, key: session, title: info.title, message: p["last_assistant_message"] as? String ?? "",
-                              duration: nil, source: .hook, opener: opener, at: time)
+                              duration: nil, source: .hook, opener: opener, at: time,
+                              project: p["cwd"] as? String, model: Self.lastModel(p["transcript_path"] as? String))
         case "StopFailure":
             let reason = (p["error"] as? String) ?? (p["error_message"] as? String) ?? (p["reason"] as? String) ?? ""
             activity.failed(.claude, key: session, title: info.title, reason: reason, opener: opener)

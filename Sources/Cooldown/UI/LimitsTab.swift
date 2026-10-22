@@ -26,6 +26,9 @@ struct LimitsTab: View {
             VStack(alignment: .leading, spacing: 14) {
                 HeroRings(snapshot: snapshot, tint: store.tint, now: now, render: render)
                 if !snapshot.extras.isEmpty { ExtraWindows(windows: snapshot.extras, tint: store.tint, now: now) }
+                if let session = snapshot.session, !session.isExpired(at: now), session.remaining(at: now) < 0.5 {
+                    ResetPlan(provider: store.id, reset: session.resetsAt, now: now, screen: $screen)
+                }
                 if let session = snapshot.session, !session.isExpired(at: now) {
                     ForecastWell(session: session, weekly: snapshot.weekly, samples: store.samples, tint: store.tint, now: now)
                 } else if snapshot.session != nil {
@@ -55,6 +58,48 @@ struct LimitsTab: View {
 }
 
 /// Two rings, 5 hours outside and the week inside, filling up when the window opens.
+/// The limit is spent: when work can go on, and what to set up for that moment.
+private struct ResetPlan: View {
+    let provider: ProviderID
+    let reset: Date
+    let now: Date
+    @Binding var screen: Screen
+    @State private var reminder: Date?
+
+    var body: some View {
+        Well {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Image(systemName: "clock.badge.checkmark").foregroundStyle(Theme.tint(for: provider))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Снова можно работать в \(Format.clock(reset))").font(.system(size: 14, weight: .semibold))
+                    Text("Через \(Format.duration(max(60, reset.timeIntervalSince(now)))).").font(.callout).foregroundStyle(.secondary)
+                }
+            }
+            HStack(spacing: 8) {
+                if let reminder {
+                    Button { ResetReminder.cancel(provider); self.reminder = nil } label: {
+                        Label("Напомню в \(Format.clock(reminder))", systemImage: "bell.fill")
+                    }
+                    .buttonStyle(.glass)
+                    .help("Нажмите, чтобы отменить")
+                } else if ResetReminder.possible(before: reset) {
+                    Button {
+                        ResetReminder.set(provider, reset: reset)
+                        reminder = ResetReminder.when(provider)
+                    } label: { Label("Напомнить за 10 минут", systemImage: "bell") }
+                    .buttonStyle(.glass)
+                }
+                if provider == .codex {
+                    Button { screen = .schedule } label: { Label("Задача на момент сброса", systemImage: "calendar.badge.clock") }
+                        .buttonStyle(.glass)
+                }
+            }
+            .font(.callout)
+        }
+        .onAppear { reminder = ResetReminder.when(provider) }
+    }
+}
+
 private struct HeroRings: View {
     @EnvironmentObject private var model: AppModel
     let snapshot: LimitSnapshot
