@@ -52,13 +52,13 @@ final class GitHubUpdater: ObservableObject {
                   let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
                   let tag = object["tag_name"] as? String,
                   let page = (object["html_url"] as? String).flatMap(URL.init(string:)) else {
-                if manual { state = "Не удалось узнать о новых версиях." }
+                if manual { state = L("Не удалось узнать о новых версиях.") }
                 return
             }
             let version = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
             guard Self.isNewer(version, than: Self.current) else {
                 available = nil
-                if manual { state = "Установлена последняя версия \(Self.current)." }
+                if manual { state = L("Установлена последняя версия %@.", "\(Self.current)") }
                 return
             }
             let assets = object["assets"] as? [[String: Any]] ?? []
@@ -72,7 +72,7 @@ final class GitHubUpdater: ObservableObject {
             state = nil
             if shouldAnnounce { announce(release) }
         } catch {
-            if manual { state = "Нет связи с GitHub." }
+            if manual { state = L("Нет связи с GitHub.") }
         }
     }
 
@@ -91,8 +91,8 @@ final class GitHubUpdater: ObservableObject {
                 guard prepared?.version == release.version, offered != release.version else { return }
                 offered = release.version
                 ToastController.shared.show(ToastContent(key: "github-update", kind: .info, provider: nil,
-                                                         title: "Cooldown \(release.version) загружена",
-                                                         body: "Проверена и готова. Установка займёт пару секунд; настройки и история сохранятся.",
+                                                         title: L("Cooldown %@ загружена", "\(release.version)"),
+                                                         body: L("Проверена и готова. Установка займёт пару секунд; настройки и история сохранятся."),
                                                          actions: [.installRelease, .openReleasePage], life: .sticky))
             }
             return
@@ -109,8 +109,8 @@ final class GitHubUpdater: ObservableObject {
         guard offered != release.version else { return }
         offered = release.version
         ToastController.shared.show(ToastContent(key: "github-update", kind: .info, provider: nil,
-                                                 title: "Доступна версия Cooldown \(release.version)",
-                                                 body: "Сейчас установлена \(Self.current). Обновление займёт несколько секунд; настройки и история сохранятся.",
+                                                 title: L("Доступна версия Cooldown %@", "\(release.version)"),
+                                                 body: L("Сейчас установлена %@. Обновление займёт несколько секунд; настройки и история сохранятся.", "\(Self.current)"),
                                                  actions: [.installRelease, .openReleasePage], life: .sticky))
     }
 
@@ -120,9 +120,9 @@ final class GitHubUpdater: ObservableObject {
         case checksum, signature, unpack
         var errorDescription: String? {
             switch self {
-            case .checksum: return "Файл повреждён при загрузке (не совпала контрольная сумма)."
-            case .signature: return "Новая версия подписана не тем же сертификатом — не устанавливаю."
-            case .unpack: return "Не удалось распаковать новую версию."
+            case .checksum: return L("Файл повреждён при загрузке (не совпала контрольная сумма).")
+            case .signature: return L("Новая версия подписана не тем же сертификатом — не устанавливаю.")
+            case .unpack: return L("Не удалось распаковать новую версию.")
             }
         }
     }
@@ -138,18 +138,18 @@ final class GitHubUpdater: ObservableObject {
             } else {
                 app = try await prepare(release)
             }
-            if dryRun { state = "Проверено: \(release.version) готова к установке."; return }
-            state = "Устанавливаю \(release.version)…"
+            if dryRun { state = L("Проверено: %@ готова к установке.", "\(release.version)"); return }
+            state = L("Устанавливаю %@…", "\(release.version)")
             Self.swap(to: app)
         } catch {
-            state = "Обновление не установлено: \(error.localizedDescription)"
-            ToastController.shared.show(ToastCatalog.failure("Обновление не установлено", error.localizedDescription))
+            state = L("Обновление не установлено: %@", "\(error.localizedDescription)")
+            ToastController.shared.show(ToastCatalog.failure(L("Обновление не установлено"), error.localizedDescription))
         }
     }
 
     /// Downloads the release and checks it (checksum, same signature); returns the new app.
     private func prepare(_ release: Release) async throws -> URL {
-        state = "Загружаю \(release.version)…"
+        state = L("Загружаю %@…", "\(release.version)")
         do {
             let folder = FileManager.default.temporaryDirectory.appendingPathComponent("cooldown-update-\(UUID().uuidString)")
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -174,7 +174,7 @@ final class GitHubUpdater: ObservableObject {
             state = nil
             return app
         } catch {
-            state = "Не удалось загрузить \(release.version): \(error.localizedDescription)"
+            state = L("Не удалось загрузить %@: %@", "\(release.version)", "\(error.localizedDescription)")
             throw error
         }
     }
@@ -214,11 +214,11 @@ final class GitHubUpdater: ObservableObject {
         guard let from = UserDefaults.standard.string(forKey: "updatedFrom") else { return }
         UserDefaults.standard.removeObject(forKey: "updatedFrom")
         guard from != Self.current else { return }
-        EventLog.shared.add(CooldownEvent(kind: .info, provider: nil, title: "Cooldown обновлён до \(Self.current)", body: "Была версия \(from)."))
+        EventLog.shared.add(CooldownEvent(kind: .info, provider: nil, title: L("Cooldown обновлён до %@", "\(Self.current)"), body: L("Была версия %@.", "\(from)")))
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
             ToastController.shared.show(ToastContent(key: "updated", kind: .info, provider: nil,
-                                                     title: "Cooldown обновлён до \(Self.current)",
-                                                     body: "Что нового — на странице релиза.", actions: [.openReleasePage], life: .auto(10)))
+                                                     title: L("Cooldown обновлён до %@", "\(Self.current)"),
+                                                     body: L("Что нового — на странице релиза."), actions: [.openReleasePage], life: .auto(10)))
         }
     }
 

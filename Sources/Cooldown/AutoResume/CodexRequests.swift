@@ -132,7 +132,7 @@ final class CodexRequestWatcher: @unchecked Sendable {
             var item = pollfd(fd: connection.descriptor, events: Int16(POLLIN), revents: 0)
             let ready = poll(&item, 1, 1000)
             if ready > 0 { try connection.read(deadline: Date().addingTimeInterval(8)) }
-            if ready < 0 && errno != EINTR { throw CodexIPCError.connection("Соединение с приложением разорвано") }
+            if ready < 0 && errno != EINTR { throw CodexIPCError.connection(L("Соединение с приложением разорвано")) }
         }
         for (id, entry) in followed { try? connection.setFollowing(id, owner: entry.owner, false) }
     }
@@ -168,7 +168,7 @@ final class CodexRequestWatcher: @unchecked Sendable {
     private var firstSeen: [String: Date] = [:]
 
     private func evaluate(_ thread: String, _ state: [String: Any]) {
-        let title = (state["title"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? CodexThreadIndex.thread(id: thread)?.title ?? "Диалог Codex"
+        let title = (state["title"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? CodexThreadIndex.thread(id: thread)?.title ?? L("Диалог Codex")
         let requests = state["requests"] as? [Any] ?? []
         var keys = Set<String>()
         var cards: [(AgentRequest, [String: Any])] = []
@@ -219,12 +219,12 @@ final class CodexRequestWatcher: @unchecked Sendable {
     static func card(_ request: [String: Any], thread: String, key: String, title: String) -> AgentRequest? {
         let method = request["method"] as? String ?? ""
         let params = request["params"] as? [String: Any] ?? [:]
-        let open = RequestChoice(id: "open", title: "Открыть чат", role: .open)
-        let approve = [RequestChoice(id: "accept", title: "Разрешить", role: .allow),
-                       RequestChoice(id: "acceptForSession", title: "На всю сессию", role: .allow),
-                       RequestChoice(id: "decline", title: "Отклонить", role: .decline),
+        let open = RequestChoice(id: "open", title: L("Открыть чат"), role: .open)
+        let approve = [RequestChoice(id: "accept", title: L("Разрешить"), role: .allow),
+                       RequestChoice(id: "acceptForSession", title: L("На всю сессию"), role: .allow),
+                       RequestChoice(id: "decline", title: L("Отклонить"), role: .decline),
                        open,
-                       RequestChoice(id: "cancel", title: "Отклонить и остановить", role: .decline, extra: true)]
+                       RequestChoice(id: "cancel", title: L("Отклонить и остановить"), role: .decline, extra: true)]
         func make(_ headline: String, _ detail: String?, _ choices: [RequestChoice]) -> AgentRequest {
             AgentRequest(key: key, provider: .codex, chat: "«\(title)»", headline: headline, detail: detail,
                          choices: choices, appBundleIDs: [CodexApp.bundleId], threadId: thread)
@@ -235,18 +235,18 @@ final class CodexRequestWatcher: @unchecked Sendable {
         }
         switch method {
         case "item/commandExecution/requestApproval":
-            let cwd = (params["cwd"] as? String).map { "в " + ($0 as NSString).abbreviatingWithTildeInPath }
+            let cwd = (params["cwd"] as? String).map { L("в ") + ($0 as NSString).abbreviatingWithTildeInPath }
             let network = (params["networkApprovalContext"] as? [String: Any])?["host"] as? String
-            return make(network != nil ? "Codex просит доступ в сеть" : "Codex хочет выполнить команду",
-                        lines([params["command"] as? String, network.map { "сеть: \($0)" }, cwd, params["reason"] as? String]), approve)
+            return make(network != nil ? L("Codex просит доступ в сеть") : L("Codex хочет выполнить команду"),
+                        lines([params["command"] as? String, network.map { L("сеть: %@", "\($0)") }, cwd, params["reason"] as? String]), approve)
         case "item/fileChange/requestApproval":
-            let root = (params["grantRoot"] as? String).map { "запись в " + ($0 as NSString).abbreviatingWithTildeInPath }
-            return make("Codex хочет изменить файлы", lines([root, params["reason"] as? String]), approve)
+            let root = (params["grantRoot"] as? String).map { L("запись в ") + ($0 as NSString).abbreviatingWithTildeInPath }
+            return make(L("Codex хочет изменить файлы"), lines([root, params["reason"] as? String]), approve)
         case "item/permissions/requestApproval":
-            return make("Codex просит дополнительные права", lines([describe(params["permissions"]), params["reason"] as? String]),
-                        [RequestChoice(id: "grant", title: "Разрешить", role: .allow),
-                         RequestChoice(id: "grantSession", title: "На всю сессию", role: .allow),
-                         RequestChoice(id: "deny", title: "Отклонить", role: .decline), open])
+            return make(L("Codex просит дополнительные права"), lines([describe(params["permissions"]), params["reason"] as? String]),
+                        [RequestChoice(id: "grant", title: L("Разрешить"), role: .allow),
+                         RequestChoice(id: "grantSession", title: L("На всю сессию"), role: .allow),
+                         RequestChoice(id: "deny", title: L("Отклонить"), role: .decline), open])
         case "item/tool/requestUserInput":
             let questions = params["questions"] as? [[String: Any]] ?? []
             // One question with ready answers fits a card; a secret one or a form never does.
@@ -257,8 +257,8 @@ final class CodexRequestWatcher: @unchecked Sendable {
                     let note = (option["description"] as? String).flatMap { $0.isEmpty ? nil : " — " + $0 } ?? ""
                     return RequestChoice(id: "option:\(index)", title: label + note)
                 }
-                choices.append(RequestChoice(id: "open", title: JSON.bool(question["isOther"]) == true ? "Свой ответ в чате" : "Открыть чат", role: .open))
-                return make("Codex спрашивает", question["question"] as? String, choices)
+                choices.append(RequestChoice(id: "open", title: JSON.bool(question["isOther"]) == true ? L("Свой ответ в чате") : L("Открыть чат"), role: .open))
+                return make(L("Codex спрашивает"), question["question"] as? String, choices)
             }
             // Several questions, each with ready answers: one after another on the same card.
             let steps = questions.map { question -> RequestStep? in
@@ -268,16 +268,16 @@ final class CodexRequestWatcher: @unchecked Sendable {
                     let note = (option["description"] as? String).flatMap { $0.isEmpty ? nil : " — " + $0 } ?? ""
                     return RequestChoice(id: "option:\(index)", title: label + note)
                 }
-                choices.append(RequestChoice(id: "open", title: "Ответить в чате", role: .open))
-                return RequestStep(headline: "Codex спрашивает", detail: question["question"] as? String, choices: choices)
+                choices.append(RequestChoice(id: "open", title: L("Ответить в чате"), role: .open))
+                return RequestStep(headline: L("Codex спрашивает"), detail: question["question"] as? String, choices: choices)
             }
             if questions.count > 1, steps.allSatisfy({ $0 != nil }) {
-                var request = make("Codex спрашивает", nil, [open])
+                var request = make(L("Codex спрашивает"), nil, [open])
                 request.steps = steps.compactMap { $0 }
                 return request
             }
             let text = questions.compactMap { $0["question"] as? String }.joined(separator: "\n")
-            return make(questions.count > 1 ? "Codex задал \(questions.count) вопроса" : "Codex спрашивает", text.isEmpty ? nil : text, [open])
+            return make(questions.count > 1 ? L("Codex задал %@ вопроса", "\(questions.count)") : L("Codex спрашивает"), text.isEmpty ? nil : text, [open])
         case "mcpServer/elicitation/request":
             let server = params["serverName"] as? String ?? "MCP"
             let message = params["message"] as? String
@@ -285,31 +285,31 @@ final class CodexRequestWatcher: @unchecked Sendable {
             let schema = params["requestedSchema"] as? [String: Any]
             let fields = (schema?["properties"] as? [String: Any])?.isEmpty ?? true
             if fields && params["mode"] as? String != "url" {
-                return make("\(server) просит подтверждения", message,
-                            [RequestChoice(id: "elicit:accept", title: "Подтвердить", role: .allow),
-                             RequestChoice(id: "elicit:decline", title: "Отклонить", role: .decline), open])
+                return make(L("%@ просит подтверждения", "\(server)"), message,
+                            [RequestChoice(id: "elicit:accept", title: L("Подтвердить"), role: .allow),
+                             RequestChoice(id: "elicit:decline", title: L("Отклонить"), role: .decline), open])
             }
-            return make("\(server) просит заполнить данные", message, [open])
+            return make(L("%@ просит заполнить данные", "\(server)"), message, [open])
         case "item/tool/call":
             // The app's own pickers (a folder to work in and the like); an orphaned one is not news.
             return nil
         default:
-            return make("Codex ждёт вашего действия", nil, [open])
+            return make(L("Codex ждёт вашего действия"), nil, [open])
         }
     }
 
     private static func describe(_ raw: Any?) -> String? {
         guard let profile = raw as? [String: Any] else { return nil }
         var parts: [String] = []
-        if JSON.bool((profile["network"] as? [String: Any])?["enabled"]) == true { parts.append("доступ в сеть") }
+        if JSON.bool((profile["network"] as? [String: Any])?["enabled"]) == true { parts.append(L("доступ в сеть")) }
         if let fs = profile["fileSystem"] as? [String: Any] {
-            for path in fs["write"] as? [String] ?? [] { parts.append("запись: " + (path as NSString).abbreviatingWithTildeInPath) }
-            for path in fs["read"] as? [String] ?? [] { parts.append("чтение: " + (path as NSString).abbreviatingWithTildeInPath) }
+            for path in fs["write"] as? [String] ?? [] { parts.append(L("запись: ") + (path as NSString).abbreviatingWithTildeInPath) }
+            for path in fs["read"] as? [String] ?? [] { parts.append(L("чтение: ") + (path as NSString).abbreviatingWithTildeInPath) }
             for entry in fs["entries"] as? [[String: Any]] ?? [] {
                 let access = entry["access"] as? String ?? ""
                 let pathObject = entry["path"] as? [String: Any]
                 let path = pathObject?["path"] as? String ?? pathObject?["pattern"] as? String ?? (pathObject?["value"] as? String) ?? "?"
-                parts.append("\(access == "write" ? "запись" : access == "read" ? "чтение" : access): \((path as NSString).abbreviatingWithTildeInPath)")
+                parts.append("\(access == "write" ? L("запись") : access == "read" ? L("чтение") : access): \((path as NSString).abbreviatingWithTildeInPath)")
             }
         }
         return parts.isEmpty ? nil : parts.joined(separator: "\n")
@@ -337,7 +337,7 @@ final class CodexRequestWatcher: @unchecked Sendable {
         let current = (state["requests"] as? [Any] ?? []).compactMap { $0 as? [String: Any] }
         guard let live = current.first(where: { JSON.canonical(["id": $0["id"] ?? NSNull()]) == JSON.canonical(["id": shown["id"] ?? NSNull()]) }),
               JSON.canonical(live) == JSON.canonical(shown) else {
-            throw CodexIPCError.app("Этот запрос уже закрыт или изменился.")
+            throw CodexIPCError.app(L("Этот запрос уже закрыт или изменился."))
         }
         let id = shown["id"] ?? NSNull()
         let params = shown["params"] as? [String: Any] ?? [:]
@@ -361,18 +361,18 @@ final class CodexRequestWatcher: @unchecked Sendable {
             guard let index = Int(option.dropFirst("option:".count)),
                   let question = (params["questions"] as? [[String: Any]])?.first, let qid = question["id"] as? String,
                   let options = question["options"] as? [[String: Any]], options.indices.contains(index),
-                  let label = options[index]["label"] as? String else { throw CodexIPCError.app("Вариант ответа не найден.") }
+                  let label = options[index]["label"] as? String else { throw CodexIPCError.app(L("Вариант ответа не найден.")) }
             command = "thread-follower-submit-user-input"
             base["response"] = ["answers": [qid: ["answers": [label]]]]
         case ("item/tool/requestUserInput", let picks) where picks.hasPrefix("answers:"):
             let indices = picks.dropFirst("answers:".count).split(separator: ",").compactMap { Int($0) }
             let questions = params["questions"] as? [[String: Any]] ?? []
-            guard indices.count == questions.count else { throw CodexIPCError.app("Ответы не совпадают с вопросами.") }
+            guard indices.count == questions.count else { throw CodexIPCError.app(L("Ответы не совпадают с вопросами.")) }
             var answers: [String: Any] = [:]
             for (question, index) in zip(questions, indices) {
                 guard let qid = question["id"] as? String, let options = question["options"] as? [[String: Any]],
                       options.indices.contains(index), let label = options[index]["label"] as? String else {
-                    throw CodexIPCError.app("Вариант ответа не найден.")
+                    throw CodexIPCError.app(L("Вариант ответа не найден."))
                 }
                 answers[qid] = ["answers": [label]]
             }
@@ -382,7 +382,7 @@ final class CodexRequestWatcher: @unchecked Sendable {
             command = "thread-follower-submit-mcp-server-elicitation-response"
             base["response"] = ["action": choice.id == "elicit:accept" ? "accept" : "decline", "content": NSNull()]
         default:
-            throw CodexIPCError.app("Такой ответ здесь не поддерживается.")
+            throw CodexIPCError.app(L("Такой ответ здесь не поддерживается."))
         }
         AgentActivity.trace("codex request \(thread): \(command) \(choice.id)")
         try connection.answer(command, params: base)

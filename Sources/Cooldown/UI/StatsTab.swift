@@ -11,14 +11,14 @@ struct StatsTabView: View {
         TabScroll(render: render) {
             YearActivityCard(provider: store.id, render: render).id(store.id)
             // Sections on their own row: four of them plus the period would not fit the window.
-            Picker("Раздел", selection: $tab) {
+            Picker(L("Раздел"), selection: $tab) {
                 ForEach(StatsTab.options(for: store.id)) { Text($0.title).tag($0) }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
             .frame(maxWidth: .infinity)
             HStack(spacing: 8) {
-                Text("Период").font(.caption).foregroundStyle(.secondary)
+                Text(L("Период")).font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Menu {
                     ForEach(StatsRange.allCases) { option in
@@ -34,7 +34,7 @@ struct StatsTabView: View {
 
             if case .scanning(let fraction) = store.scanState {
                 Well {
-                    Text("Собираю статистику из истории \(store.id.displayName)…").font(.caption).foregroundStyle(.secondary)
+                    Text(L("Собираю статистику из истории %@…", "\(store.id.displayName)")).font(.caption).foregroundStyle(.secondary)
                     ProgressView(value: fraction).controlSize(.small)
                 }
             }
@@ -52,10 +52,10 @@ struct StatsTabView: View {
 
             if !render {
                 Button { WeeklyReport.show() } label: {
-                    Label("Итоги недели картинкой", systemImage: "photo.on.rectangle.angled").frame(maxWidth: .infinity)
+                    Label(L("Итоги недели картинкой"), systemImage: "photo.on.rectangle.angled").frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.glass)
-                .help("Сохраняется в папку Cooldown и открывается в Просмотре: можно сохранить или отправить.")
+                .help(L("Сохраняется в папку Cooldown и открывается в Просмотре: можно сохранить или отправить."))
             }
         }
         .animation(.smooth(duration: 0.25), value: tab)
@@ -88,7 +88,7 @@ private func timeAxis(_ range: StatsRange) -> some AxisContent {
         AxisGridLine().foregroundStyle(.secondary.opacity(0.12))
         AxisValueLabel {
             if let date = value.as(Date.self) {
-                Text(range == .day ? Format.clock(date) : date.formatted(.dateTime.day().month(.abbreviated).locale(Locale(identifier: "ru_RU"))))
+                Text(range == .day ? Format.clock(date) : date.formatted(.dateTime.day().month(.abbreviated).locale(AppLanguage.locale)))
                     .font(.caption2)
             }
         }
@@ -126,12 +126,12 @@ private struct LimitsHistory: View {
 
         VStack(alignment: .leading, spacing: 12) {
             Figures(items: [
-                ("\(exhausted)", "\(Format.plural(exhausted, "раз", "раза", "раз")) лимит на 5 часов закончился"),
-                (peak.map { Format.percent($0) } ?? "—", "пик расхода недельного лимита"),
+                ("\(exhausted)", L("%@ лимит на 5 часов закончился", "\(Format.word(exhausted, L("раз|раза|раз")))")),
+                (peak.map { Format.percent($0) } ?? "—", L("пик расхода недельного лимита")),
             ])
             let times = Pace.exhaustions(store.samples, since: now.addingTimeInterval(-range.interval))
             if !times.isEmpty {
-                Label("Упирались в лимит: " + times.suffix(8).map { $0.formatted(.dateTime.weekday(.abbreviated).hour().minute().locale(Locale(identifier: "ru_RU"))) }.joined(separator: ", "),
+                Label(L("Упирались в лимит: ") + times.suffix(8).map { $0.formatted(.dateTime.weekday(.abbreviated).hour().minute().locale(AppLanguage.locale)) }.joined(separator: ", "),
                       systemImage: "exclamationmark.circle")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 4)
@@ -139,12 +139,12 @@ private struct LimitsHistory: View {
             Well {
                 if points.isEmpty {
                     EmptyChart(text: store.id == .claude
-                               ? "Истории лимитов Claude пока нет: она копится, пока лимиты подключены."
-                               : "За этот период данных о лимитах нет.")
+                               ? L("Истории лимитов Claude пока нет: она копится, пока лимиты подключены.")
+                               : L("За этот период данных о лимитах нет."))
                 } else {
                     Chart(points) { point in
-                        LineMark(x: .value("Время", point.t), y: .value("Потрачено", point.used), series: .value("Окно", point.series))
-                            .foregroundStyle(by: .value("Окно", point.series))
+                        LineMark(x: .value(L("Время"), point.t), y: .value(L("Потрачено"), point.used), series: .value(L("Окно"), point.series))
+                            .foregroundStyle(by: .value(L("Окно"), point.series))
                             .lineStyle(StrokeStyle(lineWidth: 1.6, lineJoin: .round))
                     }
                     .chartForegroundStyleScale([WindowKind.session.title: store.tint, WindowKind.weekly.title: Theme.mint])
@@ -177,25 +177,25 @@ private struct TokensHistory: View {
 
         VStack(alignment: .leading, spacing: 12) {
             if store.id == .claude {
-                Note(symbol: "info.circle", text: "Токены считаются по Claude Code на этом Mac. Чаты и Cowork в Claude Desktop расход токенов локально не хранят, их активность на вкладке «Диалоги».")
+                Note(symbol: "info.circle", text: L("Токены считаются по Claude Code на этом Mac. Чаты и Cowork в Claude Desktop расход токенов локально не хранят, их активность на вкладке «Диалоги»."))
                     .font(.caption)
                     .padding(.horizontal, 4)
             }
             if totals.total == 0 {
-                Well { EmptyChart(text: "\(range.phrase.capitalizedFirst) \(store.id == .claude ? "Claude Code" : store.id.displayName) не расходовал токены.") }
+                Well { EmptyChart(text: L("%@ %@ не расходовал токены.", "\(store.id == .claude ? "Claude Code" : store.id.displayName)", "\(range.phrase)")) }
             } else {
                 let cost = Pricing.cost(store.buckets, range, now: now)
                 Figures(items: [
-                    (Format.tokens(totals.total), "токенов \(range.phrase)"),
-                    (Format.percent(cachedShare), "входа прочитано из кеша"),
-                    ("≈" + Pricing.format(cost.dollars), "стоило бы по API"),
+                    (Format.tokens(totals.total), L("токенов %@", "\(range.phrase)")),
+                    (Format.percent(cachedShare), L("входа прочитано из кеша")),
+                    ("≈" + Pricing.format(cost.dollars), L("стоило бы по API")),
                 ])
-                Text("Оценка по ценам API на октябрь 2026" + (cost.partial ? ", без моделей с неизвестной ценой" : "") + ". По подписке вы платите только её цену.")
+                Text(L("Оценка по ценам API на октябрь 2026") + (cost.partial ? L(", без моделей с неизвестной ценой") : "") + L(". По подписке вы платите только её цену."))
                     .font(.caption2).foregroundStyle(.tertiary).padding(.horizontal, 4)
                 Well {
                     Chart(points) { point in
-                        BarMark(x: .value("Время", point.date, unit: range.unit), y: .value("Токены", point.value))
-                            .foregroundStyle(by: .value("Тип", point.kind))
+                        BarMark(x: .value(L("Время"), point.date, unit: range.unit), y: .value(L("Токены"), point.value))
+                            .foregroundStyle(by: .value(L("Тип"), point.kind))
                             .cornerRadius(2)
                     }
                     .chartForegroundStyleScale([Stats.cachedKind: store.tint.opacity(0.32),
@@ -232,15 +232,15 @@ private struct ChatsHistory: View {
                 let days = activity.days(range, now: now)
                 let activeDays = Set(items.map { Calendar.current.startOfDay(for: $0.date) }).count
                 Figures(items: [
-                    ("\(items.count)", "\(Format.plural(items.count, "диалог", "диалога", "диалогов")) \(range.phrase)"),
-                    ("\(activeDays)", "\(Format.plural(activeDays, "день", "дня", "дней")) с работой в Claude"),
+                    ("\(items.count)", "\(Format.word(items.count, L("диалог|диалога|диалогов"))) \(range.phrase)"),
+                    ("\(activeDays)", L("%@ с работой в Claude", "\(Format.word(activeDays, L("день|дня|дней")))")),
                 ])
                 Well {
                     if days.isEmpty {
-                        EmptyChart(text: "\(range.phrase.capitalizedFirst) диалогов не было.")
+                        EmptyChart(text: L("Диалогов %@ не было.", "\(range.phrase)"))
                     } else {
                         Chart(days) { day in
-                            BarMark(x: .value("Время", day.date, unit: range.unit), y: .value("Диалоги", day.conversations))
+                            BarMark(x: .value(L("Время"), day.date, unit: range.unit), y: .value(L("Диалоги"), day.conversations))
                                 .foregroundStyle(Theme.coral.gradient)
                                 .cornerRadius(3)
                         }
@@ -257,27 +257,27 @@ private struct ChatsHistory: View {
                 }
                 let models = activity.shares(range) { $0.model }
                 if !models.isEmpty {
-                    SectionTitle(text: "Модели")
-                    Well { ForEach(models) { row in ShareBar(row: row, color: Theme.coral, unit: "диал.") } }
+                    SectionTitle(text: L("Модели"))
+                    Well { ForEach(models) { row in ShareBar(row: row, color: Theme.coral, unit: L("диал.")) } }
                 }
                 let projects = activity.shares(range) { $0.project }
-                if projects.count > 1 || projects.first?.name != "Без проекта" {
-                    SectionTitle(text: "Проекты claude.ai")
-                    Well { ForEach(projects) { row in ShareBar(row: row, color: Theme.coral, unit: "диал.") } }
+                if projects.count > 1 || projects.first?.name != L("Без проекта") {
+                    SectionTitle(text: L("Проекты claude.ai"))
+                    Well { ForEach(projects) { row in ShareBar(row: row, color: Theme.coral, unit: L("диал.")) } }
                 }
-                Text("Обновлено \(Format.relative(activity.updated)). Считаются диалоги, которые менялись в этот период; сообщения не читаются.")
+                Text(L("Обновлено %@. Считаются диалоги, которые менялись в этот период; сообщения не читаются.", "\(Format.relative(activity.updated))"))
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .padding(.horizontal, 4)
             } else if web.isConnected {
                 Well {
-                    HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Загружаю активность claude.ai…").foregroundStyle(.secondary) }
+                    HStack(spacing: 8) { ProgressView().controlSize(.small); Text(L("Загружаю активность claude.ai…")).foregroundStyle(.secondary) }
                         .frame(maxWidth: .infinity, minHeight: 90)
                 }
                 .task { await web.refreshActivity() }
             } else {
                 Well {
-                    Text("Войдите в claude.ai на вкладке «Лимиты», и здесь появится активность Claude Desktop: диалоги по дням, модели и проекты.")
+                    Text(L("Войдите в claude.ai на вкладке «Лимиты», и здесь появится активность Claude Desktop: диалоги по дням, модели и проекты."))
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -301,9 +301,9 @@ private struct ProjectsBreakdown: View {
 
         VStack(alignment: .leading, spacing: 12) {
             if projects.isEmpty {
-                Well { EmptyChart(text: "\(range.phrase.capitalizedFirst) работы в \(store.id.displayName) не было.") }
+                Well { EmptyChart(text: L("Работы в %@ %@ не было.", "\(store.id.displayName)", "\(range.phrase)")) }
             } else {
-                SectionTitle(text: "Проекты")
+                SectionTitle(text: L("Проекты"))
                 Well {
                     ForEach(projects) { row in
                         let tasks = row.id == "_rest" ? [] : log.turns(store.id, project: row.name, since: now.addingTimeInterval(-range.interval))
@@ -323,11 +323,11 @@ private struct ProjectsBreakdown: View {
                         }
                     }
                 }
-                Text("Нажмите на проект, чтобы увидеть его задачи.")
+                Text(L("Нажмите на проект, чтобы увидеть его задачи."))
                     .font(.caption).foregroundStyle(.secondary).padding(.horizontal, 4)
                 let costly = TurnLog.shared.costliest(store.id, since: now.addingTimeInterval(-range.interval))
                 if !costly.isEmpty {
-                    SectionTitle(text: "Самые дорогие задачи")
+                    SectionTitle(text: L("Самые дорогие задачи"))
                     Well(padding: 12) {
                         ForEach(Array(costly.enumerated()), id: \.element.id) { index, turn in
                             if index > 0 { Divider().opacity(0.5) }
@@ -347,7 +347,7 @@ private struct ProjectsBreakdown: View {
                 }
                 let compared = log.models(store.id, since: now.addingTimeInterval(-range.interval))
                 if !compared.isEmpty {
-                    SectionTitle(text: "Сколько стоит задача")
+                    SectionTitle(text: L("Сколько стоит задача"))
                     Well(padding: 12) {
                         ForEach(Array(compared.enumerated()), id: \.element.id) { index, row in
                             if index > 0 { Divider().opacity(0.5) }
@@ -360,19 +360,19 @@ private struct ProjectsBreakdown: View {
                                 if let share = row.share {
                                     VStack(alignment: .trailing, spacing: 0) {
                                         Text(share < 1 ? "<1%" : Format.percent(share)).monospacedDigit().foregroundStyle(store.tint)
-                                        Text("лимита").font(.caption2).foregroundStyle(.secondary)
+                                        Text(L("лимита")).font(.caption2).foregroundStyle(.secondary)
                                     }
                                 }
                             }
                             .font(.callout)
                         }
                     }
-                    Text("В среднем на одну задачу: доля лимита на 5 часов, токены и время. Помогает выбрать модель под задачу.")
+                    Text(L("В среднем на одну задачу: доля лимита на 5 часов, токены и время. Помогает выбрать модель под задачу."))
                         .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, 4)
                 }
                 if !models.isEmpty {
-                    SectionTitle(text: "Модели")
+                    SectionTitle(text: L("Модели"))
                     Well {
                         ForEach(models) { row in
                             HStack {
@@ -387,7 +387,7 @@ private struct ProjectsBreakdown: View {
                             .font(.callout)
                         }
                     }
-                    Text("Доля работы каждой модели и сколько та же работа стоила бы по API.")
+                    Text(L("Доля работы каждой модели и сколько та же работа стоила бы по API."))
                         .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, 4)
                 }
@@ -398,16 +398,16 @@ private struct ProjectsBreakdown: View {
 
 extension ProjectsBreakdown {
     private func modelDetail(_ row: TurnLog.ModelRow) -> String {
-        var parts = ["\(row.count) \(Format.plural(row.count, "задача", "задачи", "задач"))"]
-        if let tokens = row.tokens, tokens > 0 { parts.append("\(Format.tokens(tokens)) токенов") }
+        var parts = [Format.count(row.count, L("задача|задачи|задач"))]
+        if let tokens = row.tokens, tokens > 0 { parts.append(L("%@ токенов", "\(Format.tokens(tokens))")) }
         if let seconds = row.seconds, seconds >= 60 { parts.append(Format.duration(seconds)) }
         return parts.joined(separator: " · ")
     }
 
     private func turnDetail(_ turn: TurnLog.Turn) -> String {
-        var parts = [turn.ended.formatted(.dateTime.day().month(.abbreviated).hour().minute().locale(Locale(identifier: "ru_RU")))]
+        var parts = [turn.ended.formatted(.dateTime.day().month(.abbreviated).hour().minute().locale(AppLanguage.locale))]
         if let seconds = turn.seconds, seconds >= 60 { parts.append(Format.duration(seconds)) }
-        if let tokens = turn.tokens, tokens > 0 { parts.append("\(Format.tokens(tokens)) токенов") }
+        if let tokens = turn.tokens, tokens > 0 { parts.append(L("%@ токенов", "\(Format.tokens(tokens))")) }
         return parts.joined(separator: " · ")
     }
 
@@ -445,7 +445,7 @@ private struct ProjectTasks: View {
                 .font(.caption)
             }
             if turns.count > 12 {
-                Text("и ещё \(turns.count - 12)").font(.caption2).foregroundStyle(.secondary).padding(.leading, 13)
+                Text(L("и ещё %@", "\(turns.count - 12)")).font(.caption2).foregroundStyle(.secondary).padding(.leading, 13)
             }
         }
         .padding(.leading, 4)

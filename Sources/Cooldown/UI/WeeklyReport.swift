@@ -69,8 +69,8 @@ enum WeeklyReport {
     /// Makes the report and opens it in Preview.
     static func show() {
         guard let url = render() else {
-            ToastController.shared.show(ToastContent(key: "report-empty", kind: .info, provider: nil, title: "Неделя пока пустая",
-                                                     body: "За последние семь дней работы Codex и Claude Code не было.", life: .auto(6)))
+            ToastController.shared.show(ToastContent(key: "report-empty", kind: .info, provider: nil, title: L("Неделя пока пустая"),
+                                                     body: L("За последние семь дней работы Codex и Claude Code не было."), life: .auto(6)))
             return
         }
         NSWorkspace.shared.open(url)
@@ -85,7 +85,7 @@ struct WeeklyReportView: View {
         VStack(alignment: .leading, spacing: 22) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Итоги недели").font(.system(size: 30, weight: .bold))
+                    Text(L("Итоги недели")).font(.system(size: 30, weight: .bold))
                     Text("\(summary.start.formatted(.dateTime.day().month(.wide))) — \(summary.end.formatted(.dateTime.day().month(.wide)))")
                         .font(.system(size: 15)).foregroundStyle(.secondary)
                 }
@@ -93,19 +93,19 @@ struct WeeklyReportView: View {
                 Text("Cooldown").font(.system(size: 14, weight: .semibold)).foregroundStyle(.secondary)
             }
             HStack(spacing: 12) {
-                figure(Format.tokens(summary.codexTokens), "токенов Codex", Theme.tint(for: .codex))
-                figure(Format.tokens(summary.claudeTokens), "токенов Claude Code", Theme.tint(for: .claude))
-                figure("\(summary.done)", "задач закончено", Theme.mint)
-                figure(summary.dollars >= 1 ? "≈" + Pricing.format(summary.dollars) : "—", "по ценам API", Theme.amber)
+                figure(Format.tokens(summary.codexTokens), L("токенов Codex"), Theme.tint(for: .codex))
+                figure(Format.tokens(summary.claudeTokens), L("токенов Claude Code"), Theme.tint(for: .claude))
+                figure("\(summary.done)", L("задач закончено"), Theme.mint)
+                figure(summary.dollars >= 1 ? "≈" + Pricing.format(summary.dollars) : "—", L("по ценам API"), Theme.amber)
             }
             VStack(alignment: .leading, spacing: 10) {
-                Text("По дням").font(.system(size: 15, weight: .semibold))
+                Text(L("По дням")).font(.system(size: 15, weight: .semibold))
                 Chart {
                     ForEach(summary.days) { day in
-                        BarMark(x: .value("День", day.date, unit: .day), y: .value("Токены", day.codex))
-                            .foregroundStyle(by: .value("Агент", "Codex"))
-                        BarMark(x: .value("День", day.date, unit: .day), y: .value("Токены", day.claude))
-                            .foregroundStyle(by: .value("Агент", "Claude Code"))
+                        BarMark(x: .value(L("День"), day.date, unit: .day), y: .value(L("Токены"), day.codex))
+                            .foregroundStyle(by: .value(L("Агент"), "Codex"))
+                        BarMark(x: .value(L("День"), day.date, unit: .day), y: .value(L("Токены"), day.claude))
+                            .foregroundStyle(by: .value(L("Агент"), "Claude Code"))
                     }
                 }
                 .chartForegroundStyleScale(["Codex": Theme.tint(for: .codex), "Claude Code": Theme.tint(for: .claude)])
@@ -118,9 +118,9 @@ struct WeeklyReportView: View {
             .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.white.opacity(0.06)))
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Проекты").font(.system(size: 15, weight: .semibold))
+                    Text(L("Проекты")).font(.system(size: 15, weight: .semibold))
                     if summary.projects.isEmpty {
-                        Text("Нет данных").foregroundStyle(.secondary)
+                        Text(L("Нет данных")).foregroundStyle(.secondary)
                     }
                     ForEach(summary.projects) { row in
                         VStack(alignment: .leading, spacing: 4) {
@@ -144,16 +144,16 @@ struct WeeklyReportView: View {
                     if let best = summary.best {
                         Label {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("Самый плотный день").font(.system(size: 13)).foregroundStyle(.secondary)
+                                Text(L("Самый плотный день")).font(.system(size: 13)).foregroundStyle(.secondary)
                                 Text(best.date.formatted(.dateTime.weekday(.wide).day().month(.wide))).font(.system(size: 15, weight: .semibold))
-                                Text("\(Format.tokens(best.codex + best.claude)) токенов").font(.system(size: 13)).foregroundStyle(.secondary)
+                                Text(L("%@ токенов", "\(Format.tokens(best.codex + best.claude))")).font(.system(size: 13)).foregroundStyle(.secondary)
                             }
                         } icon: { Image(systemName: "flame.fill").foregroundStyle(Theme.coral) }
                     }
                     Label {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Упирались в лимит").font(.system(size: 13)).foregroundStyle(.secondary)
-                            Text(summary.exhausted == 0 ? "ни разу" : "\(summary.exhausted) \(Format.plural(summary.exhausted, "раз", "раза", "раз"))")
+                            Text(L("Упирались в лимит")).font(.system(size: 13)).foregroundStyle(.secondary)
+                            Text(summary.exhausted == 0 ? L("ни разу") : Format.count(summary.exhausted, L("раз|раза|раз")))
                                 .font(.system(size: 15, weight: .semibold))
                         }
                     } icon: { Image(systemName: "gauge.with.dots.needle.100percent").foregroundStyle(Theme.amber) }

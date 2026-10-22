@@ -14,10 +14,10 @@ enum StatsTab: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .limits: return "Расход"
-        case .chats: return "Диалоги"
-        case .tokens: return "Токены"
-        case .projects: return "Проекты"
+        case .limits: return L("Расход")
+        case .chats: return L("Диалоги")
+        case .tokens: return L("Токены")
+        case .projects: return L("Проекты")
         }
     }
 }
@@ -31,17 +31,17 @@ enum StatsRange: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .day: return "24 часа"
-        case .week: return "7 дней"
-        case .month: return "30 дней"
+        case .day: return L("24 часа")
+        case .week: return L("7 дней")
+        case .month: return L("30 дней")
         }
     }
 
     var phrase: String {
         switch self {
-        case .day: return "за сутки"
-        case .week: return "за 7 дней"
-        case .month: return "за 30 дней"
+        case .day: return L("за сутки")
+        case .week: return L("за 7 дней")
+        case .month: return L("за 30 дней")
         }
     }
 
@@ -79,9 +79,9 @@ struct ShareRow: Identifiable {
 }
 
 enum Stats {
-    static let freshKind = "Новые входные"
-    static let cachedKind = "Из кеша"
-    static let outputKind = "Ответ"
+    static let freshKind = L("Новые входные")
+    static let cachedKind = L("Из кеша")
+    static let outputKind = L("Ответ")
 
     static func inRange(_ buckets: [TokenBucket], _ range: StatsRange, now: Date) -> [TokenBucket] {
         let from = now.addingTimeInterval(-range.interval)
@@ -115,7 +115,7 @@ enum Stats {
     }
 
     static func models(_ buckets: [TokenBucket], _ range: StatsRange, now: Date) -> [ShareRow] {
-        shares(inRange(buckets, range, now: now), limit: 3) { $0.key.model.isEmpty ? "Модель не указана" : $0.key.model }
+        shares(inRange(buckets, range, now: now), limit: 3) { $0.key.model.isEmpty ? L("Модель не указана") : $0.key.model }
     }
 
     private static func shares(_ buckets: [TokenBucket], limit: Int, name: (TokenBucket) -> String) -> [ShareRow] {
@@ -130,16 +130,16 @@ enum Stats {
         }
         let rest = sorted.dropFirst(limit).reduce(0) { $0 + $1.value }
         if rest > 0 {
-            rows.append(ShareRow(id: "_rest", name: "Остальные", total: rest, share: Double(rest) / Double(largest),
+            rows.append(ShareRow(id: "_rest", name: L("Остальные"), total: rest, share: Double(rest) / Double(largest),
                                  percent: Double(rest) / everything * 100))
         }
         return rows
     }
 
     static func projectName(_ cwd: String) -> String {
-        if cwd.isEmpty { return "Папка не указана" }
-        if cwd.contains("/Documents/Codex/") { return "Чаты без проекта" }
-        if cwd == NSHomeDirectory() { return "Домашняя папка" }
+        if cwd.isEmpty { return L("Папка не указана") }
+        if cwd.contains("/Documents/Codex/") { return L("Чаты без проекта") }
+        if cwd == NSHomeDirectory() { return L("Домашняя папка") }
         return URL(fileURLWithPath: cwd).lastPathComponent
     }
 

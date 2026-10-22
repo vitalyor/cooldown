@@ -34,8 +34,8 @@ enum UpdateWatch {
     private static func check() {
         guard newer, offered.map({ Date().timeIntervalSince($0) > 6 * 3600 }) ?? true else { return }
         offered = Date()
-        ToastController.shared.show(ToastContent(key: "update", kind: .info, provider: nil, title: "Есть новая сборка Cooldown",
-                                                 body: "Собрана позже, чем эта. Перезапустить на ней? Настройки и история сохранятся.",
+        ToastController.shared.show(ToastContent(key: "update", kind: .info, provider: nil, title: L("Есть новая сборка Cooldown"),
+                                                 body: L("Собрана позже, чем эта. Перезапустить на ней? Настройки и история сохранятся."),
                                                  actions: [.installUpdate], life: .sticky))
     }
 

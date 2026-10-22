@@ -13,11 +13,11 @@ final class HomeAssistant: ObservableObject {
         case notConfigured, http(Int), unreachable(String), noDevice
         var errorDescription: String? {
             switch self {
-            case .notConfigured: return "Укажите адрес Home Assistant и токен."
-            case .http(401): return "Home Assistant не принял токен. Создайте новый в профиле → Безопасность."
-            case .http(let code): return "Home Assistant ответил кодом \(code)."
-            case .unreachable(let text): return "Home Assistant недоступен: \(text)"
-            case .noDevice: return "В Home Assistant не найден iPhone. Войдите в приложение Home Assistant на телефоне."
+            case .notConfigured: return L("Укажите адрес Home Assistant и токен.")
+            case .http(401): return L("Home Assistant не принял токен. Создайте новый в профиле → Безопасность.")
+            case .http(let code): return L("Home Assistant ответил кодом %@.", "\(code)")
+            case .unreachable(let text): return L("Home Assistant недоступен: %@", "\(text)")
+            case .noDevice: return L("В Home Assistant не найден iPhone. Войдите в приложение Home Assistant на телефоне.")
             }
         }
     }
@@ -124,13 +124,13 @@ final class HomeAssistant: ObservableObject {
         ]
         var message: String
         if exhausted {
-            message = "Лимит кончился · сброс в \(Format.time(session.resetsAt))"
+            message = L("Лимит кончился · сброс в %@", "\(Format.time(session.resetsAt))")
             data["chronometer"] = true
             data["when"] = Int(session.resetsAt.timeIntervalSince1970)
             data["progress_bar_direction"] = "decreasing"
         } else {
-            message = "Осталось \(rounded)% · сброс в \(Format.time(session.resetsAt))"
-            if let weekly = snapshot?.weekly { message += " · неделя \(Int(weekly.remaining(at: now).rounded()))%" }
+            message = L("Осталось %@%% · сброс в %@", "\(rounded)", "\(Format.time(session.resetsAt))")
+            if let weekly = snapshot?.weekly { message += L(" · неделя %@%%", "\(Int(weekly.remaining(at: now).rounded()))") }
             data["progress"] = rounded
             data["progress_max"] = 100
             data["critical_text"] = "\(rounded)%"
@@ -191,7 +191,7 @@ final class HomeAssistant: ObservableObject {
         let folder = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Mobile Documents/iCloud~dk~simonbs~Scriptable/Documents", isDirectory: true)
         guard FileManager.default.fileExists(atPath: folder.path) else {
-            throw Failure.unreachable("не найдена папка Scriptable в iCloud. Откройте Scriptable на iPhone с включённым iCloud.")
+            throw Failure.unreachable(L("не найдена папка Scriptable в iCloud. Откройте Scriptable на iPhone с включённым iCloud."))
         }
         try script.write(to: folder.appendingPathComponent("Cooldown.js"), atomically: true, encoding: .utf8)
         publishSensors()
@@ -233,8 +233,8 @@ final class HomeAssistant: ObservableObject {
             lastSent = [:]
             updateLive(.codex, snapshot: AppModel.shared.codex.snapshot, force: true)
             updateLive(.claude, snapshot: AppModel.shared.claude.snapshot, force: true)
-            try await notify(["title": "Cooldown на связи", "message": "Уведомления и Live Activity с лимитами будут приходить сюда."])
-            status = "Отправлено на \(Self.device.replacingOccurrences(of: "mobile_app_", with: ""))."
+            try await notify(["title": L("Cooldown на связи"), "message": L("Уведомления и Live Activity с лимитами будут приходить сюда.")])
+            status = L("Отправлено на %@.", "\(Self.device.replacingOccurrences(of: "mobile_app_", with: ""))")
         } catch {
             status = error.localizedDescription
         }

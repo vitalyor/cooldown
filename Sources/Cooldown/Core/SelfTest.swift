@@ -55,9 +55,9 @@ enum SelfTest {
         expect(ClaudeUsageCLI.parse(latest, now: now)?.session?.usedPercent == 3, "the fresh drawing is read")
 
         // Russian plural forms.
-        expect(Format.plural(1, "задача", "задачи", "задач") == "задача" && Format.plural(3, "задача", "задачи", "задач") == "задачи"
-               && Format.plural(11, "задача", "задачи", "задач") == "задач" && Format.plural(22, "задача", "задачи", "задач") == "задачи",
-               "plural forms")
+        expect(AppLanguage.pluralIndex(1, forms: 3) == 0 && AppLanguage.pluralIndex(3, forms: 3) == 1
+               && AppLanguage.pluralIndex(11, forms: 3) == 2 && AppLanguage.pluralIndex(22, forms: 3) == 1, "plural forms")
+        expect(Format.word(5, "a|b|c") == "c" || Format.word(5, "a|b|c") == "b", "plural words")
         return failures
     }
 }

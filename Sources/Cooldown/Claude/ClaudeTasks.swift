@@ -19,10 +19,10 @@ enum ClaudeSessionState: Equatable {
 
     var title: String {
         switch self {
-        case .running: return "Задача выполняется"
-        case .limited: return "Остановлена из-за лимита"
-        case .idle: return "Раунд завершён"
-        case .unknown: return "Статус неизвестен"
+        case .running: return L("Задача выполняется")
+        case .limited: return L("Остановлена из-за лимита")
+        case .idle: return L("Раунд завершён")
+        case .unknown: return L("Статус неизвестен")
         }
     }
 
@@ -59,7 +59,7 @@ enum ClaudeTaskError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .notEligible(let reason): return reason
-        case .noBinary: return "Не найдена программа claude. Укажите путь к ней в настройках."
+        case .noBinary: return L("Не найдена программа claude. Укажите путь к ней в настройках.")
         }
     }
 }
@@ -74,7 +74,7 @@ final class ClaudeTaskManager: ObservableObject {
     @Published private(set) var sessions: [ClaudeSession] = []
     @Published private(set) var loadingSessions = false
 
-    static let continuation = "Лимит восстановился. Продолжи прерванную работу в этой сессии. Сначала сверь текущий прогресс и рабочую папку; не повторяй уже выполненные шаги, не расширяй объём работы, не обходи подтверждения. Если работа уже завершена или нужно решение пользователя, прямо скажи об этом и остановись."
+    static let continuation = L("Лимит восстановился. Продолжи прерванную работу в этой сессии. Сначала сверь текущий прогресс и рабочую папку; не повторяй уже выполненные шаги, не расширяй объём работы, не обходи подтверждения. Если работа уже завершена или нужно решение пользователя, прямо скажи об этом и остановись.")
 
     var onChange: ((ClaudeTask, String) -> Void)?
 
@@ -153,7 +153,7 @@ final class ClaudeTaskManager: ObservableObject {
             if let last = object["lastPrompt"] as? String, !last.isEmpty { prompt = last }
             if let folder = object["cwd"] as? String, !folder.isEmpty { cwd = folder }
         }
-        let text = title ?? prompt.map { $0.replacingOccurrences(of: "\n", with: " ") } ?? "Сессия \(file.deletingPathExtension().lastPathComponent.prefix(8))"
+        let text = title ?? prompt.map { $0.replacingOccurrences(of: "\n", with: " ") } ?? L("Сессия %@", "\(file.deletingPathExtension().lastPathComponent.prefix(8))")
         return (String(text.prefix(120)), cwd, title == nil && prompt == nil)
     }
 
@@ -222,15 +222,15 @@ final class ClaudeTaskManager: ObservableObject {
     func add(_ session: ClaudeSession, maxResumes: Int) throws {
         let fresh = Self.state(of: URL(fileURLWithPath: session.transcript), modified: session.updated)
         guard fresh.canWatch else {
-            throw ClaudeTaskError.notEligible("Эта сессия сейчас не работает и не остановлена лимитом, продолжать нечего.")
+            throw ClaudeTaskError.notEligible(L("Эта сессия сейчас не работает и не остановлена лимитом, продолжать нечего."))
         }
         guard ClaudePaths.binary(override: Settings.claudePath) != nil else { throw ClaudeTaskError.noBinary }
         let attempts = tasks.first { $0.id == session.id }?.attempts ?? 0
         let task = ClaudeTask(sessionId: session.id, title: session.title, cwd: session.cwd, transcript: session.transcript,
                               maxResumes: maxResumes, attempts: attempts, enabled: true,
                               status: fresh == .running ? "watching" : "waiting_quota",
-                              reason: fresh == .running ? "Задача выполняется; если её остановит лимит, Cooldown дождётся сброса."
-                                                        : "Ждём сброса лимита Claude.",
+                              reason: fresh == .running ? L("Задача выполняется; если её остановит лимит, Cooldown дождётся сброса.")
+                                                        : L("Ждём сброса лимита Claude."),
                               updated: Date(), answeredStop: tasks.first { $0.id == session.id }?.answeredStop)
         tasks.removeAll { $0.id == session.id }
         tasks.insert(task, at: 0)
@@ -241,7 +241,7 @@ final class ClaudeTaskManager: ObservableObject {
         update(id) {
             $0.enabled = false
             $0.status = "paused"
-            $0.reason = "Вы выключили автопродолжение."
+            $0.reason = L("Вы выключили автопродолжение.")
         }
     }
 
@@ -250,26 +250,26 @@ final class ClaudeTaskManager: ObservableObject {
         let now = Date()
         for task in tasks where task.enabled {
             if running[task.id] != nil {
-                update(task.id) { $0.status = "resumed"; $0.reason = "Claude продолжает работу в фоне." }
+                update(task.id) { $0.status = "resumed"; $0.reason = L("Claude продолжает работу в фоне.") }
                 continue
             }
             let file = URL(fileURLWithPath: task.transcript)
             let modified = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? now
             switch Self.state(of: file, modified: modified) {
             case .running:
-                update(task.id) { $0.status = "watching"; $0.reason = "Задача выполняется." }
+                update(task.id) { $0.status = "watching"; $0.reason = L("Задача выполняется.") }
             case .idle, .unknown:
                 update(task.id) {
                     $0.enabled = false
                     $0.status = "stopped"
-                    $0.reason = "Раунд завершён, продолжать нечего."
+                    $0.reason = L("Раунд завершён, продолжать нечего.")
                 }
             case .limited(let stopID, let at, let hint):
                 if task.answeredStop == stopID {
                     update(task.id) {
                         $0.enabled = false
                         $0.status = "uncertain"
-                        $0.reason = "Продолжение отправлено, но сессия снова на той же остановке. Откройте её и проверьте."
+                        $0.reason = L("Продолжение отправлено, но сессия снова на той же остановке. Откройте её и проверьте.")
                     }
                     continue
                 }
@@ -277,7 +277,7 @@ final class ClaudeTaskManager: ObservableObject {
                     update(task.id) {
                         $0.enabled = false
                         $0.status = "budget"
-                        $0.reason = "Использованы все попытки продолжения."
+                        $0.reason = L("Использованы все попытки продолжения.")
                     }
                     continue
                 }
@@ -286,7 +286,7 @@ final class ClaudeTaskManager: ObservableObject {
                     continue
                 }
                 if now.timeIntervalSince(modified) < 60 {
-                    update(task.id) { $0.status = "waiting_quota"; $0.reason = "Сессию кто-то открыл, подождём минуту." }
+                    update(task.id) { $0.status = "waiting_quota"; $0.reason = L("Сессию кто-то открыл, подождём минуту.") }
                     continue
                 }
                 resume(task, stopID: stopID)
@@ -297,18 +297,18 @@ final class ClaudeTaskManager: ObservableObject {
     /// nil when the limit is back; otherwise why to keep waiting.
     private func waitReason(limits: LimitSnapshot?, stoppedAt: Date, hint: Date?, now: Date) -> String? {
         if let weekly = limits?.weekly, !weekly.isExpired(at: now), weekly.usedPercent >= 99 {
-            return "Исчерпан недельный лимит Claude, ждём сброса \(Format.time(weekly.resetsAt, now: now))."
+            return L("Исчерпан недельный лимит Claude, ждём сброса %@.", "\(Format.time(weekly.resetsAt, now: now))")
         }
         if let window = limits?.session {
             if window.isExpired(at: now) { return nil }
             if limits.map({ now.timeIntervalSince($0.fetchedAt) < 15 * 60 }) == true && window.usedPercent < 98 { return nil }
-            return "Ждём сброса лимита Claude в \(Format.time(window.resetsAt, now: now))."
+            return L("Ждём сброса лимита Claude в %@.", "\(Format.time(window.resetsAt, now: now))")
         }
         if let hint {
-            return hint <= now ? nil : "Ждём сброса лимита Claude в \(Format.time(hint, now: now))."
+            return hint <= now ? nil : L("Ждём сброса лимита Claude в %@.", "\(Format.time(hint, now: now))")
         }
         let fallback = stoppedAt.addingTimeInterval(5 * 3600)
-        return fallback <= now ? nil : "Лимиты Claude не подключены, попробуем в \(Format.time(fallback, now: now))."
+        return fallback <= now ? nil : L("Лимиты Claude не подключены, попробуем в %@.", "\(Format.time(fallback, now: now))")
     }
 
     private func resume(_ task: ClaudeTask, stopID: String) {
@@ -321,7 +321,7 @@ final class ClaudeTaskManager: ObservableObject {
             $0.attempts += 1
             $0.answeredStop = stopID
             $0.status = "resumed"
-            $0.reason = "Лимит восстановился, продолжение отправлено."
+            $0.reason = L("Лимит восстановился, продолжение отправлено.")
         }
         let process = Process()
         process.executableURL = claude
@@ -350,7 +350,7 @@ final class ClaudeTaskManager: ObservableObject {
                 if code != 0 {
                     manager.update(id) {
                         $0.status = "blocked"
-                        $0.reason = "Claude завершился с ошибкой (код \(code)). Подробности в журнале Cooldown."
+                        $0.reason = L("Claude завершился с ошибкой (код %@). Подробности в журнале Cooldown.", "\(code)")
                     }
                 }
                 manager.tick(limits: AppModel.shared.claude.snapshot)
@@ -360,7 +360,7 @@ final class ClaudeTaskManager: ObservableObject {
             try process.run()
             running[id] = process
         } catch {
-            update(id) { $0.status = "blocked"; $0.reason = "Не удалось запустить claude: \(error.localizedDescription)" }
+            update(id) { $0.status = "blocked"; $0.reason = L("Не удалось запустить claude: %@", "\(error.localizedDescription)") }
         }
     }
 }

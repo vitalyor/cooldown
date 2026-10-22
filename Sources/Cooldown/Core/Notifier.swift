@@ -15,8 +15,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         let center = UNUserNotificationCenter.current()
         center.delegate = self
         center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
-        let proceed = UNNotificationAction(identifier: Self.continueAction, title: "Продолжить", options: [.foreground])
-        let open = UNNotificationAction(identifier: Self.openAction, title: "Открыть Claude", options: [.foreground])
+        let proceed = UNNotificationAction(identifier: Self.continueAction, title: L("Продолжить"), options: [.foreground])
+        let open = UNNotificationAction(identifier: Self.openAction, title: L("Открыть Claude"), options: [.foreground])
         center.setNotificationCategories([UNNotificationCategory(identifier: Self.claudeCategory, actions: [proceed, open],
                                                                  intentIdentifiers: [])])
     }
@@ -78,14 +78,14 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             if response.actionIdentifier == Self.continueAction,
                response.notification.request.content.userInfo["demo"] as? Bool == true {
                 Task { @MainActor in
-                    Notifier.shared.post(id: "demo-sent-\(Date().timeIntervalSince1970)", title: "Демо · Ничего не отправлено",
-                                         body: "В обычном режиме Cooldown сейчас вывел бы Claude вперёд и отправил в открытый чат: «\(ClaudeSender.text)»")
+                    Notifier.shared.post(id: "demo-sent-\(Date().timeIntervalSince1970)", title: L("Демо · Ничего не отправлено"),
+                                         body: L("В обычном режиме Cooldown сейчас вывел бы Claude вперёд и отправил в открытый чат: «%@»", "\(ClaudeSender.text)"))
                 }
             } else if response.actionIdentifier == Self.continueAction {
                 // The person pressed "Продолжить": one message, sent because they asked for it.
                 Task { @MainActor in
                     do { try await ClaudeSender.continueChat(ClaudeSender.pendingChat) } catch {
-                        Notifier.shared.post(id: "send-\(Date().timeIntervalSince1970)", title: "Не отправлено",
+                        Notifier.shared.post(id: "send-\(Date().timeIntervalSince1970)", title: L("Не отправлено"),
                                              body: error.localizedDescription)
                     }
                 }

@@ -16,9 +16,9 @@ enum MainTab: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .limits: return "Лимиты"
-        case .stats: return "Статистика"
-        case .tasks: return "Задачи"
+        case .limits: return L("Лимиты")
+        case .stats: return L("Статистика")
+        case .tasks: return L("Задачи")
         }
     }
 
@@ -151,14 +151,14 @@ private struct DemoBanner: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
             HStack(spacing: 6) {
-                Text("ДЕМО · \(demo.index + 1) из \(demo.steps.count)")
+                Text(L("ДЕМО · %@ из %@", "\(demo.index + 1)", "\(demo.steps.count)"))
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(Theme.amber)
                 Spacer()
                 if demo.index + 1 < demo.steps.count {
-                    Button("Дальше") { demo.next() }.buttonStyle(.link).font(.caption)
+                    Button(L("Дальше")) { demo.next() }.buttonStyle(.link).font(.caption)
                 }
-                Button("Выйти") { demo.stop() }.buttonStyle(.link).font(.caption)
+                Button(L("Выйти")) { demo.stop() }.buttonStyle(.link).font(.caption)
             }
             Text(demo.step.title).font(.system(size: 14, weight: .semibold))
             Text(demo.step.text)
@@ -196,7 +196,7 @@ private struct Header: View {
             Spacer()
             FeedButton(screen: $screen)
             RefreshButton(codex: model.codex, claude: model.claude)
-            GlassIconButton(symbol: "gearshape", help: "Настройки (⌘,)") { SettingsWindow.shared.show() }
+            GlassIconButton(symbol: "gearshape", help: L("Настройки (⌘,)")) { SettingsWindow.shared.show() }
                 .keyboardShortcut(",", modifiers: .command)
         }
     }
@@ -225,7 +225,7 @@ private struct RefreshButton: View {
     @ObservedObject var claude: ProviderStore
 
     var body: some View {
-        GlassIconButton(symbol: "arrow.clockwise", help: "Обновить сейчас", spinning: codex.isRefreshing || claude.isRefreshing) {
+        GlassIconButton(symbol: "arrow.clockwise", help: L("Обновить сейчас"), spinning: codex.isRefreshing || claude.isRefreshing) {
             ClaudeLimits.forceNext = true
             model.forceNext = true
             Task { await model.refreshAll() }
@@ -288,7 +288,7 @@ private struct FeedButton: View {
     @Binding var screen: Screen
 
     var body: some View {
-        GlassIconButton(symbol: log.unseen > 0 ? "bell.badge" : "bell", help: "События") { screen = .feed }
+        GlassIconButton(symbol: log.unseen > 0 ? "bell.badge" : "bell", help: L("События")) { screen = .feed }
             .overlay(alignment: .topTrailing) {
                 if log.unseen > 0 {
                     Text("\(min(log.unseen, 9))")

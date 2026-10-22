@@ -3,7 +3,21 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>ru</string>
+	<string>en</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>ru</string>
+		<string>de</string>
+		<string>fr</string>
+		<string>es</string>
+		<string>pt-BR</string>
+		<string>it</string>
+		<string>uk</string>
+		<string>ja</string>
+		<string>zh-Hans</string>
+		<string>ko</string>
+	</array>
 	<key>CFBundleDisplayName</key>
 	<string>Cooldown</string>
 	<key>CFBundleExecutable</key>

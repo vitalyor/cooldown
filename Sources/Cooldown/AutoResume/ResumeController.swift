@@ -39,7 +39,7 @@ final class ResumeController {
     func step() -> Bool {
         guard let watch = store.get(threadId), watch.enabled else { return false }
         if store.uncertain(threadId) {
-            return end("uncertain", "Есть неподтверждённая отправка; проверьте в приложении, повторно автоматически не отправляется")
+            return end("uncertain", L("Есть неподтверждённая отправка; проверьте в приложении, повторно автоматически не отправляется"))
         }
         var stage = "app"
         do {
@@ -59,19 +59,19 @@ final class ResumeController {
             let baseline = try ResumePolicy.fingerprint(state)
             if let previous = store.attempt(threadId, turn: decision.turnId) {
                 if previous.state == "sent" && clock() - previous.created.timeIntervalSince1970 < 120 {
-                    return keep("watching", "Продолжение отправлено, ждём, когда приложение обновит статус")
+                    return keep("watching", L("Продолжение отправлено, ждём, когда приложение обновит статус"))
                 }
-                return end("stopped", "В этом раунде продолжение уже отправлялось; повторно не отправляется")
+                return end("stopped", L("В этом раунде продолжение уже отправлялось; повторно не отправляется"))
             }
             if let waitingBaseline, waitingBaseline != baseline {
-                return end("changed", "Пока шло ожидание, изменились задача или её настройки; решите заново, нужно ли автопродолжение")
+                return end("changed", L("Пока шло ожидание, изменились задача или её настройки; решите заново, нужно ли автопродолжение"))
             }
             waitingBaseline = baseline
             if store.count(threadId) >= watch.maxResumes {
-                return end("budget", "Достигнут лимит автоматических продолжений для этой задачи")
+                return end("budget", L("Достигнут лимит автоматических продолжений для этой задачи"))
             }
             if clock() < nextQuotaCheck {
-                return keep("waiting_quota", "Ждём сброса лимита; пока следим, не остановлена ли задача")
+                return keep("waiting_quota", L("Ждём сброса лимита; пока следим, не остановлена ли задача"))
             }
             stage = "quota"
             let quota = ResumePolicy.quotaStatus(try readQuota(), now: clock())
@@ -83,11 +83,11 @@ final class ResumeController {
             }
             // The intent is written down before anything is sent, with a pause and budget check.
             guard let messageId = store.claim(threadId, turn: decision.turnId, fingerprint: baseline) else {
-                return end("stopped", "Наблюдение выключено, попытки закончились или для этого раунда уже есть запись об отправке")
+                return end("stopped", L("Наблюдение выключено, попытки закончились или для этого раунда уже есть запись об отправке"))
             }
             do {
                 guard store.get(threadId)?.enabled == true else {
-                    return end("uncertain", "Отправка отменена; запись защиты от повторов сохранена")
+                    return end("uncertain", L("Отправка отменена; запись защиты от повторов сохранена"))
                 }
                 let turn = decision.turnId
                 let resumed = try desktop.resume(threadId, expected: baseline, messageId: messageId) { [store, threadId] in
@@ -95,11 +95,11 @@ final class ResumeController {
                 }
                 store.acknowledged(threadId, turn: turn, resumedTurn: resumed)
             } catch {
-                return end("uncertain", "Продолжение не получило проверяемого подтверждения; проверьте в приложении, повторно отправляться не будет")
+                return end("uncertain", L("Продолжение не получило проверяемого подтверждения; проверьте в приложении, повторно отправляться не будет"))
             }
             waitingBaseline = nil
             nextQuotaCheck = 0
-            return keep("resumed", "Приложение подтвердило запуск следующего раунда; следим за результатом")
+            return keep("resumed", L("Приложение подтвердило запуск следующего раунда; следим за результатом"))
         } catch let error as CodexIPCError where error.isTransient {
             return disconnected(stage)
         } catch CodexError.timeout where stage == "quota" {
@@ -107,9 +107,9 @@ final class ResumeController {
         } catch {
             failures += 1
             if failures >= 3 {
-                return end("blocked", "Три раза подряд не удалось безопасно прочитать приложение или лимиты; проверьте приложение Codex, вход и сеть")
+                return end("blocked", L("Три раза подряд не удалось безопасно прочитать приложение или лимиты; проверьте приложение Codex, вход и сеть"))
             }
-            return keep("retrying", "Пока не удаётся прочитать состояние; продолжение не отправляется, проверим ещё раз")
+            return keep("retrying", L("Пока не удаётся прочитать состояние; продолжение не отправляется, проверим ещё раз"))
         }
     }
 
@@ -120,12 +120,12 @@ final class ResumeController {
         if stage == "app", clock() >= nextOpen {
             nextOpen = clock() + 300
             if store.get(threadId)?.enabled == true, (try? openThread(threadId)) == false {
-                return end("stopped", "Диалог завершён, в архиве или больше не подходит для автопродолжения; он не открывался, сообщения не отправлялись")
+                return end("stopped", L("Диалог завершён, в архиве или больше не подходит для автопродолжения; он не открывался, сообщения не отправлялись"))
             }
         }
         if stage == "app" {
-            return keep("waiting_connection", "Ждём подключения приложения Codex; пока оно не подключено и не проверено заново, сообщения не отправляются")
+            return keep("waiting_connection", L("Ждём подключения приложения Codex; пока оно не подключено и не проверено заново, сообщения не отправляются"))
         }
-        return keep("waiting_quota", "Ждём повторного чтения лимитов; продолжение по одному лишь времени не отправляется")
+        return keep("waiting_quota", L("Ждём повторного чтения лимитов; продолжение по одному лишь времени не отправляется"))
     }
 }

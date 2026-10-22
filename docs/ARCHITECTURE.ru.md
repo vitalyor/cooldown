@@ -60,3 +60,19 @@ Cooldown --render --out out.png --provider codex --tab stats   # окно в к�
 
 Что делали источники и почему была или не была показана карточка — в
 `~/Library/Application Support/Cooldown/activity.log`.
+
+## Локализация
+
+Строки интерфейса пишутся в коде по-русски и оборачиваются в `L("…")`; русский текст и есть ключ.
+`L(ключ, аргументы…)` подставляет `%@` в языке приложения. Слова с числами — ключи вида
+`"один|два|пять"`; в переводе столько форм, сколько нужно языку, нужную выбирает `AppLanguage.pluralIndex`.
+
+Переводы лежат в `Resources/Localization/src/<язык>.json` (ключ → текст). Чтобы добавить или поменять строки:
+
+```sh
+python3 scripts/l10n_wrap.py keys     # все ключи из кода
+python3 scripts/l10n_build.py         # проверить полноту, подстановки и формы чисел, собрать *.lproj
+```
+
+Перед релизом `l10n_build.py` должен показать `problems: 0`. `build.sh` кладёт папки `.lproj` в приложение.
+Проверить язык, не переключая macOS: `Cooldown --settings-window general -AppleLanguages '(de)'`.

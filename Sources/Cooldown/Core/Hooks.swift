@@ -110,11 +110,11 @@ enum AgentHooks {
                 return handler
             }
             return [
-                ("UserPromptSubmit", hook("отмечает, что Codex начал работу", async: true, timeout: 5)),
-                ("Stop", hook("сообщает, что Codex закончил", async: true, timeout: 5)),
-                ("PermissionRequest", hook("сообщает, что Codex ждёт вашего решения", async: false, timeout: 5)),
-                ("Interrupt", hook("отмечает, что работа прервана", async: false, timeout: 2)),
-                ("SessionEnd", hook("отмечает конец сессии", async: false, timeout: 2)),
+                ("UserPromptSubmit", hook("отмечает, что Codex начал работу", async: true, timeout: 5)), // l10n:skip
+                ("Stop", hook("сообщает, что Codex закончил", async: true, timeout: 5)), // l10n:skip
+                ("PermissionRequest", hook("сообщает, что Codex ждёт вашего решения", async: false, timeout: 5)), // l10n:skip
+                ("Interrupt", hook("отмечает, что работа прервана", async: false, timeout: 2)), // l10n:skip
+                ("SessionEnd", hook("отмечает конец сессии", async: false, timeout: 2)), // l10n:skip
             ]
         }
     }
@@ -192,7 +192,7 @@ enum AgentHooks {
         let data = try Data(contentsOf: url)
         if data.isEmpty { return [:] }
         guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw NSError(domain: "Cooldown", code: 1, userInfo: [NSLocalizedDescriptionKey: "\(url.lastPathComponent) в неожиданном формате, Cooldown его не трогает."])
+            throw NSError(domain: "Cooldown", code: 1, userInfo: [NSLocalizedDescriptionKey: L("%@ в неожиданном формате, Cooldown его не трогает.", "\(url.lastPathComponent)")])
         }
         return object
     }
@@ -307,7 +307,7 @@ final class HookEventReader {
         case "Notification":
             let type = p["notification_type"] as? String ?? ""
             guard ["permission_prompt", "elicitation_dialog"].contains(type) else { return }
-            let message = (p["message"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Нужно ваше разрешение."
+            let message = (p["message"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? L("Нужно ваше разрешение.")
             activity.waiting(.claude, key: session, title: info.title, reason: message, opener: opener)
         default:
             break
@@ -367,7 +367,7 @@ final class HookEventReader {
         case "PermissionRequest":
             let tool = p["tool_name"] as? String
             activity.permissionAsked(.codex, key: key, title: title,
-                                     reason: tool.map { "Codex просит разрешение: \($0)." } ?? "Codex просит разрешение.",
+                                     reason: tool.map { L("Codex просит разрешение: %@.", "\($0)") } ?? L("Codex просит разрешение."),
                                      opener: opener, at: time)
         case "Interrupt", "SessionEnd":
             activity.ended(.codex, key: key)

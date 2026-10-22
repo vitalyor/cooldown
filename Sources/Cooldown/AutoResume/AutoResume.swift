@@ -19,7 +19,7 @@ struct CodexConversation: Identifiable, Equatable {
 
     init(id: String, name: String?, preview: String?, cwd: String?, updatedAt: Date?, archived: Bool) {
         let clean = [name, preview].compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }.first { !$0.isEmpty }
-        self.init(id: id, title: String((clean ?? "Без названия").prefix(120)), cwd: cwd, updatedAt: updatedAt, archived: archived)
+        self.init(id: id, title: String((clean ?? L("Без названия")).prefix(120)), cwd: cwd, updatedAt: updatedAt, archived: archived)
     }
 }
 
@@ -179,7 +179,7 @@ final class AutoResume: @unchecked Sendable {
         guard let controller = controllers[id], let store else { return }
         // The old separate watcher (if one was moved over) must be gone before Cooldown acts.
         guard ResumeStore.legacyWatcherGone(id) else {
-            store.update(id, status: "starting", reason: "Ждём, пока остановится прежний наблюдатель", onlyEnabled: true)
+            store.update(id, status: "starting", reason: L("Ждём, пока остановится прежний наблюдатель"), onlyEnabled: true)
             schedule(id, in: 2, sooner: false)
             return
         }
@@ -243,22 +243,22 @@ final class AutoResume: @unchecked Sendable {
     }
 
     func start(_ id: String, maxResumes: Int) async throws {
-        guard let uuid = UUID(uuidString: id) else { throw ResumeError.refused("Нужен точный идентификатор диалога") }
+        guard let uuid = UUID(uuidString: id) else { throw ResumeError.refused(L("Нужен точный идентификатор диалога")) }
         let id = uuid.uuidString.lowercased()
         let check = try await self.check(id)
         guard check.canMonitor else { throw ResumeError.refused(check.reason) }
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             queue.async {
                 guard let store = self.store else {
-                    continuation.resume(throwing: ResumeError.refused(self.storeError ?? "Хранилище автопродолжения недоступно"))
+                    continuation.resume(throwing: ResumeError.refused(self.storeError ?? L("Хранилище автопродолжения недоступно")))
                     return
                 }
                 if store.uncertain(id) {
-                    continuation.resume(throwing: ResumeError.refused("У этой задачи есть неподтверждённая отправка; сначала проверьте её в Codex"))
+                    continuation.resume(throwing: ResumeError.refused(L("У этой задачи есть неподтверждённая отправка; сначала проверьте её в Codex")))
                     return
                 }
                 if store.count(id) >= maxResumes {
-                    continuation.resume(throwing: ResumeError.refused("Попытки для этой задачи уже израсходованы; увеличьте их число"))
+                    continuation.resume(throwing: ResumeError.refused(L("Попытки для этой задачи уже израсходованы; увеличьте их число")))
                     return
                 }
                 do {
@@ -310,11 +310,11 @@ final class AutoResume: @unchecked Sendable {
     /// The task state of one conversation, read-only: live from the app when it is open,
     /// otherwise from the saved history (which may allow watching, never sending).
     static func inspect(_ rawId: String) throws -> ResumeCheck {
-        guard let uuid = UUID(uuidString: rawId) else { throw ResumeError.refused("Нужен точный идентификатор диалога") }
+        guard let uuid = UUID(uuidString: rawId) else { throw ResumeError.refused(L("Нужен точный идентификатор диалога")) }
         let id = uuid.uuidString.lowercased()
         if try isArchived(id) {
             return ResumeCheck(threadId: id, title: CodexThreadIndex.thread(id: id)?.title, taskState: "archived", canMonitor: false,
-                               reason: "Этот диалог в архиве — автопродолжение для него не включается", model: nil)
+                               reason: L("Этот диалог в архиве — автопродолжение для него не включается"), model: nil)
         }
         do {
             let connection = CodexIPCConnection()
@@ -339,25 +339,25 @@ final class AutoResume: @unchecked Sendable {
     /// Saved turns may allow watching a conversation; they never allow sending.
     static func storedAssessment(_ raw: Any?, id: String) throws -> ResumeCheck {
         guard let thread = raw as? [String: Any], thread["id"] as? String == id else {
-            throw ResumeError.refused("Результат чтения не соответствует выбранному диалогу")
+            throw ResumeError.refused(L("Результат чтения не соответствует выбранному диалогу"))
         }
         let title = JSON.nonEmptyString(thread["name"]) ?? JSON.nonEmptyString(thread["preview"])
         func result(_ state: String, _ can: Bool, _ reason: String) -> ResumeCheck {
             ResumeCheck(threadId: id, title: title, taskState: state, canMonitor: can, reason: reason, model: nil)
         }
-        let unknown = result("unknown", false, "Пока не удаётся подтвердить статус задачи, автопродолжение не включается")
+        let unknown = result("unknown", false, L("Пока не удаётся подтвердить статус задачи, автопродолжение не включается"))
         guard JSON.bool(thread["ephemeral"]) == false, let turns = thread["turns"] as? [Any] else { return unknown }
         guard let turn = turns.last as? [String: Any] else {
-            return turns.isEmpty ? result("empty", false, "В этом диалоге ещё нет задач — автопродолжение не нужно") : unknown
+            return turns.isEmpty ? result("empty", false, L("В этом диалоге ещё нет задач — автопродолжение не нужно")) : unknown
         }
         guard JSON.nonEmptyString(turn["id"]) != nil else { return unknown }
         switch turn["status"] as? String {
-        case "completed": return result("idle", false, "Последний раунд завершён, выполняющихся задач нет — автопродолжение не нужно")
-        case "interrupted": return result("interrupted", false, "Последний раунд остановлен, автоматически перезапущен не будет")
-        case "inProgress": return result("running", true, "История показывает, что задача ещё выполняется")
+        case "completed": return result("idle", false, L("Последний раунд завершён, выполняющихся задач нет — автопродолжение не нужно"))
+        case "interrupted": return result("interrupted", false, L("Последний раунд остановлен, автоматически перезапущен не будет"))
+        case "inProgress": return result("running", true, L("История показывает, что задача ещё выполняется"))
         case "failed" where ResumePolicy.quotaFailure(turn):
-            return result("quota_limited", true, "История показывает, что задача остановилась из-за исчерпания лимита")
-        case "failed": return result("other_failure", false, "Задача остановлена из-за другой ошибки, не из-за лимита")
+            return result("quota_limited", true, L("История показывает, что задача остановилась из-за исчерпания лимита"))
+        case "failed": return result("other_failure", false, L("Задача остановлена из-за другой ошибки, не из-за лимита"))
         default: return unknown
         }
     }
@@ -379,17 +379,17 @@ final class AutoResume: @unchecked Sendable {
 enum ResumeStatus {
     static func taskStateTitle(_ state: String) -> String {
         switch state {
-        case "running": return "Задача выполняется"
-        case "quota_limited": return "Остановлена из-за лимита"
-        case "needs_attention": return "Ждёт вашего решения"
-        case "idle": return "Раунд завершён"
-        case "empty": return "Пустой диалог"
-        case "interrupted": return "Остановлена вручную"
-        case "other_failure": return "Остановлена из-за другой ошибки"
-        case "unsupported": return "Не поддерживается"
-        case "archived": return "В архиве"
-        case "connecting": return "Ждёт подключения"
-        default: return "Статус неизвестен"
+        case "running": return L("Задача выполняется")
+        case "quota_limited": return L("Остановлена из-за лимита")
+        case "needs_attention": return L("Ждёт вашего решения")
+        case "idle": return L("Раунд завершён")
+        case "empty": return L("Пустой диалог")
+        case "interrupted": return L("Остановлена вручную")
+        case "other_failure": return L("Остановлена из-за другой ошибки")
+        case "unsupported": return L("Не поддерживается")
+        case "archived": return L("В архиве")
+        case "connecting": return L("Ждёт подключения")
+        default: return L("Статус неизвестен")
         }
     }
 }

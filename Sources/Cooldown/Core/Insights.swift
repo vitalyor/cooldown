@@ -34,11 +34,11 @@ enum Insights {
         guard once("pace-\(store.id.rawValue)-\(Int(window.resetsAt.timeIntervalSince1970))") else { return }
         let name = store.id.displayName
         Notifier.shared.post(id: "pace-\(store.id.rawValue)-\(Int(now.timeIntervalSince1970))",
-                             title: "\(name): лимит кончится около \(Format.clock(at))",
-                             body: "При таком темпе 5 часов закончатся раньше сброса в \(Format.clock(window.resetsAt)).",
+                             title: L("%@: лимит кончится около %@", "\(name)", "\(Format.clock(at))"),
+                             body: L("При таком темпе 5 часов закончатся раньше сброса в %@.", "\(Format.clock(window.resetsAt))"),
                              toast: ToastContent(key: "pace-\(store.id.rawValue)", kind: .attention, provider: store.id,
-                                                 title: "\(name): лимит кончится около \(Format.clock(at))",
-                                                 body: "При таком темпе 5 часов закончатся раньше сброса в \(Format.clock(window.resetsAt)). Сейчас осталось \(Format.percent(window.remainingPercent)).",
+                                                 title: L("%@: лимит кончится около %@", "\(name)", "\(Format.clock(at))"),
+                                                 body: L("При таком темпе 5 часов закончатся раньше сброса в %@. Сейчас осталось %@.", "\(Format.clock(window.resetsAt))", "\(Format.percent(window.remainingPercent))"),
                                                  actions: store.id == .codex ? [.openSchedule, .openPanel] : [.openPanel], life: .auto(14)))
     }
 
@@ -63,11 +63,11 @@ enum Insights {
             let name = Stats.projectName(project)
             guard once("project-\(store.id.rawValue)-\(Int(week.resetsAt.timeIntervalSince1970))-\(project)") else { continue }
             Notifier.shared.post(id: "project-\(store.id.rawValue)-\(name)-\(Int(Date().timeIntervalSince1970))",
-                                 title: "«\(name)» — около \(Format.percent(ofLimit)) недели \(store.id.displayName)",
-                                 body: "На этот проект ушло \(Format.percent(share * 100)) работы \(store.id.displayName) с начала недели.",
+                                 title: L("«%@» — около %@ недели %@", "\(name)", "\(Format.percent(ofLimit))", "\(store.id.displayName)"),
+                                 body: L("На этот проект ушло %@ работы %@ с начала недели.", "\(Format.percent(share * 100))", "\(store.id.displayName)"),
                                  toast: ToastContent(key: "project-\(name)", kind: .info, provider: store.id,
-                                                     title: "«\(name)»: около \(Format.percent(ofLimit)) недельного лимита",
-                                                     body: "На этот проект ушло \(Format.percent(share * 100)) работы \(store.id.displayName) с начала недели. Всего неделя израсходована на \(Format.percent(week.usedPercent)).",
+                                                     title: L("«%@»: около %@ недельного лимита", "\(name)", "\(Format.percent(ofLimit))"),
+                                                     body: L("На этот проект ушло %@ работы %@ с начала недели. Всего неделя израсходована на %@.", "\(Format.percent(share * 100))", "\(store.id.displayName)", "\(Format.percent(week.usedPercent))"),
                                                      actions: [.openPanel], life: .auto(12)))
         }
     }
@@ -91,11 +91,11 @@ enum Insights {
             guard once("day-\(store.id.rawValue)-\(DailyLog.key(now))") else { continue }
             let name = store.id.displayName
             Notifier.shared.post(id: "day-\(store.id.rawValue)-\(DailyLog.key(now))",
-                                 title: "\(name): сегодня ушло \(Format.percent(spent)) недели",
-                                 body: "Чтобы хватило до сброса, в день можно около \(Format.percent(budget)).",
+                                 title: L("%@: сегодня ушло %@ недели", "\(name)", "\(Format.percent(spent))"),
+                                 body: L("Чтобы хватило до сброса, в день можно около %@.", "\(Format.percent(budget))"),
                                  toast: ToastContent(key: "day-\(store.id.rawValue)", kind: .info, provider: store.id,
-                                                     title: "\(name): сегодня ушло \(Format.percent(spent)) недели",
-                                                     body: "Чтобы недельного лимита хватило до сброса \(Format.time(week.resetsAt)), в день можно около \(Format.percent(budget)). Завтра стоит полегче.",
+                                                     title: L("%@: сегодня ушло %@ недели", "\(name)", "\(Format.percent(spent))"),
+                                                     body: L("Чтобы недельного лимита хватило до сброса %@, в день можно около %@. Завтра стоит полегче.", "\(Format.time(week.resetsAt))", "\(Format.percent(budget))"),
                                                      actions: [.openPanel], life: .auto(14)))
         }
     }
@@ -124,18 +124,18 @@ enum Insights {
             done += day.codexDone + day.claudeDone
         }
         var parts: [String] = []
-        if codexTokens > 0 { parts.append("Codex: \(Format.tokens(codexTokens)) токенов") }
+        if codexTokens > 0 { parts.append(L("Codex: %@ токенов", "\(Format.tokens(codexTokens))")) }
         if claudeTokens > 0 { parts.append("Claude Code: \(Format.tokens(claudeTokens))") }
-        if dollars >= 1 { parts.append("по API это стоило бы ≈\(Pricing.format(dollars))") }
-        if done > 0 { parts.append("закончено задач: \(done)") }
+        if dollars >= 1 { parts.append(L("по API это стоило бы ≈%@", "\(Pricing.format(dollars))")) }
+        if done > 0 { parts.append(L("закончено задач: %@", "\(done)")) }
         let exhausted = Stats.exhaustedWindows(model.codex.samples, .week, now: now) + Stats.exhaustedWindows(model.claude.samples, .week, now: now)
-        if exhausted > 0 { parts.append("в лимит упирались \(exhausted) \(Format.plural(exhausted, "раз", "раза", "раз"))") }
+        if exhausted > 0 { parts.append(L("в лимит упирались %@", "\(Format.count(exhausted, L("раз|раза|раз")))")) }
         let top = Stats.projects(model.codex.buckets + model.claude.buckets, .week, now: now).first
-        if let top { parts.append("больше всего — «\(top.name)»") }
+        if let top { parts.append(L("больше всего — «%@»", "\(top.name)")) }
         guard !parts.isEmpty else { return }
         // The week as a picture to keep or share.
         let report = WeeklyReport.render(now: now)
-        ToastController.shared.show(ToastContent(key: "week", kind: .info, provider: nil, title: "Итоги недели",
+        ToastController.shared.show(ToastContent(key: "week", kind: .info, provider: nil, title: L("Итоги недели"),
                                                  body: parts.joined(separator: ", ") + ".",
                                                  actions: report.map { [.openFile($0), .openPanel] } ?? [.openPanel], life: .sticky))
     }

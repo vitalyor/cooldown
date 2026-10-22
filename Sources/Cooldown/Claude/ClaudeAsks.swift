@@ -125,7 +125,7 @@ final class ClaudeAsks {
     private func respond(_ id: String, input: [String: Any], choice: RequestChoice) async throws {
         guard let entry = held[id], kill(entry.pid, 0) == 0,
               FileManager.default.fileExists(atPath: path(id, "req").path) else {
-            throw ResumeError.refused("Claude Code уже не ждёт этого ответа.")
+            throw ResumeError.refused(L("Claude Code уже не ждёт этого ответа."))
         }
         let tool = input["tool_name"] as? String ?? ""
         let toolInput = input["tool_input"] as? [String: Any] ?? [:]
@@ -137,28 +137,28 @@ final class ClaudeAsks {
             let suggestions = (input["permission_suggestions"] as? [[String: Any]] ?? []).filter { $0["destination"] as? String == "session" }
             decision = ["behavior": "allow", "updatedInput": toolInput, "updatedPermissions": suggestions]
         case "deny":
-            decision = ["behavior": "deny", "message": "Пользователь отклонил это действие (из Cooldown)."]
+            decision = ["behavior": "deny", "message": L("Пользователь отклонил это действие (из Cooldown).")]
         case let option where option.hasPrefix("option:") && tool == "AskUserQuestion":
             guard let index = Int(option.dropFirst("option:".count)),
                   let question = (toolInput["questions"] as? [[String: Any]])?.first, let text = question["question"] as? String,
                   let options = question["options"] as? [[String: Any]], options.indices.contains(index),
-                  let label = options[index]["label"] as? String else { throw ResumeError.refused("Вариант ответа не найден.") }
+                  let label = options[index]["label"] as? String else { throw ResumeError.refused(L("Вариант ответа не найден.")) }
             decision = ["behavior": "allow", "updatedInput": ["questions": toolInput["questions"] ?? [Any](), "answers": [text: label]]]
         case let picks where picks.hasPrefix("answers:") && tool == "AskUserQuestion":
             let indices = picks.dropFirst("answers:".count).split(separator: ",").compactMap { Int($0) }
             let questions = toolInput["questions"] as? [[String: Any]] ?? []
-            guard indices.count == questions.count else { throw ResumeError.refused("Ответы не совпадают с вопросами.") }
+            guard indices.count == questions.count else { throw ResumeError.refused(L("Ответы не совпадают с вопросами.")) }
             var answers: [String: String] = [:]
             for (question, index) in zip(questions, indices) {
                 guard let text = question["question"] as? String, let options = question["options"] as? [[String: Any]],
                       options.indices.contains(index), let label = options[index]["label"] as? String else {
-                    throw ResumeError.refused("Вариант ответа не найден.")
+                    throw ResumeError.refused(L("Вариант ответа не найден."))
                 }
                 answers[text] = label
             }
             decision = ["behavior": "allow", "updatedInput": ["questions": toolInput["questions"] ?? [Any](), "answers": answers]]
         default:
-            throw ResumeError.refused("Такой ответ здесь не поддерживается.")
+            throw ResumeError.refused(L("Такой ответ здесь не поддерживается."))
         }
         let output: [String: Any] = ["hookSpecificOutput": ["hookEventName": "PermissionRequest", "decision": decision]]
         let data = try JSONSerialization.data(withJSONObject: output)
@@ -174,11 +174,11 @@ final class ClaudeAsks {
         let toolInput = input["tool_input"] as? [String: Any] ?? [:]
         let project = (input["cwd"] as? String).map { Stats.projectName($0) } ?? ""
         let chat = project.isEmpty ? "Claude Code" : "Claude Code · \(project)"
-        let open = RequestChoice(id: "open", title: "Ответить там", role: .open)
+        let open = RequestChoice(id: "open", title: L("Ответить там"), role: .open)
         let hasSession = (input["permission_suggestions"] as? [[String: Any]] ?? []).contains { $0["destination"] as? String == "session" }
-        var approve = [RequestChoice(id: "allow", title: "Разрешить", role: .allow)]
-        if hasSession { approve.append(RequestChoice(id: "allowSession", title: "На всю сессию", role: .allow)) }
-        approve += [RequestChoice(id: "deny", title: "Отклонить", role: .decline), open]
+        var approve = [RequestChoice(id: "allow", title: L("Разрешить"), role: .allow)]
+        if hasSession { approve.append(RequestChoice(id: "allowSession", title: L("На всю сессию"), role: .allow)) }
+        approve += [RequestChoice(id: "deny", title: L("Отклонить"), role: .decline), open]
         func make(_ headline: String, _ detail: String?, _ choices: [RequestChoice]) -> AgentRequest {
             AgentRequest(key: "claude-code|\(id)", provider: .claude, chat: chat, headline: headline, detail: detail,
                          choices: choices, appBundleIDs: host.map { [$0] } ?? [], threadId: nil)
@@ -187,19 +187,19 @@ final class ClaudeAsks {
         switch tool {
         case "Bash":
             let text = [toolInput["command"] as? String, toolInput["description"] as? String].compactMap { $0 }.joined(separator: "\n")
-            return make("Claude хочет выполнить команду", text, approve)
+            return make(L("Claude хочет выполнить команду"), text, approve)
         case "Edit", "MultiEdit", "Write", "NotebookEdit":
-            return make(tool == "Write" ? "Claude хочет создать или перезаписать файл" : "Claude хочет изменить файл",
+            return make(tool == "Write" ? L("Claude хочет создать или перезаписать файл") : L("Claude хочет изменить файл"),
                         home(toolInput["file_path"] as? String ?? toolInput["notebook_path"] as? String), approve)
         case "WebFetch":
-            return make("Claude хочет открыть страницу", toolInput["url"] as? String, approve)
+            return make(L("Claude хочет открыть страницу"), toolInput["url"] as? String, approve)
         case "WebSearch":
-            return make("Claude хочет поискать в интернете", toolInput["query"] as? String, approve)
+            return make(L("Claude хочет поискать в интернете"), toolInput["query"] as? String, approve)
         case "ExitPlanMode":
             let plan = (toolInput["plan"] as? String).map { String($0.prefix(600)) }
-            return make("Claude предлагает план", plan,
-                        [RequestChoice(id: "allow", title: "Одобрить", role: .allow),
-                         RequestChoice(id: "deny", title: "Отклонить", role: .decline), open])
+            return make(L("Claude предлагает план"), plan,
+                        [RequestChoice(id: "allow", title: L("Одобрить"), role: .allow),
+                         RequestChoice(id: "deny", title: L("Отклонить"), role: .decline), open])
         case "AskUserQuestion":
             let questions = toolInput["questions"] as? [[String: Any]] ?? []
             if questions.count == 1, let question = questions.first, JSON.bool(question["multiSelect"]) != true,
@@ -209,8 +209,8 @@ final class ClaudeAsks {
                     let note = (option["description"] as? String).flatMap { $0.isEmpty ? nil : " — " + $0 } ?? ""
                     return RequestChoice(id: "option:\(index)", title: label + note)
                 }
-                choices.append(RequestChoice(id: "open", title: "Свой ответ там", role: .open))
-                return make("Claude спрашивает", question["question"] as? String, choices)
+                choices.append(RequestChoice(id: "open", title: L("Свой ответ там"), role: .open))
+                return make(L("Claude спрашивает"), question["question"] as? String, choices)
             }
             let steps = questions.map { question -> RequestStep? in
                 guard JSON.bool(question["multiSelect"]) != true, let options = question["options"] as? [[String: Any]], !options.isEmpty else { return nil }
@@ -219,24 +219,24 @@ final class ClaudeAsks {
                     let note = (option["description"] as? String).flatMap { $0.isEmpty ? nil : " — " + $0 } ?? ""
                     return RequestChoice(id: "option:\(index)", title: label + note)
                 }
-                choices.append(RequestChoice(id: "open", title: "Ответить там", role: .open))
-                return RequestStep(headline: "Claude спрашивает", detail: question["question"] as? String, choices: choices)
+                choices.append(RequestChoice(id: "open", title: L("Ответить там"), role: .open))
+                return RequestStep(headline: L("Claude спрашивает"), detail: question["question"] as? String, choices: choices)
             }
             if questions.count > 1, steps.allSatisfy({ $0 != nil }) {
-                var request = make("Claude спрашивает", nil, [open])
+                var request = make(L("Claude спрашивает"), nil, [open])
                 request.steps = steps.compactMap { $0 }
                 return request
             }
             let text = questions.compactMap { $0["question"] as? String }.joined(separator: "\n")
-            return make(questions.count > 1 ? "Claude задал \(questions.count) вопроса" : "Claude спрашивает", text, [open])
+            return make(questions.count > 1 ? L("Claude задал %@ вопроса", "\(questions.count)") : L("Claude спрашивает"), text, [open])
         default:
             if tool.hasPrefix("mcp__") {
                 let parts = tool.split(separator: "_", omittingEmptySubsequences: true)
                 let server = parts.count > 1 ? String(parts[1]) : "MCP"
                 let name = parts.count > 2 ? parts[2...].joined(separator: "_") : tool
-                return make("Claude хочет использовать \(server)", name, approve)
+                return make(L("Claude хочет использовать %@", "\(server)"), name, approve)
             }
-            return make("Claude просит разрешение: \(tool)", nil, approve)
+            return make(L("Claude просит разрешение: %@", "\(tool)"), nil, approve)
         }
     }
 

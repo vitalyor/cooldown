@@ -369,7 +369,7 @@ final class AppModel: ObservableObject {
             let key = "out-\(fresh.provider.rawValue)-\(Int(session.resetsAt.timeIntervalSince1970))"
             if !Settings.notifiedKeys.contains(key) {
                 Settings.notifiedKeys += [key]
-                Notifier.shared.post(id: key, title: "Лимит \(name) исчерпан", body: "Снова можно работать в \(Format.clock(session.resetsAt)).",
+                Notifier.shared.post(id: key, title: L("Лимит %@ исчерпан", "\(name)"), body: L("Снова можно работать в %@.", "\(Format.clock(session.resetsAt))"),
                                      toast: ToastCatalog.limitOut(fresh.provider, reset: session.resetsAt))
             }
             return
@@ -385,8 +385,8 @@ final class AppModel: ObservableObject {
         guard !notified.contains(key) else { return }
         notified += crossed.map { "\(window)-\(Int($0))" }
         Settings.notifiedKeys = notified
-        Notifier.shared.post(id: key, title: "\(name): осталось \(Format.percent(remaining))",
-                             body: "Лимит на 5 часов заканчивается. Сброс в \(Format.time(session.resetsAt)).",
+        Notifier.shared.post(id: key, title: L("%@: осталось %@", "\(name)", "\(Format.percent(remaining))"),
+                             body: L("Лимит на 5 часов заканчивается. Сброс в %@.", "\(Format.time(session.resetsAt))"),
                              toast: ToastCatalog.limitLow(fresh.provider, remaining: remaining, reset: session.resetsAt))
     }
 
@@ -399,8 +399,8 @@ final class AppModel: ObservableObject {
             if provider == .codex { AutoResume.shared.pokeAll(after: 15) }
             // Chats chosen for Claude get their own "Продолжить «…»?" cards.
             if provider == .claude, !isRenderMode, !ClaudeChatList.shared.entries.isEmpty {
-                EventLog.shared.add(CooldownEvent(kind: .reset, provider: .claude, title: "Лимит Claude восстановлен",
-                                                  body: "Ждут продолжения: " + ClaudeChatList.shared.entries.map { "«\($0.chat.title)»" }.joined(separator: ", ")))
+                EventLog.shared.add(CooldownEvent(kind: .reset, provider: .claude, title: L("Лимит Claude восстановлен"),
+                                                  body: L("Ждут продолжения: ") + ClaudeChatList.shared.entries.map { "«\($0.chat.title)»" }.joined(separator: ", ")))
                 if ToastController.shared.canShow && !QuietHours.active {
                     ClaudeChatList.shared.limitReset()
                     continue
@@ -410,9 +410,9 @@ final class AppModel: ObservableObject {
             }
             if Settings.notifyReset && !isRenderMode {
                 Notifier.shared.post(id: "reset-\(provider.rawValue)-\(Int(pending.timeIntervalSince1970))",
-                                     title: "Лимит \(provider.displayName) восстановлен",
-                                     body: provider == .claude ? "Окно на 5 часов сбросилось. Нажмите, чтобы открыть Claude."
-                                                               : "Окно на 5 часов сбросилось, можно продолжать работу.",
+                                     title: L("Лимит %@ восстановлен", "\(provider.displayName)"),
+                                     body: provider == .claude ? L("Окно на 5 часов сбросилось. Нажмите, чтобы открыть Claude.")
+                                                               : L("Окно на 5 часов сбросилось, можно продолжать работу."),
                                      opensClaude: provider == .claude,
                                      toast: ToastCatalog.limitReset(provider))
             }
@@ -462,7 +462,7 @@ final class AppModel: ObservableObject {
     /// Watches changed (pushed by AutoResume the moment they do — no polling).
     func resumeChanged(_ rows: [ResumeWatch]) {
         guard !demoActive else { return }
-        relayError = CodexApp.url == nil ? "Не найдено приложение Codex — автопродолжение работает через него." : nil
+        relayError = CodexApp.url == nil ? L("Не найдено приложение Codex — автопродолжение работает через него.") : nil
         notifyRelayChanges(rows)
         if rows != watches { withAnimation(.smooth) { watches = rows } }
         if rows.contains(where: { knownTitle($0.threadId) == nil }) { Task { await loadThreads(force: false) } }
@@ -491,7 +491,7 @@ final class AppModel: ObservableObject {
     }
 
     func knownTitle(_ id: String) -> String? { threads.first { $0.id == id }?.title }
-    func title(for id: String) -> String { knownTitle(id) ?? "Диалог \(id.prefix(8))" }
+    func title(for id: String) -> String { knownTitle(id) ?? L("Диалог %@", "\(id.prefix(8))") }
 
     func check(_ id: String) async throws -> ResumeCheck { try await AutoResume.shared.check(id) }
 
@@ -522,22 +522,22 @@ final class AppModel: ObservableObject {
         let name = "«\(title)»"
         switch status {
         case "resumed":
-            Notifier.shared.post(id: "task-\(id)-\(Int(Date().timeIntervalSince1970))", title: "\(provider.displayName): задача продолжена",
-                                 body: "\(name): лимит восстановился, продолжение отправлено.",
+            Notifier.shared.post(id: "task-\(id)-\(Int(Date().timeIntervalSince1970))", title: L("%@: задача продолжена", "\(provider.displayName)"),
+                                 body: L("%@: лимит восстановился, продолжение отправлено.", "\(name)"),
                                  toast: ToastCatalog.taskResumed(provider, title: title))
         case "waiting_quota":
-            Notifier.shared.post(id: "task-\(id)-wait-\(Int(Date().timeIntervalSince1970) / 3600)", title: "\(provider.displayName): задача ждёт сброса",
-                                 body: "\(name) продолжится автоматически после сброса лимита.",
+            Notifier.shared.post(id: "task-\(id)-wait-\(Int(Date().timeIntervalSince1970) / 3600)", title: L("%@: задача ждёт сброса", "\(provider.displayName)"),
+                                 body: L("%@ продолжится автоматически после сброса лимита.", "\(name)"),
                                  toast: ToastCatalog.taskWaiting(provider, title: title, until: store(provider).snapshot?.session?.resetsAt))
         case "stopped":
             // Finished turns are announced by the session watcher, with the agent's own last words.
             break
         case let state where TaskStatus.needsAttention(state):
-            Notifier.shared.post(id: "task-\(id)-\(state)", title: "\(provider.displayName): задача ждёт проверки", body: "\(name): \(reason)",
+            Notifier.shared.post(id: "task-\(id)-\(state)", title: L("%@: задача ждёт проверки", "\(provider.displayName)"), body: "\(name): \(reason)",
                                  toast: ToastCatalog.taskAttention(provider, title: title, reason: reason))
         case "budget":
-            Notifier.shared.post(id: "task-\(id)-budget", title: "\(provider.displayName): попытки закончились",
-                                 body: "\(name): автопродолжение остановлено.",
+            Notifier.shared.post(id: "task-\(id)-budget", title: L("%@: попытки закончились", "\(provider.displayName)"),
+                                 body: L("%@: автопродолжение остановлено.", "\(name)"),
                                  toast: ToastCatalog.taskBudget(provider, title: title))
         default:
             break
@@ -590,20 +590,20 @@ final class AppModel: ObservableObject {
         var lines: [String] = []
         for provider in ProviderID.allCases {
             let activity = AgentActivity.shared
-            for session in activity.waiting(provider) { lines.append("\(provider.displayName) ждёт вас: \(session.title)") }
+            for session in activity.waiting(provider) { lines.append(L("%@ ждёт вас: %@", "\(provider.displayName)", "\(session.title)")) }
             for session in activity.working(provider) {
-                lines.append("\(provider.displayName) работает: \(session.title.isEmpty ? "без названия" : session.title)")
+                lines.append(L("%@ работает: %@", "\(provider.displayName)", "\(session.title.isEmpty ? L("без названия") : session.title)"))
             }
         }
         // Then each agent's 5-hour limit and how long it lasts at the current pace.
         let now = Date()
         for store in [codex, claude] {
             guard let window = store.snapshot?.session, !window.isExpired(at: now) else { continue }
-            var line = "\(store.id.displayName): осталось \(Format.percent(window.remainingPercent))"
+            var line = L("%@: осталось %@", "\(store.id.displayName)", "\(Format.percent(window.remainingPercent))")
             switch Forecaster.make(window: window, samples: store.samples, now: now).outcome {
-            case .runsOut(let at): line += ", при таком темпе хватит до \(Format.clock(at))"
-            case .lasts: line += ", хватит до сброса в \(Format.clock(window.resetsAt))"
-            default: line += ", сброс в \(Format.clock(window.resetsAt))"
+            case .runsOut(let at): line += L(", при таком темпе хватит до %@", "\(Format.clock(at))")
+            case .lasts: line += L(", хватит до сброса в %@", "\(Format.clock(window.resetsAt))")
+            default: line += L(", сброс в %@", "\(Format.clock(window.resetsAt))")
             }
             lines.append(line)
         }
@@ -649,20 +649,20 @@ final class AppModel: ObservableObject {
 enum TaskStatus {
     static func title(_ status: String) -> String {
         switch status {
-        case "starting": return "Запускается"
-        case "watching": return "Задача выполняется"
-        case "waiting_quota": return "Ждёт сброса лимита"
-        case "waiting_connection": return "Ждёт подключения"
-        case "needs_attention": return "Нужно ваше решение"
-        case "resumed": return "Продолжение отправлено"
-        case "stopped": return "Завершено"
-        case "paused": return "Выключено вами"
-        case "uncertain": return "Отправка не подтверждена"
-        case "blocked": return "Нужна проверка"
-        case "budget": return "Попытки закончились"
-        case "changed": return "Задача изменилась"
-        case "retrying": return "Повторная проверка"
-        default: return "Статус неизвестен"
+        case "starting": return L("Запускается")
+        case "watching": return L("Задача выполняется")
+        case "waiting_quota": return L("Ждёт сброса лимита")
+        case "waiting_connection": return L("Ждёт подключения")
+        case "needs_attention": return L("Нужно ваше решение")
+        case "resumed": return L("Продолжение отправлено")
+        case "stopped": return L("Завершено")
+        case "paused": return L("Выключено вами")
+        case "uncertain": return L("Отправка не подтверждена")
+        case "blocked": return L("Нужна проверка")
+        case "budget": return L("Попытки закончились")
+        case "changed": return L("Задача изменилась")
+        case "retrying": return L("Повторная проверка")
+        default: return L("Статус неизвестен")
         }
     }
 

@@ -151,19 +151,19 @@ final class ClaudeChatList: ObservableObject {
     func limitReset() {
         if entries.count >= 2 {
             let chats = entries.map(\.chat)
-            let names = chats.prefix(4).map { "«\($0.title)»" }.joined(separator: ", ") + (chats.count > 4 ? " и ещё \(chats.count - 4)" : "")
+            let names = chats.prefix(4).map { "«\($0.title)»" }.joined(separator: ", ") + (chats.count > 4 ? L(" и ещё %@", "\(chats.count - 4)") : "")
             ToastController.shared.show(ToastContent(
                 key: "claude-chats-all", kind: .reset, provider: .claude,
-                title: "Лимит Claude восстановился",
-                body: "Ждут продолжения: \(names). Cooldown откроет их по очереди и отправит «\(ClaudeSender.text)».",
+                title: L("Лимит Claude восстановился"),
+                body: L("Ждут продолжения: %@. Cooldown откроет их по очереди и отправит «%@».", "\(names)", "\(ClaudeSender.text)"),
                 actions: [.continueAllClaude(chats), .openPanel], life: .sticky))
             return
         }
         for entry in entries.prefix(1) {
             ToastController.shared.show(ToastContent(
                 key: "claude-chat-\(entry.id)", kind: .reset, provider: .claude,
-                title: "Продолжить «\(entry.chat.title)»?",
-                body: "Лимит Claude восстановился. Cooldown откроет этот чат и отправит «\(ClaudeSender.text)».",
+                title: L("Продолжить «%@»?", "\(entry.chat.title)"),
+                body: L("Лимит Claude восстановился. Cooldown откроет этот чат и отправит «%@».", "\(ClaudeSender.text)"),
                 actions: [.continueClaudeChat(entry.chat), .openClaude], life: .sticky))
         }
     }
@@ -183,13 +183,13 @@ final class ClaudeChatList: ObservableObject {
                 // Give Claude a moment to take the message before opening the next chat.
                 try? await Task.sleep(for: .seconds(2))
             } catch {
-                ToastController.shared.show(ToastCatalog.failure("Остановлено на «\(chat.title)»",
-                    (done > 0 ? "Продолжено чатов: \(done). " : "") + error.localizedDescription, provider: .claude))
+                ToastController.shared.show(ToastCatalog.failure(L("Остановлено на «%@»", "\(chat.title)"),
+                    (done > 0 ? L("Продолжено чатов: %@. ", "\(done)") : "") + error.localizedDescription, provider: .claude))
                 return
             }
         }
         ToastController.shared.show(ToastContent(key: "claude-all-done", kind: .info, provider: .claude,
-                                                 title: "Продолжено чатов: \(done)",
+                                                 title: L("Продолжено чатов: %@", "\(done)"),
                                                  body: chats.map { "«\($0.title)»" }.joined(separator: ", "), life: .auto(8)))
     }
 

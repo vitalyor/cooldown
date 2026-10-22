@@ -21,7 +21,7 @@ struct ClaudeChat: Codable, Equatable {
 /// the limit ran out in, and checks it is really there before typing.
 @MainActor
 enum ClaudeSender {
-    static let defaultText = "Продолжай с того места, где остановился."
+    static let defaultText = L("Продолжай с того места, где остановился.")
 
     enum SendError: LocalizedError {
         case noPermission, notRunning, notFront, noInput, chatNotOpened(String)
@@ -29,11 +29,11 @@ enum ClaudeSender {
         var errorDescription: String? {
             switch self {
             case .noPermission:
-                return "Нужно разрешение «Универсальный доступ» для Cooldown. Откроются Системные настройки: включите Cooldown и нажмите «Продолжить» ещё раз."
-            case .notRunning: return "Claude не открылся."
-            case .notFront: return "Окно Claude не вышло на передний план, сообщение не отправлено."
-            case .noInput: return "Не нашлось поле ввода в окне Claude. Сообщение не отправлено."
-            case .chatNotOpened(let title): return "Не получилось открыть чат «\(title)». Сообщение не отправлено — откройте его и нажмите ещё раз."
+                return L("Нужно разрешение «Универсальный доступ» для Cooldown. Откроются Системные настройки: включите Cooldown и нажмите «Продолжить» ещё раз.")
+            case .notRunning: return L("Claude не открылся.")
+            case .notFront: return L("Окно Claude не вышло на передний план, сообщение не отправлено.")
+            case .noInput: return L("Не нашлось поле ввода в окне Claude. Сообщение не отправлено.")
+            case .chatNotOpened(let title): return L("Не получилось открыть чат «%@». Сообщение не отправлено — откройте его и нажмите ещё раз.", "\(title)")
             }
         }
     }
@@ -182,7 +182,7 @@ enum ClaudeSender {
             AXUIElementPerformAction(button, kAXPressAction as CFString)
             if await waitOpen() { return }
         }
-        if let window = window(of: app), let all = button(described: "Показать все", in: window, last: true) {
+        if let window = window(of: app), let all = button(described: "Показать все", in: window, last: true) { // l10n:skip
             AXUIElementPerformAction(all, kAXPressAction as CFString)
             for _ in 0..<15 {
                 try await Task.sleep(for: .milliseconds(200))
@@ -198,8 +198,8 @@ enum ClaudeSender {
     /// Chat titles listed in Claude's sidebar (pinned, projects and recent), in order.
     static func sidebarTitles() -> [String] {
         guard hasPermission, let app = claudeApp, let window = window(of: app) else { return [] }
-        let navigation: Set<String> = ["Поиск", "Новое", "Проекты", "Артефакты", "Запланированные задачи", "Персонализация",
-                                       "Закрепленные", "Недавние", "Показать все", "Еще", "Ещё", "Search", "New chat", "Projects",
+        let navigation: Set<String> = ["Поиск", "Новое", "Проекты", "Артефакты", "Запланированные задачи", "Персонализация", // l10n:skip
+                                       "Закрепленные", "Недавние", "Показать все", "Еще", "Ещё", "Search", "New chat", "Projects", // l10n:skip
                                        "Artifacts", "Recents", "Starred", "Show all", "More"]
         var titles: [String] = []
         var stack = [window]
@@ -283,7 +283,7 @@ enum ClaudeSender {
         let id = url.lastPathComponent
         var title = (value(element, kAXTitleAttribute) as? String) ?? ""
         if title.hasSuffix(" - Claude") { title = String(title.dropLast(9)) }
-        return ClaudeChat(id: id, title: title.isEmpty ? "Чат Claude" : title)
+        return ClaudeChat(id: id, title: title.isEmpty ? L("Чат Claude") : title)
     }
 
     private static func sidebarButton(titled title: String, in window: AXUIElement, anyRole: Bool = false) -> AXUIElement? {
@@ -327,7 +327,7 @@ enum ClaudeSender {
             visited += 1
             if value(element, kAXRoleAttribute) as? String == (kAXTextAreaRole as String) {
                 let label = ((value(element, kAXDescriptionAttribute) as? String) ?? "").lowercased()
-                if label.contains("запрос") || label.contains("prompt") || label.contains("claude") { return element }
+                if label.contains("запрос") || label.contains("prompt") || label.contains("claude") { return element } // l10n:skip
                 last = element
             }
             stack.append(contentsOf: children(element).reversed())

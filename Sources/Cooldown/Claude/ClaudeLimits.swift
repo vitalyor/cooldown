@@ -58,7 +58,7 @@ enum ClaudeError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .notConnected:
-            return "Лимиты Claude ещё не подключены."
+            return L("Лимиты Claude ещё не подключены.")
         }
     }
 }
@@ -137,7 +137,7 @@ enum ClaudeLimits {
         if let richest = recent.filter({ !$0.extras.isEmpty }).max(by: { $0.fetchedAt < $1.fetchedAt }) { result.extras = richest.extras }
         result.fetchedAt = newest
         let names = Array(Set((session?.1 ?? []) + (weekly?.1 ?? []))).filter { !$0.isEmpty }.sorted()
-        result.source = names.isEmpty ? result.source : names.joined(separator: " и ")
+        result.source = names.isEmpty ? result.source : names.joined(separator: L(" и "))
         return result
     }
 
@@ -166,7 +166,7 @@ enum ClaudeLimits {
               let limits = object["rate_limits"] as? [String: Any] else { return nil }
         let saved = Num.date(object["savedAt"]) ?? Date.distantPast
         var snapshot = LimitSnapshot(provider: .claude, plan: nil, session: nil, weekly: nil, fetchedAt: saved,
-                                     source: "строка статуса Claude Code")
+                                     source: L("строка статуса Claude Code"))
         snapshot.session = window(limits["five_hour"], kind: .session)
         snapshot.weekly = window(limits["seven_day"], kind: .weekly)
         for (key, value) in limits where key.hasPrefix("seven_day_") {
@@ -192,10 +192,10 @@ enum ClaudeLimits {
     private static func extraTitle(_ key: String) -> String {
         let name = key.replacingOccurrences(of: "seven_day_", with: "")
         switch name {
-        case "opus": return "Неделя, Opus"
-        case "sonnet": return "Неделя, Sonnet"
-        case "fable": return "Неделя, Fable"
-        default: return "Неделя, \(name.capitalized)"
+        case "opus": return L("Неделя, Opus")
+        case "sonnet": return L("Неделя, Sonnet")
+        case "fable": return L("Неделя, Fable")
+        default: return L("Неделя, %@", "\(name.capitalized)")
         }
     }
 }

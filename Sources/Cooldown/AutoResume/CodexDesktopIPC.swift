@@ -16,8 +16,8 @@ enum CodexIPCError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .app(let text), .connection(let text): return text
-        case .threadUnavailable: return "Выбранный диалог пока не открыт в приложении Codex"
-        case .timeout: return "Приложение Codex не ответило вовремя"
+        case .threadUnavailable: return L("Выбранный диалог пока не открыт в приложении Codex")
+        case .timeout: return L("Приложение Codex не ответило вовремя")
         }
     }
 
@@ -52,9 +52,9 @@ enum CodexApp {
     static func checkVersion() throws -> URL {
         guard let url, let info = info(url), info.id == bundleId, let build = info.build, let number = Int(build),
               build.allSatisfy(\.isNumber) else {
-            throw CodexIPCError.app("Не найдено распознаваемое приложение Codex")
+            throw CodexIPCError.app(L("Не найдено распознаваемое приложение Codex"))
         }
-        guard number >= minimumBuild else { throw CodexIPCError.app("Версия приложения Codex старее проверенной; обновите приложение") }
+        guard number >= minimumBuild else { throw CodexIPCError.app(L("Версия приложения Codex старее проверенной; обновите приложение")) }
         return url
     }
 
@@ -79,7 +79,7 @@ enum CodexApp {
     /// prompt is filled in or sent, and success only means the request went out.
     static func openThread(_ id: String) throws {
         let app = try checkVersion()
-        guard let uuid = UUID(uuidString: id) else { throw CodexIPCError.app("Нужен точный идентификатор диалога") }
+        guard let uuid = UUID(uuidString: id) else { throw CodexIPCError.app(L("Нужен точный идентификатор диалога")) }
         guard let link = URL(string: "codex://threads/" + uuid.uuidString.lowercased()) else { return }
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = false
@@ -93,10 +93,7 @@ enum CodexApp {
 /// Blocking calls with deadlines; used from one background queue.
 final class CodexIPCConnection {
     static let maxFrame = 32 * 1024 * 1024
-    static let continuation = "Лимит восстановился. Продолжи прерванную работу в этой сессии. Сначала сверь текущий "
-        + "прогресс и рабочую папку; не повторяй уже выполненные шаги, не расширяй объём работы, "
-        + "не обходи подтверждения. Если работа уже завершена или нужно решение пользователя, "
-        + "прямо скажи об этом и остановись."
+    static let continuation = L("Лимит восстановился. Продолжи прерванную работу в этой сессии. Сначала сверь текущий прогресс и рабочую папку; не повторяй уже выполненные шаги, не расширяй объём работы, не обходи подтверждения. Если работа уже завершена или нужно решение пользователя, прямо скажи об этом и остановись.")
 
     private var fd: Int32 = -1
     private let timeout: TimeInterval
@@ -128,22 +125,22 @@ final class CodexIPCConnection {
         let directory = (socketPath as NSString).deletingLastPathComponent
         var dirInfo = stat(), sockInfo = stat()
         guard lstat(directory, &dirInfo) == 0, lstat(socketPath, &sockInfo) == 0 else {
-            throw CodexIPCError.connection("Приложение Codex не запущено")
+            throw CodexIPCError.connection(L("Приложение Codex не запущено"))
         }
         guard (dirInfo.st_mode & S_IFMT) == S_IFDIR, (sockInfo.st_mode & S_IFMT) == S_IFSOCK else {
-            throw CodexIPCError.app("Путь IPC — не сокет в обычном каталоге")
+            throw CodexIPCError.app(L("Путь IPC — не сокет в обычном каталоге"))
         }
         for info in [dirInfo, sockInfo] where info.st_uid != getuid() || info.st_mode & 0o077 != 0 {
-            throw CodexIPCError.app("Небезопасные права или владелец IPC; права автоматически не меняются")
+            throw CodexIPCError.app(L("Небезопасные права или владелец IPC; права автоматически не меняются"))
         }
         fd = socket(AF_UNIX, SOCK_STREAM, 0)
-        guard fd >= 0 else { throw CodexIPCError.connection("Не удалось открыть сокет") }
+        guard fd >= 0 else { throw CodexIPCError.connection(L("Не удалось открыть сокет")) }
         var on: Int32 = 1
         setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &on, socklen_t(MemoryLayout<Int32>.size))
         var address = sockaddr_un()
         address.sun_family = sa_family_t(AF_UNIX)
         let bytes = Array(socketPath.utf8)
-        guard bytes.count < MemoryLayout.size(ofValue: address.sun_path) else { close(); throw CodexIPCError.app("Слишком длинный путь IPC") }
+        guard bytes.count < MemoryLayout.size(ofValue: address.sun_path) else { close(); throw CodexIPCError.app(L("Слишком длинный путь IPC")) }
         withUnsafeMutableBytes(of: &address.sun_path) { buffer in
             buffer.copyBytes(from: bytes)
             buffer[bytes.count] = 0
@@ -153,12 +150,12 @@ final class CodexIPCConnection {
         }
         guard connected == 0 else {
             close()
-            throw CodexIPCError.connection("Приложение Codex не принимает подключения")
+            throw CodexIPCError.connection(L("Приложение Codex не принимает подключения"))
         }
         do {
             let reply = try request("initialize", ["clientType": "cooldown"], version: 0)
             guard let id = JSON.nonEmptyString((reply["result"] as? [String: Any])?["clientId"]) else {
-                throw CodexIPCError.app("Приложение не выдало идентификатор подключения")
+                throw CodexIPCError.app(L("Приложение не выдало идентификатор подключения"))
             }
             clientId = id
         } catch {
@@ -170,9 +167,9 @@ final class CodexIPCConnection {
     // MARK: Frames
 
     private func send(_ message: [String: Any]) throws {
-        guard fd >= 0 else { throw CodexIPCError.connection("Соединение с приложением закрыто") }
+        guard fd >= 0 else { throw CodexIPCError.connection(L("Соединение с приложением закрыто")) }
         guard let data = try? JSONSerialization.data(withJSONObject: message), data.count > 0, data.count <= Self.maxFrame else {
-            throw CodexIPCError.app("Сообщение IPC слишком большое")
+            throw CodexIPCError.app(L("Сообщение IPC слишком большое"))
         }
         var length = UInt32(data.count).littleEndian
         var frame = Data(bytes: &length, count: 4)
@@ -183,7 +180,7 @@ final class CodexIPCConnection {
                 let sent = Darwin.send(fd, raw.baseAddress! + offset, raw.count - offset, 0)
                 if sent < 0 {
                     if errno == EINTR { continue }
-                    throw CodexIPCError.connection("Соединение с приложением разорвано")
+                    throw CodexIPCError.connection(L("Соединение с приложением разорвано"))
                 }
                 offset += sent
             }
@@ -198,7 +195,7 @@ final class CodexIPCConnection {
             var item = pollfd(fd: fd, events: Int16(POLLIN), revents: 0)
             let ready = poll(&item, 1, Int32(min(remaining * 1000, 60_000).rounded(.up)))
             if ready > 0 { return }
-            if ready < 0 && errno != EINTR { throw CodexIPCError.connection("Соединение с приложением разорвано") }
+            if ready < 0 && errno != EINTR { throw CodexIPCError.connection(L("Соединение с приложением разорвано")) }
         }
     }
 
@@ -208,10 +205,10 @@ final class CodexIPCConnection {
         while filled < count {
             try wait(until: deadline)
             let got = data.withUnsafeMutableBytes { recv(fd, $0.baseAddress! + filled, count - filled, 0) }
-            if got == 0 { throw CodexIPCError.connection("Соединение с приложением разорвано") }
+            if got == 0 { throw CodexIPCError.connection(L("Соединение с приложением разорвано")) }
             if got < 0 {
                 if errno == EINTR || errno == EAGAIN { continue }
-                throw CodexIPCError.connection("Соединение с приложением разорвано")
+                throw CodexIPCError.connection(L("Соединение с приложением разорвано"))
             }
             filled += got
         }
@@ -223,10 +220,10 @@ final class CodexIPCConnection {
     func read(deadline: Date) throws -> [String: Any] {
         let header = try exact(4, deadline: deadline)
         let size = Int(header.withUnsafeBytes { UInt32(littleEndian: $0.loadUnaligned(as: UInt32.self)) })
-        guard size > 0, size <= Self.maxFrame else { throw CodexIPCError.app("Длина сообщения IPC не поддерживается") }
+        guard size > 0, size <= Self.maxFrame else { throw CodexIPCError.app(L("Длина сообщения IPC не поддерживается")) }
         let body = try exact(size, deadline: deadline)
         guard let message = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any] else {
-            throw CodexIPCError.app("Сообщение IPC не является объектом")
+            throw CodexIPCError.app(L("Сообщение IPC не является объектом"))
         }
         let type = message["type"] as? String
         if type == "client-discovery-request" {
@@ -242,7 +239,7 @@ final class CodexIPCConnection {
            params["conversationId"] as? String == threadId, params["hostId"] as? String == "local",
            let owner, message["sourceClientId"] as? String == owner {
             guard Num.int(message["version"]) == 11, !JSON.isBool(message["version"]) else {
-                throw CodexIPCError.app("Изменилась версия протокола состояния приложения")
+                throw CodexIPCError.app(L("Изменилась версия протокола состояния приложения"))
             }
             stateGeneration += 1
             let change = params["change"] as? [String: Any]
@@ -254,7 +251,7 @@ final class CodexIPCConnection {
                 // Never infer the current state from a partial or missed patch stream.
                 snapshotValue = nil
             default:
-                throw CodexIPCError.app("Формат изменения состояния приложения не поддерживается")
+                throw CodexIPCError.app(L("Формат изменения состояния приложения не поддерживается"))
             }
         }
         return message
@@ -272,9 +269,9 @@ final class CodexIPCConnection {
             guard reply["type"] as? String == "response", reply["requestId"] as? String == requestId else { continue }
             guard reply["resultType"] as? String == "success" else {
                 if reply["error"] as? String == "no-client-found" { throw CodexIPCError.threadUnavailable }
-                throw CodexIPCError.app("Приложение отклонило запрос или интерфейс несовместим; автоматического повтора не было")
+                throw CodexIPCError.app(L("Приложение отклонило запрос или интерфейс несовместим; автоматического повтора не было"))
             }
-            guard reply["method"] as? String == method else { throw CodexIPCError.app("Метод ответа приложения не совпадает") }
+            guard reply["method"] as? String == method else { throw CodexIPCError.app(L("Метод ответа приложения не совпадает")) }
             return reply
         }
     }
@@ -294,17 +291,17 @@ final class CodexIPCConnection {
     /// Which window of the app owns the conversation right now.
     func discoverOwner(_ thread: String) throws -> String {
         let reply = try request("thread-owner-discovery", ["hostId": "local", "conversationId": thread], version: 1)
-        guard let handler = reply["handledByClientId"] as? String else { throw CodexIPCError.app("Не указан владелец задачи в приложении") }
+        guard let handler = reply["handledByClientId"] as? String else { throw CodexIPCError.app(L("Не указан владелец задачи в приложении")) }
         return handler
     }
 
     /// Answers one pending request of the conversation the way the app's own follower windows
     /// do (`thread-follower-…`), after `snapshot` confirmed it is still there.
     func answer(_ method: String, params: [String: Any]) throws {
-        guard let owner else { throw CodexIPCError.app("Не указан владелец задачи в приложении") }
+        guard let owner else { throw CodexIPCError.app(L("Не указан владелец задачи в приложении")) }
         let reply = try request(method, params, version: 1, target: owner)
         guard (reply["result"] as? [String: Any])?["ok"] as? Bool == true else {
-            throw CodexIPCError.app("Приложение не подтвердило ответ")
+            throw CodexIPCError.app(L("Приложение не подтвердило ответ"))
         }
     }
 
@@ -312,11 +309,11 @@ final class CodexIPCConnection {
 
     /// A fresh full state of one conversation from its owner window.
     func snapshot(_ id: String) throws -> [String: Any] {
-        guard let uuid = UUID(uuidString: id) else { throw CodexIPCError.app("Нужен точный идентификатор диалога") }
+        guard let uuid = UUID(uuidString: id) else { throw CodexIPCError.app(L("Нужен точный идентификатор диалога")) }
         let thread = uuid.uuidString.lowercased()
         threadId = thread
         let reply = try request("thread-owner-discovery", ["hostId": "local", "conversationId": thread], version: 1)
-        guard let handler = reply["handledByClientId"] as? String else { throw CodexIPCError.app("Не указан владелец задачи в приложении") }
+        guard let handler = reply["handledByClientId"] as? String else { throw CodexIPCError.app(L("Не указан владелец задачи в приложении")) }
         owner = handler
         try follow(false)
         snapshotValue = nil
@@ -325,7 +322,7 @@ final class CodexIPCConnection {
         let deadline = Date().addingTimeInterval(timeout)
         while snapshotValue == nil { try read(deadline: deadline) }
         guard let state = snapshotValue, state["id"] as? String == thread else {
-            throw CodexIPCError.app("Приложение вернуло не совпадающий статус задачи")
+            throw CodexIPCError.app(L("Приложение вернуло не совпадающий статус задачи"))
         }
         return state
     }
@@ -339,7 +336,7 @@ final class CodexIPCConnection {
             if poll(&item, 1, 0) <= 0 { return }
             try read(deadline: deadline)
         }
-        throw CodexIPCError.app("Состояние приложения всё ещё меняется; текущее возобновление отменено")
+        throw CodexIPCError.app(L("Состояние приложения всё ещё меняется; текущее возобновление отменено"))
     }
 
     /// Starts the next turn with the continuation text, inheriting every setting of the
@@ -348,21 +345,21 @@ final class CodexIPCConnection {
         try CodexApp.checkVersion()   // stop if the app updated while waiting
         let state = try snapshot(id)
         guard ResumePolicy.decide(state).action == .resume, (try? ResumePolicy.fingerprint(state)) == expected else {
-            throw CodexIPCError.app("Статус задачи изменился до отправки; возобновление отменено")
+            throw CodexIPCError.app(L("Статус задачи изменился до отправки; возобновление отменено"))
         }
         let generation = stateGeneration
         try drainPending()
-        guard generation == stateGeneration else { throw CodexIPCError.app("До отправки получен новый статус задачи; возобновление отменено") }
-        guard let thread = threadId else { throw CodexIPCError.app("Диалог не выбран") }
+        guard generation == stateGeneration else { throw CodexIPCError.app(L("До отправки получен новый статус задачи; возобновление отменено")) }
+        guard let thread = threadId else { throw CodexIPCError.app(L("Диалог не выбран")) }
         let request: [String: Any] = ["threadId": thread, "clientUserMessageId": messageId,
                                       "input": [["type": "text", "text": Self.continuation, "text_elements": [Any]()]]]
         guard allowed() else {
-            throw CodexIPCError.app("Наблюдение остановлено или изменилось разрешение на отправку; возобновление отменено")
+            throw CodexIPCError.app(L("Наблюдение остановлено или изменилось разрешение на отправку; возобновление отменено"))
         }
         let reply = try self.request("thread-follower-start-turn", ["conversationId": thread, "turnStart": ["request": request]],
                                      version: 2, target: owner)
         guard let turnId = JSON.nonEmptyString((((reply["result"] as? [String: Any])?["result"] as? [String: Any])?["turn"] as? [String: Any])?["id"]) else {
-            throw CodexIPCError.app("Результат возобновления неизвестен; проверьте в приложении, автоматической повторной отправки не будет")
+            throw CodexIPCError.app(L("Результат возобновления неизвестен; проверьте в приложении, автоматической повторной отправки не будет"))
         }
         return turnId
     }
