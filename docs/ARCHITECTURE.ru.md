@@ -56,6 +56,7 @@ Cooldown --claude-usage            # что читается из /usage
 Cooldown --hooks status            # состояние хуков (install / uninstall)
 Cooldown --menu-icon out.png       # значок строки меню в разных состояниях
 Cooldown --render --out out.png --provider codex --tab stats   # окно в картинку
+Cooldown --showcase --demo 1 --tab limits --clean   # настоящее окно на демо-данных, для скриншотов
 ```
 
 Что делали источники и почему была или не была показана карточка — в

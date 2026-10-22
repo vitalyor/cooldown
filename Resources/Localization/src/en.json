@@ -241,7 +241,7 @@
  "Год работы": "Year of work",
  "Готовность": "Readiness",
  "Готово.": "Done.",
- "Готово: структура собрана, файл лежит в /Volumes/T7/AI_ПМР.": "Done: the structure is ready, the file is in /Volumes/T7/AI_ПМР.",
+ "Готово: структура собрана, файл лежит в папке проекта.": "Done: the structure is ready, the file is in the project folder.",
  "ДЕМО · %@ из %@": "DEMO · %@ of %@",
  "Даже если агент на экране": "Even when the agent is on screen",
  "Дальше": "Next",

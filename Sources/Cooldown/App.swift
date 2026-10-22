@@ -150,7 +150,7 @@ enum Entry {
         // One Cooldown at a time: a second copy (opened again, or from another folder) steps aside.
         if let me = Bundle.main.bundleIdentifier,
            NSRunningApplication.runningApplications(withBundleIdentifier: me).contains(where: { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }),
-           !arguments.contains("--snapshot") {
+           !arguments.contains("--snapshot"), !arguments.contains("--showcase") {
             exit(0)
         }
         let app = NSApplication.shared
@@ -181,7 +181,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor
     private func prepareSnapshot() -> URL? {
         let arguments = CommandLine.arguments
-        guard let index = arguments.firstIndex(of: "--snapshot"), index + 1 < arguments.count else { return nil }
+        // `--showcase` sets the window up the same way but leaves it open, for screenshots of the
+        // real thing (glass, menu bar, cards) on made-up data: `--showcase --demo 1 --tab limits`.
+        let showcase = arguments.contains("--showcase")
+        let index = arguments.firstIndex(of: "--snapshot")
+        guard showcase || (index.map { $0 + 1 < arguments.count } ?? false) else { return nil }
         func value(_ flag: String) -> String? {
             guard let i = arguments.firstIndex(of: flag), i + 1 < arguments.count else { return nil }
             return arguments[i + 1]
@@ -193,8 +197,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let step = value("--demo").flatMap(Int.init) {
             DemoController.shared.start()
             DemoController.shared.jump(to: step)
+            if let hold = value("--hold").flatMap(Double.init) { DemoController.shared.hold(at: hold) }
         }
-        return URL(fileURLWithPath: arguments[index + 1])
+        if showcase {
+            RootView.hideDemoBanner = arguments.contains("--clean")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { StatusController.shared?.open() }
+            return nil
+        }
+        return URL(fileURLWithPath: arguments[index! + 1])
     }
 
     @MainActor

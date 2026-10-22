@@ -1,12 +1,64 @@
-# Cooldown
+<p align="center"><img src="docs/images/icon.png" width="112" alt="Cooldown icon"></p>
 
-**English** · [Русский](README.ru.md)
+<h1 align="center">Cooldown</h1>
 
-**A macOS menu bar app for people who work with Codex and Claude all day: limits at a glance,
-what each agent is doing, a card when work is done, and continuing after a limit resets.**
-Everything runs locally on your Mac.
+<p align="center"><b>English</b> · <a href="README.ru.md">Русский</a></p>
+
+<p align="center"><b>Your Codex and Claude limits in the macOS menu bar — and work that carries on by itself after a limit resets.</b></p>
+
+<p align="center">
+  <a href="https://github.com/vitalyor/cooldown/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/vitalyor/cooldown?label=release"></a>
+  <a href="https://github.com/vitalyor/cooldown/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/vitalyor/cooldown/total"></a>
+  <img alt="macOS 26+" src="https://img.shields.io/badge/macOS-26%2B-black?logo=apple">
+  <img alt="Languages" src="https://img.shields.io/badge/languages-11-blue">
+  <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/github/license/vitalyor/cooldown"></a>
+</p>
+
+Ran out of limit in the middle of a task at night? Cooldown waits for the reset and continues the same
+Codex conversation on its own, so in the morning the task is done. It also shows how much of the
+5-hour and weekly limits is left, what each agent is doing, and brings permission requests to a card
+you can answer from any app. Everything runs locally on your Mac; nothing is ever approved for you.
+
+<p align="center"><img src="docs/images/demo-en.gif" width="380" alt="Cooldown demo: the limit runs out, the task waits and continues after the reset"></p>
+
+## Install
+
+**Homebrew** (recommended):
+
+```sh
+brew install --cask vitalyor/tap/cooldown
+```
+
+**Or download** the latest [Cooldown-x.y.z.dmg](https://github.com/vitalyor/cooldown/releases/latest),
+open it and drag Cooldown to Applications.
+
+<details>
+<summary>macOS says it “can't verify the developer” — what to do</summary>
+
+Cooldown is free and open source, but it isn't notarized by Apple (that needs a paid developer account).
+So the first time you open the downloaded app, macOS stops it:
+
+1. Open Cooldown once and close the warning.
+2. Go to **System Settings → Privacy & Security**, scroll down and press **Open Anyway**.
+3. Confirm with your password. From then on Cooldown opens normally and updates itself.
+
+Or in Terminal: `xattr -dr com.apple.quarantine /Applications/Cooldown.app`.
+Homebrew does this for you. Every release lists SHA-256 checksums, and the app checks the checksum
+and signature of each update before installing it.
+</details>
+
+**Testers welcome.** Found a bug or have an idea? [Open an issue](https://github.com/vitalyor/cooldown/issues/new/choose)
+(the diagnostics report in Settings makes it quick) or say hi in [Discussions](https://github.com/vitalyor/cooldown/discussions).
 
 > Unofficial project, not affiliated with OpenAI or Anthropic. Codex and Claude are trademarks of their owners.
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/limits-en.png" width="260" alt="Limits and forecast"><br><sub>Limits and a forecast</sub></td>
+    <td align="center"><img src="docs/images/tasks-en.png" width="260" alt="Auto-continue"><br><sub>Auto-continue after the reset</sub></td>
+    <td align="center"><img src="docs/images/cards-en.png" width="260" alt="Cards"><br><sub>Cards you can answer</sub></td>
+  </tr>
+</table>
 
 ## Features
 
@@ -43,6 +95,8 @@ Everything runs locally on your Mac.
   and gives a report you can copy — without your paths or personal data.
 - Updates from GitHub with checksum and signature checks.
 
+<p align="center"><img src="docs/images/settings-en.png" width="560" alt="Settings window"></p>
+
 **Languages**
 - English, Русский, Українська, Deutsch, Français, Español, Português (Brasil), Italiano, 日本語, 简体中文, 한국어.
   The app follows the macOS language; you can pick another one for Cooldown in
@@ -51,17 +105,8 @@ Everything runs locally on your Mac.
 ## Requirements
 
 - macOS 26 (Tahoe) or later.
-- Command Line Tools (`xcode-select --install`); Xcode is not required.
+- To build from source: Command Line Tools (`xcode-select --install`); Xcode is not required.
 - Codex and/or Claude Code / Claude Desktop — whichever you use.
-
-## Install
-
-Download the latest **Cooldown-x.y.z.dmg** from [Releases](https://github.com/vitalyor/cooldown/releases/latest),
-open it and drag Cooldown to Applications.
-
-Cooldown is not notarized by Apple, so on first launch macOS says it cannot verify the developer.
-Open **System Settings → Privacy & Security** and press **Open Anyway**
-(or run `xattr -dr com.apple.quarantine /Applications/Cooldown.app`).
 
 ## Build and run
 

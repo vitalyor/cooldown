@@ -135,6 +135,19 @@ final class RequestCenter: ObservableObject {
                             threadId: request.threadId, detail: detail, choices: choices, requestKey: request.key)
     }
 
+    /// A made-up Codex permission request for the sample cards. It is not pending anywhere,
+    /// so any of its buttons only closes it.
+    static func exampleContent() -> ToastContent {
+        ToastContent(key: "req-example", kind: .attention, provider: .codex,
+                     title: L("Codex хочет выполнить команду"), body: L("Рефакторинг парсера"), life: .sticky,
+                     threadId: nil, detail: "swift test --filter ParserTests", // l10n:skip
+                     choices: [RequestChoice(id: "allow", title: L("Разрешить"), role: .allow),
+                               RequestChoice(id: "session", title: L("На всю сессию"), role: .allow),
+                               RequestChoice(id: "decline", title: L("Отклонить"), role: .decline),
+                               RequestChoice(id: "open", title: L("Открыть чат"), role: .open)],
+                     requestKey: "example")
+    }
+
     /// The person pressed a button on the card.
     func answer(_ key: String, _ choice: RequestChoice) {
         guard let entry = pending[key] else { ToastController.shared.dismiss(key: "req-" + key); return }

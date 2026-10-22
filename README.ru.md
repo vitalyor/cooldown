@@ -1,12 +1,64 @@
-# Cooldown
+<p align="center"><img src="docs/images/icon.png" width="112" alt="Значок Cooldown"></p>
 
-[English](README.md) · **Русский**
+<h1 align="center">Cooldown</h1>
 
-Cooldown — приложение в строке меню macOS для тех, кто работает с Codex и Claude: лимиты одним
-взглядом, что сейчас делает каждый агент, карточка, когда работа готова, и продолжение работы
-после сброса лимита. Всё работает локально, на вашем Mac.
+<p align="center"><a href="README.md">English</a> · <b>Русский</b></p>
+
+<p align="center"><b>Лимиты Codex и Claude в строке меню macOS — и работа, которая сама продолжается после сброса лимита.</b></p>
+
+<p align="center">
+  <a href="https://github.com/vitalyor/cooldown/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/vitalyor/cooldown?label=release"></a>
+  <a href="https://github.com/vitalyor/cooldown/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/vitalyor/cooldown/total"></a>
+  <img alt="macOS 26+" src="https://img.shields.io/badge/macOS-26%2B-black?logo=apple">
+  <img alt="Languages" src="https://img.shields.io/badge/languages-11-blue">
+  <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/github/license/vitalyor/cooldown"></a>
+</p>
+
+Лимит кончился посреди задачи ночью? Cooldown дождётся сброса и сам продолжит тот же диалог Codex —
+утром задача готова. А ещё он показывает, сколько осталось от 5-часового и недельного лимита, что
+делает каждый агент, и приносит запросы разрешений в карточку, на которую можно ответить из любого
+приложения. Всё работает локально, на вашем Mac; ничего не одобряется за вас.
+
+<p align="center"><img src="docs/images/demo-ru.gif" width="380" alt="Демо Cooldown: лимит кончается, задача ждёт и продолжается после сброса"></p>
+
+## Установка
+
+**Через Homebrew** (удобнее всего):
+
+```sh
+brew install --cask vitalyor/tap/cooldown
+```
+
+**Или скачайте** последний [Cooldown-x.y.z.dmg](https://github.com/vitalyor/cooldown/releases/latest),
+откройте и перетащите Cooldown в «Программы».
+
+<details>
+<summary>macOS пишет, что «не удаётся проверить разработчика», — что делать</summary>
+
+Cooldown бесплатный и с открытым кодом, но не заверен Apple (для этого нужен платный аккаунт разработчика).
+Поэтому при первом открытии скачанного приложения macOS его остановит:
+
+1. Откройте Cooldown один раз и закройте предупреждение.
+2. Зайдите в **Системные настройки → Конфиденциальность и безопасность**, пролистайте вниз и нажмите **Всё равно открыть**.
+3. Подтвердите паролем. Дальше Cooldown открывается как обычно и обновляется сам.
+
+Или в Терминале: `xattr -dr com.apple.quarantine /Applications/Cooldown.app`.
+Homebrew делает это сам. В каждом релизе есть контрольные суммы SHA-256, а каждое обновление
+приложение перед установкой проверяет по контрольной сумме и подписи.
+</details>
+
+**Нужны тестировщики.** Нашли ошибку или есть идея? [Создайте issue](https://github.com/vitalyor/cooldown/issues/new/choose)
+(отчёт диагностики из настроек сильно ускоряет дело) или напишите в [Discussions](https://github.com/vitalyor/cooldown/discussions).
 
 > Неофициальный проект. Не связан с OpenAI или Anthropic. Названия Codex и Claude принадлежат их владельцам.
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/limits-ru.png" width="260" alt="Лимиты и прогноз"><br><sub>Лимиты и прогноз</sub></td>
+    <td align="center"><img src="docs/images/tasks-ru.png" width="260" alt="Автопродолжение"><br><sub>Автопродолжение после сброса</sub></td>
+    <td align="center"><img src="docs/images/cards-ru.png" width="260" alt="Карточки"><br><sub>Карточки с ответами</sub></td>
+  </tr>
+</table>
 
 ## Что умеет
 
@@ -43,6 +95,8 @@ Cooldown — приложение в строке меню macOS для тех, 
   и даёт отчёт, который можно скопировать, — без ваших путей и личных данных.
 - Обновления с GitHub с проверкой контрольной суммы и подписи.
 
+<p align="center"><img src="docs/images/settings-ru.png" width="560" alt="Окно настроек"></p>
+
 **Языки**
 - English, Русский, Українська, Deutsch, Français, Español, Português (Brasil), Italiano, 日本語, 简体中文, 한국어.
   Приложение следует языку macOS; отдельный язык для Cooldown можно выбрать в
@@ -51,17 +105,8 @@ Cooldown — приложение в строке меню macOS для тех, 
 ## Требования
 
 - macOS 26 (Tahoe) или новее.
-- Command Line Tools (`xcode-select --install`); Xcode не нужен.
+- Для сборки из исходников: Command Line Tools (`xcode-select --install`); Xcode не нужен.
 - Codex и/или Claude Code / Claude Desktop — то, что вы используете.
-
-## Установка
-
-Скачайте последний **Cooldown-x.y.z.dmg** в [Releases](https://github.com/vitalyor/cooldown/releases/latest),
-откройте и перетащите Cooldown в «Программы».
-
-Cooldown не заверен Apple, поэтому при первом запуске macOS скажет, что не может проверить разработчика.
-Откройте **Системные настройки → Конфиденциальность и безопасность** и нажмите **Всё равно открыть**
-(или выполните `xattr -dr com.apple.quarantine /Applications/Cooldown.app`).
 
 ## Сборка и запуск
 

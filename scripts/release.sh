@@ -37,3 +37,11 @@ git push origin "$TAG"
 gh release create "$TAG" "$OUT/Cooldown-$VERSION.dmg" "$OUT/Cooldown-$VERSION.zip" "$OUT/SHA256SUMS.txt" \
   --title "Cooldown $VERSION" --notes-file "$NOTES"
 echo "Released $TAG"
+
+# The Homebrew cask (github.com/vitalyor/homebrew-tap) follows the release, when its clone is next to this one.
+TAP="${COOLDOWN_TAP:-../homebrew-tap}"
+if [ -f "$TAP/Casks/cooldown.rb" ]; then
+  SHA=$(shasum -a 256 "$OUT/Cooldown-$VERSION.dmg" | cut -d' ' -f1)
+  sed -i '' -e "s/^  version \".*\"/  version \"$VERSION\"/" -e "s/^  sha256 \".*\"/  sha256 \"$SHA\"/" "$TAP/Casks/cooldown.rb"
+  ( cd "$TAP" && git commit -qam "Cooldown $VERSION" && git push -q ) && echo "Homebrew tap updated"
+fi
