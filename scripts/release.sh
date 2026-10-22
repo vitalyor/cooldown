@@ -21,6 +21,8 @@ if [ -n "$(git status --porcelain)" ]; then
 fi
 
 COOLDOWN_VERSION="$VERSION" COOLDOWN_RELEASE=1 ./build.sh
+# The rules that must never break are checked on the very build being published.
+build/Cooldown.app/Contents/MacOS/Cooldown --selftest || { echo "Self-test failed: not publishing."; exit 1; }
 
 OUT="build/release"
 rm -rf "$OUT" && mkdir -p "$OUT/dmg"

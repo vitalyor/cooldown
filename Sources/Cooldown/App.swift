@@ -68,9 +68,9 @@ enum Entry {
             print(String(format: "%.0f ms", Date().timeIntervalSince(started) * 1000))
             exit(0)
         }
-        if arguments.contains("--resume-selftest") {
-            let failures = ResumeSelfTest.run()
-            print(failures.isEmpty ? "auto-continue self-test: all passed" : "FAILED:\n" + failures.joined(separator: "\n"))
+        if arguments.contains("--selftest") || arguments.contains("--resume-selftest") {
+            let failures = MainActor.assumeIsolated { SelfTest.run() }
+            print(failures.isEmpty ? "self-test: all passed" : "FAILED:\n" + failures.joined(separator: "\n"))
             exit(failures.isEmpty ? 0 : 1)
         }
         if arguments.contains("--update-check") {
@@ -101,6 +101,35 @@ enum Entry {
                 } catch { print(agent.rawValue, "error:", error.localizedDescription) }
             }
             exit(0)
+        }
+        if arguments.contains("--diagnostics") {
+            // The same checks as Settings → Diagnostics, printed as the shareable report.
+            let app = NSApplication.shared
+            app.setActivationPolicy(.prohibited)
+            Task { @MainActor in
+                AppModel.shared.isRenderMode = true
+                await AppModel.shared.prepareForRender(scan: false)
+                let diagnostics = Diagnostics.shared
+                diagnostics.run()
+                while diagnostics.running { try? await Task.sleep(for: .milliseconds(200)) }
+                print(diagnostics.report)
+                exit(0)
+            }
+            app.run()
+            return
+        }
+        if arguments.contains("--week-report") {
+            // Diagnostic: draws this week's report picture and prints where it went.
+            let app = NSApplication.shared
+            app.setActivationPolicy(.prohibited)
+            Task { @MainActor in
+                AppModel.shared.isRenderMode = true
+                await AppModel.shared.prepareForRender(scan: false)
+                print(WeeklyReport.render()?.path ?? "nothing this week")
+                exit(0)
+            }
+            app.run()
+            return
         }
         if let index = arguments.firstIndex(of: "--settings-window") {
             // Diagnostic: the settings window on one pane, for a look at the layout.

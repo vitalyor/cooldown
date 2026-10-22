@@ -260,6 +260,22 @@ final class CodexRequestWatcher: @unchecked Sendable {
                 choices.append(RequestChoice(id: "open", title: JSON.bool(question["isOther"]) == true ? "Свой ответ в чате" : "Открыть чат", role: .open))
                 return make("Codex спрашивает", question["question"] as? String, choices)
             }
+            // Several questions, each with ready answers: one after another on the same card.
+            let steps = questions.map { question -> RequestStep? in
+                guard JSON.bool(question["isSecret"]) != true, let options = question["options"] as? [[String: Any]], !options.isEmpty else { return nil }
+                var choices = options.enumerated().compactMap { index, option -> RequestChoice? in
+                    guard let label = option["label"] as? String else { return nil }
+                    let note = (option["description"] as? String).flatMap { $0.isEmpty ? nil : " — " + $0 } ?? ""
+                    return RequestChoice(id: "option:\(index)", title: label + note)
+                }
+                choices.append(RequestChoice(id: "open", title: "Ответить в чате", role: .open))
+                return RequestStep(headline: "Codex спрашивает", detail: question["question"] as? String, choices: choices)
+            }
+            if questions.count > 1, steps.allSatisfy({ $0 != nil }) {
+                var request = make("Codex спрашивает", nil, [open])
+                request.steps = steps.compactMap { $0 }
+                return request
+            }
             let text = questions.compactMap { $0["question"] as? String }.joined(separator: "\n")
             return make(questions.count > 1 ? "Codex задал \(questions.count) вопроса" : "Codex спрашивает", text.isEmpty ? nil : text, [open])
         case "mcpServer/elicitation/request":
@@ -348,6 +364,20 @@ final class CodexRequestWatcher: @unchecked Sendable {
                   let label = options[index]["label"] as? String else { throw CodexIPCError.app("Вариант ответа не найден.") }
             command = "thread-follower-submit-user-input"
             base["response"] = ["answers": [qid: ["answers": [label]]]]
+        case ("item/tool/requestUserInput", let picks) where picks.hasPrefix("answers:"):
+            let indices = picks.dropFirst("answers:".count).split(separator: ",").compactMap { Int($0) }
+            let questions = params["questions"] as? [[String: Any]] ?? []
+            guard indices.count == questions.count else { throw CodexIPCError.app("Ответы не совпадают с вопросами.") }
+            var answers: [String: Any] = [:]
+            for (question, index) in zip(questions, indices) {
+                guard let qid = question["id"] as? String, let options = question["options"] as? [[String: Any]],
+                      options.indices.contains(index), let label = options[index]["label"] as? String else {
+                    throw CodexIPCError.app("Вариант ответа не найден.")
+                }
+                answers[qid] = ["answers": [label]]
+            }
+            command = "thread-follower-submit-user-input"
+            base["response"] = ["answers": answers]
         case ("mcpServer/elicitation/request", "elicit:accept"), ("mcpServer/elicitation/request", "elicit:decline"):
             command = "thread-follower-submit-mcp-server-elicitation-response"
             base["response"] = ["action": choice.id == "elicit:accept" ? "accept" : "decline", "content": NSNull()]

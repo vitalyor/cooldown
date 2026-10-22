@@ -49,6 +49,14 @@ struct StatsTabView: View {
             }
             .id("\(tab.rawValue)-\(range.rawValue)")
             .transition(.opacity)
+
+            if !render {
+                Button { WeeklyReport.show() } label: {
+                    Label("Итоги недели картинкой", systemImage: "photo.on.rectangle.angled").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.glass)
+                .help("Сохраняется в папку Cooldown и открывается в Просмотре: можно сохранить или отправить.")
+            }
         }
         .animation(.smooth(duration: 0.25), value: tab)
         .animation(.smooth(duration: 0.25), value: range)
@@ -281,7 +289,10 @@ private struct ChatsHistory: View {
 
 private struct ProjectsBreakdown: View {
     @ObservedObject var store: ProviderStore
+    @ObservedObject private var log = TurnLog.shared
     let range: StatsRange
+    /// The project opened to show its tasks.
+    @State private var open: String?
 
     var body: some View {
         let now = Date()
@@ -294,8 +305,26 @@ private struct ProjectsBreakdown: View {
             } else {
                 SectionTitle(text: "Проекты")
                 Well {
-                    ForEach(projects) { row in ShareBar(row: row, color: store.tint) }
+                    ForEach(projects) { row in
+                        let tasks = row.id == "_rest" ? [] : log.turns(store.id, project: row.name, since: now.addingTimeInterval(-range.interval))
+                        VStack(alignment: .leading, spacing: 6) {
+                            Button {
+                                withAnimation(.smooth(duration: 0.25)) { open = open == row.name ? nil : row.name }
+                            } label: {
+                                ShareBar(row: row, color: store.tint, expandable: !tasks.isEmpty, expanded: open == row.name)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(tasks.isEmpty)
+                            if open == row.name {
+                                ProjectTasks(turns: tasks, tint: store.tint)
+                                    .transition(.opacity.combined(with: .move(edge: .top)))
+                            }
+                        }
+                    }
                 }
+                Text("Нажмите на проект, чтобы увидеть его задачи.")
+                    .font(.caption).foregroundStyle(.secondary).padding(.horizontal, 4)
                 let costly = TurnLog.shared.costliest(store.id, since: now.addingTimeInterval(-range.interval))
                 if !costly.isEmpty {
                     SectionTitle(text: "Самые дорогие задачи")
@@ -315,6 +344,32 @@ private struct ProjectsBreakdown: View {
                             .font(.callout)
                         }
                     }
+                }
+                let compared = log.models(store.id, since: now.addingTimeInterval(-range.interval))
+                if !compared.isEmpty {
+                    SectionTitle(text: "Сколько стоит задача")
+                    Well(padding: 12) {
+                        ForEach(Array(compared.enumerated()), id: \.element.id) { index, row in
+                            if index > 0 { Divider().opacity(0.5) }
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(row.model).lineLimit(1)
+                                    Text(modelDetail(row)).font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer(minLength: 4)
+                                if let share = row.share {
+                                    VStack(alignment: .trailing, spacing: 0) {
+                                        Text(share < 1 ? "<1%" : Format.percent(share)).monospacedDigit().foregroundStyle(store.tint)
+                                        Text("лимита").font(.caption2).foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                            .font(.callout)
+                        }
+                    }
+                    Text("В среднем на одну задачу: доля лимита на 5 часов, токены и время. Помогает выбрать модель под задачу.")
+                        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 4)
                 }
                 if !models.isEmpty {
                     SectionTitle(text: "Модели")
@@ -342,6 +397,13 @@ private struct ProjectsBreakdown: View {
 }
 
 extension ProjectsBreakdown {
+    private func modelDetail(_ row: TurnLog.ModelRow) -> String {
+        var parts = ["\(row.count) \(Format.plural(row.count, "задача", "задачи", "задач"))"]
+        if let tokens = row.tokens, tokens > 0 { parts.append("\(Format.tokens(tokens)) токенов") }
+        if let seconds = row.seconds, seconds >= 60 { parts.append(Format.duration(seconds)) }
+        return parts.joined(separator: " · ")
+    }
+
     private func turnDetail(_ turn: TurnLog.Turn) -> String {
         var parts = [turn.ended.formatted(.dateTime.day().month(.abbreviated).hour().minute().locale(Locale(identifier: "ru_RU")))]
         if let seconds = turn.seconds, seconds >= 60 { parts.append(Format.duration(seconds)) }
@@ -361,15 +423,59 @@ extension ProjectsBreakdown {
     }
 }
 
+/// The tasks of one project in the range: when, how long, how much.
+private struct ProjectTasks: View {
+    let turns: [TurnLog.Turn]
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(turns.prefix(12)) { turn in
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Circle().fill(tint.opacity(0.6)).frame(width: 5, height: 5)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(turn.title).lineLimit(1)
+                        Text(detail(turn)).font(.caption2).foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 4)
+                    if let share = turn.limitShare, share >= 1 {
+                        Text(Format.percent(share)).font(.caption).monospacedDigit().foregroundStyle(tint)
+                    }
+                }
+                .font(.caption)
+            }
+            if turns.count > 12 {
+                Text("и ещё \(turns.count - 12)").font(.caption2).foregroundStyle(.secondary).padding(.leading, 13)
+            }
+        }
+        .padding(.leading, 4)
+        .padding(.bottom, 4)
+    }
+
+    private func detail(_ turn: TurnLog.Turn) -> String {
+        var parts = [turn.ended.formatted(.dateTime.weekday(.abbreviated).hour().minute())]
+        if let seconds = turn.seconds, seconds >= 60 { parts.append(Format.duration(seconds)) }
+        if let tokens = turn.tokens, tokens > 0 { parts.append(Format.tokens(tokens)) }
+        if let model = turn.model { parts.append(model) }
+        return parts.joined(separator: " · ")
+    }
+}
+
 private struct ShareBar: View {
     let row: ShareRow
     let color: Color
     var unit: String? = nil
+    var expandable = false
+    var expanded = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(alignment: .firstTextBaseline) {
                 Text(row.name).lineLimit(1).truncationMode(.middle)
+                if expandable {
+                    Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
+                        .rotationEffect(.degrees(expanded ? 90 : 0))
+                }
                 Spacer()
                 Text(unit.map { "\(row.total) \($0)" } ?? Format.tokens(row.total)).monospacedDigit().foregroundStyle(.secondary)
             }

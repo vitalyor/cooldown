@@ -4,6 +4,7 @@ import SwiftUI
 struct FeedScreen: View {
     @Binding var screen: Screen
     @ObservedObject private var log = EventLog.shared
+    @ObservedObject private var requests = RequestCenter.shared
     @State private var seenBefore = EventLog.shared.lastSeen
     @State private var query = ""
     @State private var filter: ProviderID?
@@ -94,7 +95,10 @@ struct FeedScreen: View {
                 Text(Format.clock(event.date)).font(.caption2).foregroundStyle(.tertiary)
             }
             Spacer(minLength: 4)
-            if let thread = event.threadId {
+            if let key = event.requestKey, requests.waitingKeys.contains(key) {
+                Button("Ответить") { RequestCenter.shared.showAgain(key) }
+                    .buttonStyle(.glassProminent).tint(Theme.amber).controlSize(.small)
+            } else if let thread = event.threadId {
                 Button { CodexApp.open(thread: thread) } label: { Image(systemName: "arrow.up.forward.app") }
                     .buttonStyle(.plain).foregroundStyle(.secondary).help("Открыть в Codex")
             }

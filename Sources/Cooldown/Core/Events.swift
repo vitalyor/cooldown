@@ -12,6 +12,8 @@ struct CooldownEvent: Codable, Identifiable, Equatable {
     var body: String
     /// The Codex conversation it is about, so the feed can open it.
     var threadId: String?
+    /// The agent's request this event is about, so the feed can bring its card back.
+    var requestKey: String?
 }
 
 /// The last 60 events, saved between launches.
