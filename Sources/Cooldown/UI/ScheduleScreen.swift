@@ -125,7 +125,7 @@ struct ScheduledSection: View {
                     Button("Открыть журнал") { NSWorkspace.shared.open(runner.logURL(task)) }
                     Button("Убрать из списка") { runner.remove(task.id) }
                 } label: { Image(systemName: "ellipsis") }
-                .menuStyle(.borderlessButton).frame(width: 24)
+                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().frame(width: 28, height: 22)
             }
         }
     }
