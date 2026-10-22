@@ -73,6 +73,14 @@ final class DemoController: ObservableObject {
 
     func jump(to step: Int) { if active, steps.indices.contains(step) { go(to: step) } }
 
+    /// Showcase screenshots: stop the clock at a chosen moment of the current step.
+    func hold(at fraction: Double) {
+        timer?.invalidate()
+        timer = nil
+        progress = fraction
+        apply(fraction: fraction)
+    }
+
     func next() { if index + 1 < steps.count { go(to: index + 1) } }
 
     func stop() {

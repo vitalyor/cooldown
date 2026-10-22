@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Questions and discussion · Вопросы и обсуждение
+    url: https://github.com/vitalyor/cooldown/discussions
+    about: Ask anything or share how you use Cooldown · Спросите что угодно или расскажите, как пользуетесь

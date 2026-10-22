@@ -56,6 +56,7 @@ Cooldown --claude-usage            # what is read from /usage
 Cooldown --hooks status            # hook state (install / uninstall)
 Cooldown --menu-icon out.png       # the menu bar icon in different states
 Cooldown --render --out out.png --provider codex --tab stats   # the window as a picture
+Cooldown --showcase --demo 1 --tab limits --clean   # the real window on demo data, for screenshots
 ```
 
 What the sources did and why a card was or wasn't shown is in

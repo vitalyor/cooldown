@@ -41,6 +41,8 @@ struct RootView: View {
 
     /// Starting points for `--snapshot` design checks.
     static var debugTab: MainTab?
+    /// Showcase screenshots: the demo's data without its guide banner.
+    static var hideDemoBanner = false
     static var debugScreen: Screen?
 
     init(screen: Screen = .home, tab: MainTab = .limits, stats: StatsTab = .limits, range: StatsRange = .day, render: Bool = false) {
@@ -100,7 +102,7 @@ private struct HomeView: View {
                 .padding(.horizontal, 14)
                 .padding(.top, 14)
                 .padding(.bottom, 12)
-            if demo.active {
+            if demo.active && !RootView.hideDemoBanner {
                 DemoBanner(demo: demo)
                     .padding(.horizontal, 14)
                     .padding(.bottom, 10)
@@ -140,7 +142,7 @@ private struct HomeView: View {
         .animation(.smooth(duration: 0.3), value: demo.active)
         .onChange(of: demo.index) { _, _ in if demo.active { tab = demo.step.tab } }
         .onChange(of: demo.active) { _, now in if now { tab = demo.step.tab } }
-        .onAppear { if demo.active { tab = demo.step.tab } }
+        .onAppear { if demo.active { tab = RootView.debugTab ?? demo.step.tab } }
     }
 }
 

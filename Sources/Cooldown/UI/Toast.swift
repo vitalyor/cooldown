@@ -470,12 +470,15 @@ final class ToastController: ObservableObject {
             ToastCatalog.taskWaiting(.codex, title: L("Рефакторинг парсера"), until: Date().addingTimeInterval(7200)),
             ToastCatalog.taskResumed(.codex, title: L("Рефакторинг парсера")),
             ToastCatalog.taskFinished(.codex, title: L("Продумать структуру таблицы учёта"),
-                                      detail: L("Готово: структура собрана, файл лежит в /Volumes/T7/AI_ПМР.")),
+                                      detail: L("Готово: структура собрана, файл лежит в папке проекта.")),
             ToastCatalog.taskAttention(.codex, title: L("Рефакторинг парсера"), reason: L("Codex спрашивает разрешение выполнить команду.")),
             ToastCatalog.limitReset(.claude, demo: true),
         ]
         for (index, example) in examples.enumerated() {
             DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 2.2) { ToastController.shared.show(example) }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + Double(examples.count) * 2.2) {
+            ToastController.shared.reveal(RequestCenter.exampleContent(), force: true)
         }
     }
 }

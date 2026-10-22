@@ -1,0 +1,16 @@
+name: Idea · Идея
+description: Suggest a feature or an improvement · Предложить функцию или улучшение
+labels: [idea]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would help · Что бы помогло
+      description: What you are trying to do and what gets in the way. · Что вы хотите сделать и что мешает.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: How you see it · Как вы это видите
+      description: Optional. · Необязательно.
