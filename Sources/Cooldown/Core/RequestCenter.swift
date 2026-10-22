@@ -74,7 +74,7 @@ final class RequestCenter: ObservableObject {
         if isNew {
             AgentActivity.trace("request \(request.key): \(request.headline)")
             EventLog.shared.add(CooldownEvent(kind: .attention, provider: request.provider,
-                                              title: "\(request.provider.displayName) ждёт вас: \(request.headline)",
+                                              title: L("%@ ждёт вас: %@", "\(request.provider.displayName)", "\(request.headline)"),
                                               body: request.chat, threadId: request.threadId, requestKey: request.key))
         }
         // Seen again unchanged (the source re-reads often): the card stays as it is.
@@ -115,7 +115,7 @@ final class RequestCenter: ObservableObject {
         if ToastController.shared.canShow && !QuietHours.active {
             ToastController.shared.reveal(content, force: true)
         } else {
-            Notifier.shared.post(id: "req-\(key)", title: "\(request.provider.displayName) ждёт вас", body: request.headline,
+            Notifier.shared.post(id: "req-\(key)", title: L("%@ ждёт вас", "\(request.provider.displayName)"), body: request.headline,
                                  toast: content, record: false)
         }
     }
@@ -128,7 +128,7 @@ final class RequestCenter: ObservableObject {
             headline = step.headline
             detail = step.detail
             choices = step.choices
-            body += " · вопрос \(index + 1) из \(request.steps.count)"
+            body += L(" · вопрос %@ из %@", "\(index + 1)", "\(request.steps.count)")
         }
         return ToastContent(key: "req-" + request.key, kind: .attention, provider: request.provider,
                             title: headline, body: body, life: .sticky,
@@ -170,7 +170,7 @@ final class RequestCenter: ObservableObject {
                     ToastController.shared.reveal(self.content(entry.request))
                 }
                 ToastController.shared.setBusy(key: "req-" + key, false)
-                ToastController.shared.setProblem(key: "req-" + key, "Не отправлено: \(error.localizedDescription) Откройте чат и ответьте там.")
+                ToastController.shared.setProblem(key: "req-" + key, L("Не отправлено: %@ Откройте чат и ответьте там.", "\(error.localizedDescription)"))
             }
         }
     }

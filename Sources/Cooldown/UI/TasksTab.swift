@@ -27,11 +27,11 @@ struct TasksTab: View {
 
         TabScroll(render: render) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Автопродолжение").font(.system(size: 17, weight: .semibold))
+                Text(L("Автопродолжение")).font(.system(size: 17, weight: .semibold))
                     .task { if store.id == .codex { await model.loadThreads(force: false, maxAge: 60) } }
                 Text(store.id == .codex
-                     ? "Задача, которая упёрлась в лимит, продолжится в том же диалоге Codex сразу после сброса."
-                     : "Что Cooldown делает, когда лимит Claude восстанавливается.")
+                     ? L("Задача, которая упёрлась в лимит, продолжится в том же диалоге Codex сразу после сброса.")
+                     : L("Что Cooldown делает, когда лимит Claude восстанавливается."))
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -43,8 +43,8 @@ struct TasksTab: View {
                 ClaudeDesktopCard()
                 ClaudeChatsSection(screen: $screen)
                 if usesClaudeCode {
-                    SectionTitle(text: "Claude Code — продолжает сам")
-                    Text("Сессии Claude Code в терминале или во вкладке Code. После сброса лимита Cooldown продолжит их сам, без вашего нажатия.")
+                    SectionTitle(text: L("Claude Code — продолжает сам"))
+                    Text(L("Сессии Claude Code в терминале или во вкладке Code. После сброса лимита Cooldown продолжит их сам, без вашего нажатия."))
                         .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, 4)
                 }
@@ -59,7 +59,7 @@ struct TasksTab: View {
                     Well {
                         VStack(spacing: 6) {
                             Image(systemName: "hourglass").font(.system(size: 22, weight: .light)).foregroundStyle(.secondary)
-                            Text("Сейчас ни одна задача не ждёт сброса.").font(.callout).foregroundStyle(.secondary)
+                            Text(L("Сейчас ни одна задача не ждёт сброса.")).font(.callout).foregroundStyle(.secondary)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
@@ -74,7 +74,7 @@ struct TasksTab: View {
                 }
 
                 if store.id == .codex, !working.isEmpty {
-                    SectionTitle(text: "Сейчас работают в Codex")
+                    SectionTitle(text: L("Сейчас работают в Codex"))
                     Well(padding: 12) {
                         ForEach(Array(working.enumerated()), id: \.element.id) { index, thread in
                             if index > 0 { Divider().opacity(0.5) }
@@ -86,7 +86,7 @@ struct TasksTab: View {
                                         .font(.caption).foregroundStyle(.secondary)
                                 }
                                 Spacer(minLength: 4)
-                                Button("Подключить") {
+                                Button(L("Подключить")) {
                                     model.pendingThread = thread
                                     screen = .addTask
                                 }
@@ -95,7 +95,7 @@ struct TasksTab: View {
                             }
                         }
                     }
-                    Text("Эти диалоги без автопродолжения. «Подключить» — и если упрутся в лимит, Cooldown продолжит их после сброса.")
+                    Text(L("Эти диалоги без автопродолжения. «Подключить» — и если упрутся в лимит, Cooldown продолжит их после сброса."))
                         .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, 4)
                 }
@@ -104,7 +104,7 @@ struct TasksTab: View {
                     AddTaskScreen.wantsClaudeCode = store.id == .claude
                     screen = .addTask
                 } label: {
-                    Label(store.id == .claude ? "Добавить сессию Claude Code" : "Добавить задачу", systemImage: "plus").frame(maxWidth: .infinity)
+                    Label(store.id == .claude ? L("Добавить сессию Claude Code") : L("Добавить задачу"), systemImage: "plus").frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.glassProminent)
                 .tint(store.tint)
@@ -117,7 +117,7 @@ struct TasksTab: View {
             }
 
             if !recent.isEmpty {
-                SectionTitle(text: "Недавние")
+                SectionTitle(text: L("Недавние"))
                 Well(padding: 12) {
                     ForEach(Array(recent.enumerated()), id: \.element.id) { index, item in
                         if index > 0 { Divider().opacity(0.5) }
@@ -172,28 +172,28 @@ private struct ClaudeDesktopCard: View {
 
     var body: some View {
         Well {
-            Label("Чаты Claude — продолжение одним нажатием", systemImage: "bubble.left.and.text.bubble.right")
+            Label(L("Чаты Claude — продолжение одним нажатием"), systemImage: "bubble.left.and.text.bubble.right")
                 .font(.system(size: 13, weight: .semibold))
-            Text("Когда лимит восстановится, придёт карточка «Продолжить». Нажмёте её, и Cooldown найдёт нужный чат и отправит туда сообщение ниже. Без вашего нажатия ничего не отправляется.")
+            Text(L("Когда лимит восстановится, придёт карточка «Продолжить». Нажмёте её, и Cooldown найдёт нужный чат и отправит туда сообщение ниже. Без вашего нажатия ничего не отправляется."))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Toggle("Сообщать, когда лимит восстановился", isOn: $notifyReset).toggleStyle(.switch)
+            Toggle(L("Сообщать, когда лимит восстановился"), isOn: $notifyReset).toggleStyle(.switch)
             TextField(ClaudeSender.defaultText, text: $continueText, axis: .vertical)
                 .lineLimit(1...3)
                 .textFieldStyle(.roundedBorder)
             HStack(spacing: 8) {
                 Button { send() } label: {
-                    Label(sending ? "Отправляю…" : "Продолжить сейчас", systemImage: "paperplane").frame(maxWidth: .infinity)
+                    Label(sending ? L("Отправляю…") : L("Продолжить сейчас"), systemImage: "paperplane").frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.glassProminent)
                 .tint(Theme.coral)
                 .disabled(sending)
-                Button { ClaudeApp.open() } label: { Label("Открыть", systemImage: "arrow.up.forward.app") }
+                Button { ClaudeApp.open() } label: { Label(L("Открыть"), systemImage: "arrow.up.forward.app") }
                     .buttonStyle(.glass)
             }
             if !ClaudeSender.hasPermission {
-                Text("Для отправки macOS один раз попросит разрешение «Универсальный доступ».")
+                Text(L("Для отправки macOS один раз попросит разрешение «Универсальный доступ»."))
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             if let result {
@@ -210,7 +210,7 @@ private struct ClaudeDesktopCard: View {
             do {
                 try await ClaudeSender.continueChat()
                 failed = false
-                result = "Отправлено в открытый чат Claude."
+                result = L("Отправлено в открытый чат Claude.")
             } catch {
                 failed = true
                 result = error.localizedDescription
@@ -245,7 +245,7 @@ private struct TaskRow: View {
             StatusDot(status: item.status, enabled: item.enabled, tint: Theme.tint(for: provider)).padding(.top, 5)
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.title).lineLimit(1).foregroundStyle(item.enabled ? .primary : .secondary)
-                Text("\(TaskStatus.title(item.status)), попыток \(item.attempts) из \(item.maxResumes), \(Format.relative(item.updated))")
+                Text(L("%@, попыток %@ из %@, %@", "\(TaskStatus.title(item.status))", "\(item.attempts)", "\(item.maxResumes)", "\(Format.relative(item.updated))"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 if TaskStatus.needsAttention(item.status) || (item.enabled && provider == .claude) {
@@ -258,7 +258,7 @@ private struct TaskRow: View {
             }
             Spacer(minLength: 4)
             if item.enabled {
-                Button(confirming ? "Точно?" : "Выключить") { stop() }
+                Button(confirming ? L("Точно?") : L("Выключить")) { stop() }
                     .buttonStyle(.glass)
                     .controlSize(.small)
                     .tint(confirming ? Theme.signal : nil)
@@ -331,7 +331,7 @@ struct AddTaskScreen: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            BackBar(title: provider == .claude && !claudeCode ? "Чат для продолжения" : "Новая задача, \(provider.displayName)") {
+            BackBar(title: provider == .claude && !claudeCode ? L("Чат для продолжения") : L("Новая задача, %@", "\(provider.displayName)")) {
                 AddTaskScreen.wantsClaudeCode = false
                 screen = .home
             }
@@ -403,22 +403,22 @@ private struct ConsentBlock: View {
 
     var body: some View {
         Well {
-            Stepper(value: $maxResumes, in: 1...10) { Text("Попыток продолжения: \(maxResumes)") }
-            Text("Каждая попытка — одно сообщение в диалог после сброса лимита. Прошлые попытки по этой задаче тоже считаются.")
+            Stepper(value: $maxResumes, in: 1...10) { Text(L("Попыток продолжения: %@", "\(maxResumes)")) }
+            Text(L("Каждая попытка — одно сообщение в диалог после сброса лимита. Прошлые попытки по этой задаче тоже считаются."))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             Toggle(isOn: $confirmed) {
                 Text(provider == .codex
-                     ? "Продолжать только эту задачу. Cooldown может открыть её диалог в Codex. Отправленное не отзывается, разрешения не выдаются за вас."
-                     : "Продолжать только эту сессию. Claude продолжит её в фоне; ответ появится, когда вы снова откроете сессию. Разрешения не выдаются за вас.")
+                     ? L("Продолжать только эту задачу. Cooldown может открыть её диалог в Codex. Отправленное не отзывается, разрешения не выдаются за вас.")
+                     : L("Продолжать только эту сессию. Claude продолжит её в фоне; ответ появится, когда вы снова откроете сессию. Разрешения не выдаются за вас."))
                     .font(.callout)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .toggleStyle(.checkbox)
         }
         Button(action: start) {
-            Text(busy ? "Включаю…" : "Включить автопродолжение").frame(maxWidth: .infinity)
+            Text(busy ? L("Включаю…") : L("Включить автопродолжение")).frame(maxWidth: .infinity)
         }
         .buttonStyle(.glassProminent)
         .tint(Theme.tint(for: provider))
@@ -466,14 +466,14 @@ private struct CodexAddFlow: View {
 
     private var picker: some View {
         VStack(alignment: .leading, spacing: 10) {
-            TextField("Найти диалог по названию или проекту", text: $query)
+            TextField(L("Найти диалог по названию или проекту"), text: $query)
                 .textFieldStyle(.plain)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .glassEffect(.regular, in: .capsule)
             if let error = model.threadsError { Note(symbol: "exclamationmark.triangle", text: error, color: Theme.amber) }
             if model.loadingThreads && model.threads.isEmpty {
-                HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Загружаю диалоги Codex…").foregroundStyle(.secondary) }
+                HStack(spacing: 8) { ProgressView().controlSize(.small); Text(L("Загружаю диалоги Codex…")).foregroundStyle(.secondary) }
                     .padding(.vertical, 20)
             }
             PickerList(items: candidates, render: render, choose: choose) { thread in
@@ -491,7 +491,7 @@ private struct CodexAddFlow: View {
                 if checking {
                     HStack(spacing: 8) {
                         ProgressView().controlSize(.small)
-                        Text("Проверяю задачу, для длинных диалогов до 15 секунд.").font(.callout).foregroundStyle(.secondary)
+                        Text(L("Проверяю задачу, для длинных диалогов до 15 секунд.")).font(.callout).foregroundStyle(.secondary)
                     }
                 }
                 if let result {
@@ -504,7 +504,7 @@ private struct CodexAddFlow: View {
             if let result, result.canMonitor {
                 ConsentBlock(provider: .codex, maxResumes: $maxResumes, confirmed: $confirmed, busy: starting) { start(thread) }
             } else if result != nil {
-                Button("Выбрать другой диалог") { reset() }.buttonStyle(.glass)
+                Button(L("Выбрать другой диалог")) { reset() }.buttonStyle(.glass)
             }
             if let error { Note(symbol: "exclamationmark.triangle.fill", text: error, color: Theme.signal) }
         }
@@ -581,16 +581,16 @@ private struct ClaudeAddFlow: View {
 
     private var picker: some View {
         VStack(alignment: .leading, spacing: 10) {
-            TextField("Найти сессию по названию или проекту", text: $query)
+            TextField(L("Найти сессию по названию или проекту"), text: $query)
                 .textFieldStyle(.plain)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .glassEffect(.regular, in: .capsule)
             if tasks.loadingSessions && tasks.sessions.isEmpty {
-                HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Ищу сессии Claude Code…").foregroundStyle(.secondary) }
+                HStack(spacing: 8) { ProgressView().controlSize(.small); Text(L("Ищу сессии Claude Code…")).foregroundStyle(.secondary) }
                     .padding(.vertical, 20)
             } else if tasks.sessions.isEmpty {
-                Well { Text("За последние 30 дней сессий Claude Code на этом Mac не было.").font(.callout).foregroundStyle(.secondary) }
+                Well { Text(L("За последние 30 дней сессий Claude Code на этом Mac не было.")).font(.callout).foregroundStyle(.secondary) }
             }
             PickerList(items: candidates, render: render, choose: { selected = $0; confirmed = false; error = nil }) { session in
                 PickerRow(title: session.title,
@@ -615,7 +615,7 @@ private struct ClaudeAddFlow: View {
             if session.state.canWatch {
                 ConsentBlock(provider: .claude, maxResumes: $maxResumes, confirmed: $confirmed, busy: false) { add(session) }
             } else {
-                Button("Выбрать другую сессию") { selected = nil }.buttonStyle(.glass)
+                Button(L("Выбрать другую сессию")) { selected = nil }.buttonStyle(.glass)
             }
             if let error { Note(symbol: "exclamationmark.triangle.fill", text: error, color: Theme.signal) }
         }
@@ -623,10 +623,10 @@ private struct ClaudeAddFlow: View {
 
     private func explanation(_ state: ClaudeSessionState) -> String {
         switch state {
-        case .running: return "Сессия сейчас работает. Если её остановит лимит, Cooldown дождётся сброса и продолжит."
-        case .limited: return "Сессия остановлена лимитом. Cooldown продолжит её, как только лимит восстановится."
-        case .idle: return "Сессия закончила работу сама, продолжать нечего."
-        case .unknown: return "Не удалось понять состояние сессии."
+        case .running: return L("Сессия сейчас работает. Если её остановит лимит, Cooldown дождётся сброса и продолжит.")
+        case .limited: return L("Сессия остановлена лимитом. Cooldown продолжит её, как только лимит восстановится.")
+        case .idle: return L("Сессия закончила работу сама, продолжать нечего.")
+        case .unknown: return L("Не удалось понять состояние сессии.")
         }
     }
 
@@ -650,16 +650,16 @@ private struct ClaudeChatsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                SectionTitle(text: "Чаты для продолжения")
+                SectionTitle(text: L("Чаты для продолжения"))
                 Spacer()
                 Button {
                     AddTaskScreen.wantsClaudeCode = false
                     screen = .addTask
-                } label: { Label("Выбрать чат", systemImage: "plus") }
+                } label: { Label(L("Выбрать чат"), systemImage: "plus") }
                     .buttonStyle(.link).font(.caption)
             }
             if list.entries.isEmpty {
-                Text("Выберите чаты Claude, которые нужно продолжить, когда лимит восстановится. Если не выбрать, Cooldown сам запомнит чат, в котором кончился лимит.")
+                Text(L("Выберите чаты Claude, которые нужно продолжить, когда лимит восстановится. Если не выбрать, Cooldown сам запомнит чат, в котором кончился лимит."))
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 4)
             } else {
@@ -674,8 +674,8 @@ private struct ClaudeChatsSection: View {
                             }
                             Spacer(minLength: 4)
                             Menu {
-                                Button("Продолжить сейчас") { send(entry) }
-                                Button("Убрать") { list.remove(entry) }
+                                Button(L("Продолжить сейчас")) { send(entry) }
+                                Button(L("Убрать")) { list.remove(entry) }
                             } label: { Image(systemName: "ellipsis") }
                             .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().frame(width: 28, height: 22)
                         }
@@ -685,12 +685,12 @@ private struct ClaudeChatsSection: View {
                     Button {
                         Task { await list.continueAll(list.entries.map(\.chat)) }
                     } label: {
-                        Label(list.continuing ? "Продолжаю…" : "Продолжить все сейчас", systemImage: "paperplane").frame(maxWidth: .infinity)
+                        Label(list.continuing ? L("Продолжаю…") : L("Продолжить все сейчас"), systemImage: "paperplane").frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.glass)
                     .disabled(list.continuing)
                 }
-                Text("Когда лимит восстановится, придёт карточка «Продолжить» (для нескольких чатов — одна, «Продолжить все»). Нажмёте — Cooldown сам найдёт каждый чат, даже если вы ушли в другой, проверит его и отправит сообщение.")
+                Text(L("Когда лимит восстановится, придёт карточка «Продолжить» (для нескольких чатов — одна, «Продолжить все»). Нажмёте — Cooldown сам найдёт каждый чат, даже если вы ушли в другой, проверит его и отправит сообщение."))
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 4)
             }
@@ -699,8 +699,8 @@ private struct ClaudeChatsSection: View {
     }
 
     private func subtitle(_ entry: ClaudeChatList.Entry) -> String {
-        var parts: [String] = [entry.automatic ? "запомнен при исчерпании лимита" : "выбран вами"]
-        if let sent = entry.lastSent { parts.append("продолжен \(Format.relative(sent))") }
+        var parts: [String] = [entry.automatic ? L("запомнен при исчерпании лимита") : L("выбран вами")]
+        if let sent = entry.lastSent { parts.append(L("продолжен %@", "\(Format.relative(sent))")) }
         return parts.joined(separator: " · ")
     }
 
@@ -721,22 +721,22 @@ private struct ClaudeChatPicker: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            TextField("Найти чат по названию или проекту", text: $query)
+            TextField(L("Найти чат по названию или проекту"), text: $query)
                 .textFieldStyle(.plain)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .glassEffect(.regular, in: .capsule)
             if list.availableSource != .web && !ClaudeSender.hasPermission {
-                Note(symbol: "exclamationmark.triangle.fill", text: "Чтобы видеть чаты Claude, нужен «Универсальный доступ» для Cooldown (Настройки → Готовность) или вход в claude.ai.", color: Theme.amber)
+                Note(symbol: "exclamationmark.triangle.fill", text: L("Чтобы видеть чаты Claude, нужен «Универсальный доступ» для Cooldown (Настройки → Готовность) или вход в claude.ai."), color: Theme.amber)
             } else if list.available.isEmpty && !list.loadingAvailable {
                 Well {
-                    Text("Откройте Claude Desktop — Cooldown возьмёт список чатов из его боковой панели.")
+                    Text(L("Откройте Claude Desktop — Cooldown возьмёт список чатов из его боковой панели."))
                         .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                    Button("Обновить") { list.refreshAvailable() }.buttonStyle(.glass)
+                    Button(L("Обновить")) { list.refreshAvailable() }.buttonStyle(.glass)
                 }
             }
             if list.availableSource == .window && !web.isConnected {
-                Text("Здесь чаты из боковой панели Claude и те, что Cooldown уже видел открытыми. Полный список со всеми проектами — после входа в claude.ai в настройках.")
+                Text(L("Здесь чаты из боковой панели Claude и те, что Cooldown уже видел открытыми. Полный список со всеми проектами — после входа в claude.ai в настройках."))
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 4)
             }
@@ -749,7 +749,7 @@ private struct ClaudeChatPicker: View {
                         Image(systemName: "scope").foregroundStyle(Theme.coral)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(current.title).lineLimit(1)
-                            Text("Открыт сейчас в Claude")
+                            Text(L("Открыт сейчас в Claude"))
                                 .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                         }
                         Spacer(minLength: 0)
@@ -778,8 +778,8 @@ private struct ClaudeChatPicker: View {
         var parts: [String] = []
         if let project = item.project { parts.append(project) }
         if let updated = item.updated { parts.append(Format.relative(updated)) }
-        else if !item.chat.id.isEmpty { parts.append("открывался \(Format.relative(item.chat.seen))") }
-        else { parts.append("из боковой панели") }
+        else if !item.chat.id.isEmpty { parts.append(L("открывался %@", "\(Format.relative(item.chat.seen))")) }
+        else { parts.append(L("из боковой панели")) }
         return parts.joined(separator: " · ")
     }
 
@@ -805,14 +805,14 @@ private struct AgentNowSection: View {
         let items = activity.waiting(provider) + activity.working(provider)
         if !items.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
-                SectionTitle(text: "Сейчас в \(provider.displayName)")
+                SectionTitle(text: L("Сейчас в %@", "\(provider.displayName)"))
                 Well(padding: 12) {
                     ForEach(Array(items.enumerated()), id: \.element.id) { index, session in
                         if index > 0 { Divider().opacity(0.5) }
                         HStack(spacing: 10) {
                             Circle().fill(session.state == .waiting ? Theme.amber : Theme.mint).frame(width: 7, height: 7)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(session.title.isEmpty ? "Без названия" : session.title).lineLimit(1)
+                                Text(session.title.isEmpty ? L("Без названия") : session.title).lineLimit(1)
                                 Text(detail(session)).font(.caption).foregroundStyle(.secondary).lineLimit(2)
                             }
                             Spacer(minLength: 0)
@@ -825,8 +825,8 @@ private struct AgentNowSection: View {
 
     private func detail(_ session: AgentActivity.Session) -> String {
         let place = session.source == .window ? "Claude Desktop" : session.key.hasPrefix("chat:") ? "Claude Desktop" : provider == .claude ? "Claude Code" : "Codex"
-        if session.state == .waiting { return "\(place) · ждёт вашего решения" + (session.reason.map { ": \($0)" } ?? "") }
+        if session.state == .waiting { return L("%@ · ждёт вашего решения", "\(place)") + (session.reason.map { ": \($0)" } ?? "") }
         let minutes = Int(Date().timeIntervalSince(session.started) / 60)
-        return "\(place) · работает" + (minutes > 0 ? " \(minutes) мин" : "")
+        return L("%@ · работает", "\(place)") + (minutes > 0 ? L(" %@ мин", "\(minutes)") : "")
     }
 }

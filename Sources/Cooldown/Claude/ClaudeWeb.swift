@@ -55,7 +55,7 @@ final class ClaudeWeb: NSObject, ObservableObject, WKNavigationDelegate {
         guard let organization else { throw ClaudeWebError.notConnected }
         let object = try await json("/api/organizations/\(organization)/usage")
         guard let usage = object as? [String: Any] else { throw ClaudeWebError.unexpected(Self.describe(object)) }
-        guard var snapshot = ClaudeLimits.parseUsage(usage, source: "аккаунт claude.ai") else {
+        guard var snapshot = ClaudeLimits.parseUsage(usage, source: L("аккаунт claude.ai")) else {
             throw ClaudeWebError.unexpected(Self.describe(usage))
         }
         snapshot.plan = UserDefaults.standard.string(forKey: Self.planKey)
@@ -112,7 +112,7 @@ final class ClaudeWeb: NSObject, ObservableObject, WKNavigationDelegate {
         let (conversations, names) = try await conversationList()
         return conversations.compactMap { item -> ClaudeChatList.Known? in
             guard let id = item["uuid"] as? String, !id.isEmpty else { return nil }
-            let name = (item["name"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Без названия"
+            let name = (item["name"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? L("Без названия")
             let updated = Num.date(item["updated_at"])
             let project = (item["project_uuid"] as? String).flatMap { names[$0] }
             return ClaudeChatList.Known(chat: ClaudeChat(id: id.lowercased(), title: name, seen: updated ?? Date()),
@@ -132,7 +132,7 @@ final class ClaudeWeb: NSObject, ObservableObject, WKNavigationDelegate {
         """
         let result = try await worker.callAsyncJavaScript(script, arguments: ["path": path], in: nil, contentWorld: .defaultClient)
         guard let pair = result as? [Any], pair.count == 2, let status = Num.int(pair[0]), let body = pair[1] as? String else {
-            throw ClaudeWebError.unexpected("нет ответа")
+            throw ClaudeWebError.unexpected(L("нет ответа"))
         }
         if status == 401 || status == 403 {
             if body.contains("challenge") || body.contains("cf-") {
@@ -144,7 +144,7 @@ final class ClaudeWeb: NSObject, ObservableObject, WKNavigationDelegate {
         }
         guard status == 200 else { throw ClaudeWebError.http(status) }
         guard let data = body.data(using: .utf8), let object = try? JSONSerialization.jsonObject(with: data) else {
-            throw ClaudeWebError.unexpected("ответ не JSON")
+            throw ClaudeWebError.unexpected(L("ответ не JSON"))
         }
         return object
     }
@@ -212,7 +212,7 @@ final class ClaudeWeb: NSObject, ObservableObject, WKNavigationDelegate {
 
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 700),
                               styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
-        window.title = "Вход в claude.ai для Cooldown"
+        window.title = L("Вход в claude.ai для Cooldown")
         window.contentView = view
         window.isReleasedWhenClosed = false
         window.center()
@@ -289,8 +289,8 @@ final class ClaudeWeb: NSObject, ObservableObject, WKNavigationDelegate {
     }
 
     static func describe(_ object: Any) -> String {
-        if let dict = object as? [String: Any] { return "поля: " + dict.keys.sorted().joined(separator: ", ") }
-        return "тип \(type(of: object))"
+        if let dict = object as? [String: Any] { return L("поля: ") + dict.keys.sorted().joined(separator: ", ") }
+        return L("тип %@", "\(type(of: object))")
     }
 
     private static let userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15"
@@ -313,11 +313,11 @@ enum ClaudeWebError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .notConnected: return "Аккаунт claude.ai не подключён."
-        case .signedOut: return "Вход в claude.ai истёк. Войдите снова в настройках Cooldown."
-        case .offline: return "claude.ai сейчас не отвечает. Проверю позже."
-        case .http(let code): return "claude.ai ответил с кодом \(code)."
-        case .unexpected(let detail): return "claude.ai прислал лимиты в незнакомом виде (\(detail))."
+        case .notConnected: return L("Аккаунт claude.ai не подключён.")
+        case .signedOut: return L("Вход в claude.ai истёк. Войдите снова в настройках Cooldown.")
+        case .offline: return L("claude.ai сейчас не отвечает. Проверю позже.")
+        case .http(let code): return L("claude.ai ответил с кодом %@.", "\(code)")
+        case .unexpected(let detail): return L("claude.ai прислал лимиты в незнакомом виде (%@).", "\(detail)")
         }
     }
 }
@@ -344,10 +344,10 @@ struct ClaudeActivity: Codable, Equatable {
         let since = Date().addingTimeInterval(-45 * 86400)
         items = conversations.compactMap { conversation in
             guard let date = Num.date(conversation["updated_at"]) ?? Num.date(conversation["created_at"]), date >= since else { return nil }
-            let model = (conversation["model"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Модель не указана"
+            let model = (conversation["model"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? L("Модель не указана")
             let project = (conversation["project_uuid"] as? String).flatMap { projectNames[$0] }
                 ?? ((conversation["project"] as? [String: Any])?["name"] as? String)
-                ?? "Без проекта"
+                ?? L("Без проекта")
             return Item(date: date, model: model, project: project)
         }
         updated = Date()

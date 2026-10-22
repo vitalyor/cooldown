@@ -312,7 +312,7 @@ actor ClaudeUsageCLI {
             } else if let name = firstMatch(#"\(([^)]+)\)"#, in: header) {
                 let clean = name.replacingOccurrences(of: #"\s*only$"#, with: "", options: .regularExpression)
                     .trimmingCharacters(in: .whitespaces)
-                window.label = "Неделя, \(clean.capitalized)"
+                window.label = L("Неделя, %@", "\(clean.capitalized)")
                 snapshot.extras.append(window)
             }
         }
@@ -362,12 +362,12 @@ actor ClaudeUsageCLI {
 
         var errorDescription: String? {
             switch self {
-            case .terminal: return "Не удалось запустить Claude Code."
-            case .missing: return "Claude Code не найден. Откройте вкладку Code в Claude Desktop один раз или установите Claude Code."
-            case .signedOut: return "Claude Code не вошёл в аккаунт. Запустите claude в Терминале и войдите."
-            case .trust: return "Claude Code ждёт разрешения работать в пустой папке Cooldown."
-            case .unreadable: return "Не удалось прочитать экран /usage в Claude Code."
-            case .serverFailed: return "Claude Code не смог загрузить лимиты с сервера; Cooldown повторит через минуту."
+            case .terminal: return L("Не удалось запустить Claude Code.")
+            case .missing: return L("Claude Code не найден. Откройте вкладку Code в Claude Desktop один раз или установите Claude Code.")
+            case .signedOut: return L("Claude Code не вошёл в аккаунт. Запустите claude в Терминале и войдите.")
+            case .trust: return L("Claude Code ждёт разрешения работать в пустой папке Cooldown.")
+            case .unreadable: return L("Не удалось прочитать экран /usage в Claude Code.")
+            case .serverFailed: return L("Claude Code не смог загрузить лимиты с сервера; Cooldown повторит через минуту.")
             }
         }
     }

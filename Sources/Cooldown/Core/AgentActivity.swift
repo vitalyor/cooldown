@@ -147,9 +147,9 @@ final class AgentActivity: ObservableObject {
         guard !wasWaiting, announce, Settings.notifyAttention, !AppModel.shared.demoActive else { return }
         let name = session.title.isEmpty ? provider.displayName : session.title
         Notifier.shared.post(id: "wait-\(id)-\(Int(now.timeIntervalSince1970))",
-                             title: "\(provider.displayName) ждёт вас: «\(name)»", body: reason,
+                             title: L("%@ ждёт вас: «%@»", "\(provider.displayName)", "\(name)"), body: reason,
                              toast: ToastContent(key: "wait-\(id)", kind: .attention, provider: provider,
-                                                 title: "\(provider.displayName) ждёт вашего решения",
+                                                 title: L("%@ ждёт вашего решения", "\(provider.displayName)"),
                                                  body: "«\(name)»: \(reason)", actions: [Self.action(opener, provider)],
                                                  life: .auto(20), threadId: Self.thread(opener)))
     }
@@ -183,7 +183,7 @@ final class AgentActivity: ObservableObject {
         announced[id] = (date, source)
         guard Settings.notifyFinished, !AppModel.shared.demoActive else { Self.trace("  skip: off/demo"); return }
         Self.trace("  announce")
-        let name = !title.isEmpty ? title : (session?.title.isEmpty == false ? session!.title : "\(provider.displayName): задача")
+        let name = !title.isEmpty ? title : (session?.title.isEmpty == false ? session!.title : L("%@: задача", "\(provider.displayName)"))
         if name == "Guardian review" { return }
         let text = message.replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespaces)
         let minutes = length.map { Int(($0 / 60).rounded()) }
@@ -194,11 +194,11 @@ final class AgentActivity: ObservableObject {
             limitShare = max(0, now.usedPercent - used)
         }
         var cost: [String] = []
-        if let minutes, minutes > 0 { cost.append("\(minutes) мин") }
-        if let tokens, tokens > 0 { cost.append("\(Format.tokens(tokens)) токенов") }
-        if let limitShare, limitShare >= 1 { cost.append("≈\(Format.percent(limitShare)) лимита") }
+        if let minutes, minutes > 0 { cost.append(L("%@ мин", "\(minutes)")) }
+        if let tokens, tokens > 0 { cost.append(L("%@ токенов", "\(Format.tokens(tokens))")) }
+        if let limitShare, limitShare >= 1 { cost.append(L("≈%@ лимита", "\(Format.percent(limitShare))")) }
         let summary = cost.joined(separator: " · ")
-        var detail = text.isEmpty ? (minutes.map { "Работал \($0) мин." } ?? "Готово.") : String(text.prefix(200))
+        var detail = text.isEmpty ? (minutes.map { L("Работал %@ мин.", "\($0)") } ?? L("Готово.")) : String(text.prefix(200))
         if !summary.isEmpty && !text.isEmpty { detail += "\n" + summary }
         // Codex's own index knows each conversation's folder, model and reasoning level.
         var project = project, model = model
@@ -209,13 +209,13 @@ final class AgentActivity: ObservableObject {
         TurnLog.shared.add(TurnLog.Turn(provider: provider, title: name, ended: date, seconds: length, tokens: tokens,
                                         limitShare: limitShare, thread: Self.thread(opener), project: project, model: model))
         DailyLog.shared.countFinished(provider, at: date)
-        EventLog.shared.add(CooldownEvent(kind: .finished, provider: provider, title: "\(provider.displayName) закончил «\(name)»",
+        EventLog.shared.add(CooldownEvent(kind: .finished, provider: provider, title: L("%@ закончил «%@»", "\(provider.displayName)", "\(name)"),
                                           body: detail, threadId: Self.thread(opener)))
         guard !QuietHours.active else { return }
         Notifier.shared.post(id: "finished-\(id)-\(Int(date.timeIntervalSince1970))",
-                             title: "\(provider.displayName) закончил «\(name)»", body: detail,
+                             title: L("%@ закончил «%@»", "\(provider.displayName)", "\(name)"), body: detail,
                              toast: ToastContent(key: "finished-\(id)", kind: .finished, provider: provider,
-                                                 title: "\(provider.displayName) закончил «\(name)»", body: detail,
+                                                 title: L("%@ закончил «%@»", "\(provider.displayName)", "\(name)"), body: detail,
                                                  actions: [Self.action(opener, provider)], life: .auto(12),
                                                  threadId: Self.thread(opener)),
                              record: false)
@@ -229,12 +229,12 @@ final class AgentActivity: ObservableObject {
         Self.trace("failed \(provider.rawValue) \(key) \(reason)")
         guard Settings.notifyFinished, !AppModel.shared.demoActive else { return }
         let name = !title.isEmpty ? title : (session?.title ?? provider.displayName)
-        let body = reason.isEmpty ? "Ход прервался ошибкой — загляните в сессию." : String(reason.prefix(200))
-        EventLog.shared.add(CooldownEvent(kind: .failure, provider: provider, title: "\(provider.displayName) остановился с ошибкой: «\(name)»", body: body))
+        let body = reason.isEmpty ? L("Ход прервался ошибкой — загляните в сессию.") : String(reason.prefix(200))
+        EventLog.shared.add(CooldownEvent(kind: .failure, provider: provider, title: L("%@ остановился с ошибкой: «%@»", "\(provider.displayName)", "\(name)"), body: body))
         Notifier.shared.post(id: "failed-\(id)-\(Int(Date().timeIntervalSince1970))",
-                             title: "\(provider.displayName) остановился с ошибкой", body: "«\(name)»: \(body)",
+                             title: L("%@ остановился с ошибкой", "\(provider.displayName)"), body: "«\(name)»: \(body)",
                              toast: ToastContent(key: "failed-\(id)", kind: .warning, provider: provider,
-                                                 title: "\(provider.displayName) остановился с ошибкой", body: "«\(name)»: \(body)",
+                                                 title: L("%@ остановился с ошибкой", "\(provider.displayName)"), body: "«\(name)»: \(body)",
                                                  actions: [Self.action(opener, provider)], life: .auto(20)),
                              record: false)
     }
@@ -265,12 +265,12 @@ final class AgentActivity: ObservableObject {
         for (id, session) in sessions where session.provider == .codex && session.state == .working && !session.silenceSaid
             && now.timeIntervalSince(lastSign(id, session)) > 15 * 60 && Settings.notifyAttention {
             sessions[id]?.silenceSaid = true
-            let name = session.title.isEmpty ? "задача" : session.title
-            Notifier.shared.post(id: "silence-\(id)-\(Int(now.timeIntervalSince1970))", title: "Codex молчит 15 минут: «\(name)»",
-                                 body: "Работа не закончена, но новых шагов нет. Возможно, стоит заглянуть.",
+            let name = session.title.isEmpty ? L("задача") : session.title
+            Notifier.shared.post(id: "silence-\(id)-\(Int(now.timeIntervalSince1970))", title: L("Codex молчит 15 минут: «%@»", "\(name)"),
+                                 body: L("Работа не закончена, но новых шагов нет. Возможно, стоит заглянуть."),
                                  toast: ToastContent(key: "silence-\(id)", kind: .attention, provider: .codex,
-                                                     title: "Codex молчит 15 минут",
-                                                     body: "«\(name)»: работа не закончена, но новых шагов нет. Возможно, стоит заглянуть.",
+                                                     title: L("Codex молчит 15 минут"),
+                                                     body: L("«%@»: работа не закончена, но новых шагов нет. Возможно, стоит заглянуть.", "\(name)"),
                                                      actions: [.openCodexThread(session.key)], life: .auto(20), threadId: session.key))
         }
         sessions = sessions.filter { now.timeIntervalSince(lastSign($0.key, $0.value)) < ($0.value.provider == .codex ? 45 : 20) * 60 }

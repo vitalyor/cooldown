@@ -46,6 +46,10 @@ fi
 cp Resources/Scriptable/Cooldown.js "$APP/Contents/Resources/Cooldown.js"
 # Auto-continue for Codex is a Swift port of codex-auto-resume (MIT); its notice travels with the app.
 cp Resources/ThirdParty/codex-auto-resume-LICENSE.txt "$APP/Contents/Resources/codex-auto-resume-LICENSE.txt"
+# Translations: Russian is the source text; every other language has a Localizable.strings.
+for folder in Resources/Localization/*.lproj; do
+  [ -d "$folder" ] && cp -R "$folder" "$APP/Contents/Resources/"
+done
 if [ -f Resources/AppIcon.icns ]; then
   cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 fi

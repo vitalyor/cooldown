@@ -12,20 +12,20 @@ struct FeedScreen: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                BackBar(title: "События") { screen = .home }
+                BackBar(title: L("События")) { screen = .home }
                 if !log.events.isEmpty {
-                    Button("Очистить") { log.clear() }.buttonStyle(.link).font(.caption)
+                    Button(L("Очистить")) { log.clear() }.buttonStyle(.link).font(.caption)
                 }
             }
             if !log.events.isEmpty {
                 HStack(spacing: 8) {
-                    TextField("Поиск по событиям", text: $query)
+                    TextField(L("Поиск по событиям"), text: $query)
                         .textFieldStyle(.plain)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 7)
                         .glassEffect(.regular, in: .capsule)
                     Picker("", selection: $filter) {
-                        Text("Все").tag(ProviderID?.none)
+                        Text(L("Все")).tag(ProviderID?.none)
                         Text("Codex").tag(ProviderID?.some(.codex))
                         Text("Claude").tag(ProviderID?.some(.claude))
                     }
@@ -37,7 +37,7 @@ struct FeedScreen: View {
                 Well {
                     VStack(spacing: 6) {
                         Image(systemName: "tray").font(.system(size: 22, weight: .light)).foregroundStyle(.secondary)
-                        Text("Пока ничего не произошло. Здесь появятся сбросы лимитов, продолженные и законченные задачи.")
+                        Text(L("Пока ничего не произошло. Здесь появятся сбросы лимитов, продолженные и законченные задачи."))
                             .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
                     }
                     .frame(maxWidth: .infinity).padding(.vertical, 10)
@@ -73,8 +73,8 @@ struct FeedScreen: View {
                 && (term.isEmpty || event.title.lowercased().contains(term) || event.body.lowercased().contains(term))
         }
         for event in shown {
-            let title = calendar.isDateInToday(event.date) ? "Сегодня"
-                : calendar.isDateInYesterday(event.date) ? "Вчера" : Format.day(event.date)
+            let title = calendar.isDateInToday(event.date) ? L("Сегодня")
+                : calendar.isDateInYesterday(event.date) ? L("Вчера") : Format.day(event.date)
             if let last = result.indices.last, result[last].0 == title { result[last].1.append(event) }
             else { result.append((title, [event])) }
         }
@@ -96,11 +96,11 @@ struct FeedScreen: View {
             }
             Spacer(minLength: 4)
             if let key = event.requestKey, requests.waitingKeys.contains(key) {
-                Button("Ответить") { RequestCenter.shared.showAgain(key) }
+                Button(L("Ответить")) { RequestCenter.shared.showAgain(key) }
                     .buttonStyle(.glassProminent).tint(Theme.amber).controlSize(.small)
             } else if let thread = event.threadId {
                 Button { CodexApp.open(thread: thread) } label: { Image(systemName: "arrow.up.forward.app") }
-                    .buttonStyle(.plain).foregroundStyle(.secondary).help("Открыть в Codex")
+                    .buttonStyle(.plain).foregroundStyle(.secondary).help(L("Открыть в Codex"))
             }
         }
     }

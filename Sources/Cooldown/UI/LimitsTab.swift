@@ -33,7 +33,7 @@ struct LimitsTab: View {
                     ForecastWell(session: session, weekly: snapshot.weekly, samples: store.samples, tint: store.tint, now: now)
                 } else if snapshot.session != nil {
                     Well {
-                        Note(symbol: "sparkles", text: "Лимит на 5 часов восстановился. Новое окно начнётся с первого запроса.", color: Theme.mint)
+                        Note(symbol: "sparkles", text: L("Лимит на 5 часов восстановился. Новое окно начнётся с первого запроса."), color: Theme.mint)
                     }
                 }
                 SourceLine(snapshot: snapshot, error: store.limitError, now: now)
@@ -45,12 +45,12 @@ struct LimitsTab: View {
         } else if let error = store.limitError {
             Well {
                 Note(symbol: "exclamationmark.triangle.fill", text: error, color: Theme.amber)
-                Button("Открыть настройки") { SettingsWindow.shared.show(store.id == .codex ? .codex : .claude) }.buttonStyle(.link)
+                Button(L("Открыть настройки")) { SettingsWindow.shared.show(store.id == .codex ? .codex : .claude) }.buttonStyle(.link)
             }
         } else {
             HStack(spacing: 8) {
                 ProgressView().controlSize(.small)
-                Text("Читаю лимиты \(store.id.displayName)…").foregroundStyle(.secondary)
+                Text(L("Читаю лимиты %@…", "\(store.id.displayName)")).foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, minHeight: 220)
         }
@@ -71,26 +71,26 @@ private struct ResetPlan: View {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Image(systemName: "clock.badge.checkmark").foregroundStyle(Theme.tint(for: provider))
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Снова можно работать в \(Format.clock(reset))").font(.system(size: 14, weight: .semibold))
-                    Text("Через \(Format.duration(max(60, reset.timeIntervalSince(now)))).").font(.callout).foregroundStyle(.secondary)
+                    Text(L("Снова можно работать в %@", "\(Format.clock(reset))")).font(.system(size: 14, weight: .semibold))
+                    Text(L("Через %@.", "\(Format.duration(max(60, reset.timeIntervalSince(now))))")).font(.callout).foregroundStyle(.secondary)
                 }
             }
             HStack(spacing: 8) {
                 if let reminder {
                     Button { ResetReminder.cancel(provider); self.reminder = nil } label: {
-                        Label("Напомню в \(Format.clock(reminder))", systemImage: "bell.fill")
+                        Label(L("Напомню в %@", "\(Format.clock(reminder))"), systemImage: "bell.fill")
                     }
                     .buttonStyle(.glass)
-                    .help("Нажмите, чтобы отменить")
+                    .help(L("Нажмите, чтобы отменить"))
                 } else if ResetReminder.possible(before: reset) {
                     Button {
                         ResetReminder.set(provider, reset: reset)
                         reminder = ResetReminder.when(provider)
-                    } label: { Label("Напомнить за 10 минут", systemImage: "bell") }
+                    } label: { Label(L("Напомнить за 10 минут"), systemImage: "bell") }
                     .buttonStyle(.glass)
                 }
                 if provider == .codex {
-                    Button { screen = .schedule } label: { Label("Задача на момент сброса", systemImage: "calendar.badge.clock") }
+                    Button { screen = .schedule } label: { Label(L("Задача на момент сброса"), systemImage: "calendar.badge.clock") }
                         .buttonStyle(.glass)
                 }
             }
@@ -130,7 +130,7 @@ private struct HeroRings: View {
                     Text(Format.percent(main))
                         .font(Theme.number(32))
                         .contentTransition(.numericText(value: main))
-                    Text(showWeek && session != nil ? "неделя" : "осталось")
+                    Text(showWeek && session != nil ? L("неделя") : L("осталось"))
                         .font(.caption)
                         .foregroundStyle(showWeek && session != nil ? weeklyColor : .secondary)
                         .contentTransition(.opacity)
@@ -148,18 +148,18 @@ private struct HeroRings: View {
             }
             VStack(alignment: .leading, spacing: 14) {
                 if let window = snapshot.session {
-                    Legend(color: sessionColor, title: "5 часов", value: window.remaining(at: now), window: window, now: now)
+                    Legend(color: sessionColor, title: L("5 часов"), value: window.remaining(at: now), window: window, now: now)
                 }
                 if let window = snapshot.weekly {
-                    Legend(color: weeklyColor, title: "Неделя", value: window.remaining(at: now), window: window, now: now)
+                    Legend(color: weeklyColor, title: L("Неделя"), value: window.remaining(at: now), window: window, now: now)
                         .contentShape(Rectangle())
                         .onHover { setWeekFocus($0) }
                 }
                 if let credits = snapshot.resetCredits, credits > 0 {
-                    Label("\(credits) \(Format.plural(credits, "сброс", "сброса", "сбросов")) в запасе", systemImage: "arrow.counterclockwise")
+                    Label(L("%@ в запасе", "\(Format.count(credits, L("сброс|сброса|сбросов")))"), systemImage: "arrow.counterclockwise")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                        .help("Бесплатные сбросы лимита. Использовать их можно в Codex командой /usage.")
+                        .help(L("Бесплатные сбросы лимита. Использовать их можно в Codex командой /usage."))
                 }
             }
             Spacer(minLength: 0)
@@ -218,7 +218,7 @@ private struct Legend: View {
                 Text(Format.percent(value)).font(.callout.weight(.semibold)).monospacedDigit()
                     .contentTransition(.numericText(value: value))
             }
-            Text(window.isExpired(at: now) ? "восстановлен" : "сброс \(Format.time(window.resetsAt, now: now))")
+            Text(window.isExpired(at: now) ? L("восстановлен") : L("сброс %@", "\(Format.time(window.resetsAt, now: now))"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.leading, 13)
@@ -237,9 +237,9 @@ private struct ExtraWindows: View {
                 let remaining = window.remaining(at: now)
                 VStack(alignment: .leading, spacing: 5) {
                     HStack {
-                        Text(window.label ?? "Неделя").font(.callout)
+                        Text(window.label ?? L("Неделя")).font(.callout)
                         Spacer()
-                        Text("осталось \(Format.percent(remaining))").font(.callout).monospacedDigit()
+                        Text(L("осталось %@", "\(Format.percent(remaining))")).font(.callout).monospacedDigit()
                     }
                     Bar(value: 100 - remaining, color: Theme.level(remaining: remaining, tint: Theme.mint))
                 }
@@ -278,10 +278,10 @@ private struct ForecastWell: View {
         let forecast = Forecaster.make(window: session, samples: samples, now: now)
         Well {
             HStack(alignment: .firstTextBaseline) {
-                Text("Прогноз на 5 часов").font(.system(size: 13, weight: .semibold))
+                Text(L("Прогноз на 5 часов")).font(.system(size: 13, weight: .semibold))
                 Spacer()
                 if forecast.ratePerHour > 0 {
-                    Text("\(Format.percent(forecast.ratePerHour)) в час").font(.caption).foregroundStyle(.secondary)
+                    Text(L("%@ в час", "\(Format.percent(forecast.ratePerHour))")).font(.caption).foregroundStyle(.secondary)
                 }
             }
             RunwayChart(window: session, samples: samples, forecast: forecast, tint: tint, now: now)
@@ -290,8 +290,8 @@ private struct ForecastWell: View {
             if let hours = Pace.hoursLeft(session, samples: samples, now: now) {
                 let untilReset = session.resetsAt.timeIntervalSince(now) / 3600
                 Label(hours >= untilReset
-                      ? "В вашем обычном темпе лимита хватит до сброса — можно браться за большое."
-                      : "В вашем обычном темпе осталось примерно на \(Format.duration(hours * 3600)) работы; сброс в \(Format.clock(session.resetsAt)).",
+                      ? L("В вашем обычном темпе лимита хватит до сброса — можно браться за большое.")
+                      : L("В вашем обычном темпе осталось примерно на %@ работы; сброс в %@.", "\(Format.duration(hours * 3600))", "\(Format.clock(session.resetsAt))"),
                       systemImage: "figure.walk")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
@@ -319,7 +319,7 @@ private struct WeeklyForecast: View {
         }()
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text("Неделя").font(.callout.weight(.medium))
+                Text(L("Неделя")).font(.callout.weight(.medium))
                 Spacer()
                 Text(line(forecast)).font(.caption).foregroundStyle(.secondary)
             }
@@ -332,10 +332,10 @@ private struct WeeklyForecast: View {
             if let usual = Pace.usualWeekShare(window, samples: samples, now: now) {
                 let difference = window.usedPercent - usual
                 Label(abs(difference) < 5
-                      ? "Как обычно: к этому моменту недели уходит около \(Format.percent(usual))."
+                      ? L("Как обычно: к этому моменту недели уходит около %@.", "\(Format.percent(usual))")
                       : difference > 0
-                        ? "Тяжелее обычного: обычно к этому моменту \(Format.percent(usual)), сейчас \(Format.percent(window.usedPercent))."
-                        : "Легче обычного: обычно к этому моменту \(Format.percent(usual)), сейчас \(Format.percent(window.usedPercent)).",
+                        ? L("Тяжелее обычного: обычно к этому моменту %@, сейчас %@.", "\(Format.percent(usual))", "\(Format.percent(window.usedPercent))")
+                        : L("Легче обычного: обычно к этому моменту %@, сейчас %@.", "\(Format.percent(usual))", "\(Format.percent(window.usedPercent))"),
                       systemImage: "chart.line.uptrend.xyaxis")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
@@ -355,20 +355,20 @@ private struct WeeklyForecast: View {
             .filter { $0.t >= startOfDay }
             .sorted { $0.t < $1.t }
         let spent = today.first.map { max(0, window.usedPercent - $0.used) }
-        var text = "Чтобы хватило до сброса: до \(Format.percent(perDay)) в день"
+        var text = L("Чтобы хватило до сброса: до %@ в день", "\(Format.percent(perDay))")
         if let spent, spent >= 0.5 {
-            text += spent > perDay * 1.2 ? ", сегодня уже \(Format.percent(spent)) — стоит притормозить"
-                                         : ", сегодня \(Format.percent(spent))"
+            text += spent > perDay * 1.2 ? L(", сегодня уже %@ — стоит притормозить", "\(Format.percent(spent))")
+                                         : L(", сегодня %@", "\(Format.percent(spent))")
         }
         return text + "."
     }
 
     private func line(_ forecast: Forecast) -> String {
         switch forecast.outcome {
-        case .exhausted: return "исчерпана"
-        case .idle: return "сейчас не расходуется"
-        case .lasts(let value): return "к сбросу около \(Format.percent(value))"
-        case .runsOut(let at): return "закончится \(Format.time(at, now: now))"
+        case .exhausted: return L("исчерпана")
+        case .idle: return L("сейчас не расходуется")
+        case .lasts(let value): return L("к сбросу около %@", "\(Format.percent(value))")
+        case .runsOut(let at): return L("закончится %@", "\(Format.time(at, now: now))")
         }
     }
 }
@@ -387,30 +387,30 @@ struct RunwayChart: View {
 
         Chart {
             if let runsOutAt {
-                RectangleMark(xStart: .value("Кончится", runsOutAt), xEnd: .value("Сброс", window.resetsAt),
+                RectangleMark(xStart: .value(L("Кончится"), runsOutAt), xEnd: .value(L("Сброс"), window.resetsAt),
                               yStart: .value("", 0), yEnd: .value("", 100))
                     .foregroundStyle(Theme.signal.opacity(0.12))
             }
             ForEach(Array(points.enumerated()), id: \.offset) { _, point in
-                AreaMark(x: .value("Время", point.t), y: .value("Потрачено", point.used))
+                AreaMark(x: .value(L("Время"), point.t), y: .value(L("Потрачено"), point.used))
                     .foregroundStyle(LinearGradient(colors: [color.opacity(0.3), color.opacity(0.02)], startPoint: .top, endPoint: .bottom))
                     .interpolationMethod(.monotone)
             }
             ForEach(Array(points.enumerated()), id: \.offset) { _, point in
-                LineMark(x: .value("Время", point.t), y: .value("Потрачено", point.used), series: .value("Линия", "факт"))
+                LineMark(x: .value(L("Время"), point.t), y: .value(L("Потрачено"), point.used), series: .value(L("Линия"), L("факт")))
                     .foregroundStyle(color)
                     .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
                     .interpolationMethod(.monotone)
             }
             if let end = forecast.projectionEnd, end.t > now {
-                LineMark(x: .value("Время", now), y: .value("Потрачено", window.usedPercent), series: .value("Линия", "прогноз"))
+                LineMark(x: .value(L("Время"), now), y: .value(L("Потрачено"), window.usedPercent), series: .value(L("Линия"), L("прогноз")))
                     .foregroundStyle(color.opacity(0.7))
                     .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
-                LineMark(x: .value("Время", end.t), y: .value("Потрачено", end.used), series: .value("Линия", "прогноз"))
+                LineMark(x: .value(L("Время"), end.t), y: .value(L("Потрачено"), end.used), series: .value(L("Линия"), L("прогноз")))
                     .foregroundStyle(color.opacity(0.7))
                     .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
             }
-            PointMark(x: .value("Время", now), y: .value("Потрачено", window.usedPercent))
+            PointMark(x: .value(L("Время"), now), y: .value(L("Потрачено"), window.usedPercent))
                 .foregroundStyle(color)
                 .symbolSize(34)
         }
@@ -441,17 +441,17 @@ struct ForecastNote: View {
         switch forecast.outcome {
         case .exhausted:
             Note(symbol: "pause.circle.fill",
-                 text: "Лимит исчерпан. Работа сможет продолжиться после сброса в \(Format.time(window.resetsAt, now: now)).",
+                 text: L("Лимит исчерпан. Работа сможет продолжиться после сброса в %@.", "\(Format.time(window.resetsAt, now: now))"),
                  color: Theme.signal)
         case .idle:
-            Note(symbol: "moon.zzz", text: "Сейчас лимит не расходуется.")
+            Note(symbol: "moon.zzz", text: L("Сейчас лимит не расходуется."))
         case .lasts(let usedAtReset):
             Note(symbol: "checkmark.circle",
-                 text: "Хватит до сброса: к \(Format.clock(window.resetsAt)) будет потрачено около \(Format.percent(usedAtReset)).",
+                 text: L("Хватит до сброса: к %@ будет потрачено около %@.", "\(Format.clock(window.resetsAt))", "\(Format.percent(usedAtReset))"),
                  color: Theme.mint)
         case .runsOut(let at):
             Note(symbol: "exclamationmark.triangle.fill",
-                 text: "Лимит закончится в \(Format.clock(at)), за \(Format.duration(window.resetsAt.timeIntervalSince(at))) до сброса.",
+                 text: L("Лимит закончится в %@, за %@ до сброса.", "\(Format.clock(at))", "\(Format.duration(window.resetsAt.timeIntervalSince(at)))"),
                  color: window.remainingPercent <= 25 ? Theme.signal : Theme.amber)
         }
     }
@@ -465,12 +465,12 @@ private struct SourceLine: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             if let error {
-                Note(symbol: "exclamationmark.triangle", text: "Не удалось обновить: \(error)", color: Theme.amber)
+                Note(symbol: "exclamationmark.triangle", text: L("Не удалось обновить: %@", "\(error)"), color: Theme.amber)
                     .font(.caption)
             }
             let age = now.timeIntervalSince(snapshot.fetchedAt)
-            let when = age < 60 ? "Данные свежие" : "Данные \(Format.duration(age)) назад"
-            Text(snapshot.source.map { "\(when), источник: \($0)." } ?? "\(when).")
+            let when = age < 60 ? L("Данные свежие") : L("Данные %@ назад", "\(Format.duration(age))")
+            Text(snapshot.source.map { L("%@, источник: %@.", "\(when)", "\($0)") } ?? "\(when).")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }
@@ -489,25 +489,25 @@ private struct ClaudeConnect: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Подключите Claude").font(.system(size: 17, weight: .semibold))
-                Text("Чаты, Cowork и вкладка Code в Claude Desktop считаются в лимитах вашего аккаунта claude.ai. Cooldown прочитает их оттуда, как страница «Использование» в настройках Claude.")
+                Text(L("Подключите Claude")).font(.system(size: 17, weight: .semibold))
+                Text(L("Чаты, Cowork и вкладка Code в Claude Desktop считаются в лимитах вашего аккаунта claude.ai. Cooldown прочитает их оттуда, как страница «Использование» в настройках Claude."))
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Well {
-                Label("Аккаунт claude.ai", systemImage: "person.crop.circle").font(.system(size: 13, weight: .semibold))
+                Label(L("Аккаунт claude.ai"), systemImage: "person.crop.circle").font(.system(size: 13, weight: .semibold))
                 VStack(alignment: .leading, spacing: 4) {
-                    point("Лимиты на 5 часов и неделю, отдельно по моделям")
-                    point("Активность: диалоги по дням, модели и проекты")
-                    point("Только чтение: Cooldown ничего не пишет в чаты")
+                    point(L("Лимиты на 5 часов и неделю, отдельно по моделям"))
+                    point(L("Активность: диалоги по дням, модели и проекты"))
+                    point(L("Только чтение: Cooldown ничего не пишет в чаты"))
                 }
-                Text("Откроется окно claude.ai: войдите так же, как в браузере. Если вход через Google не пустит, выберите вход по почте.")
+                Text(L("Откроется окно claude.ai: войдите так же, как в браузере. Если вход через Google не пустит, выберите вход по почте."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 Button { web.showLogin() } label: {
-                    Text(web.state == .connecting ? "Жду входа в открытом окне…" : "Войти в claude.ai").frame(maxWidth: .infinity)
+                    Text(web.state == .connecting ? L("Жду входа в открытом окне…") : L("Войти в claude.ai")).frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.glassProminent)
                 .tint(Theme.coral)
@@ -515,12 +515,12 @@ private struct ClaudeConnect: View {
             }
             if !ClaudeStatusLine.isInstalled {
                 Well {
-                    Label("Только для Claude Code", systemImage: "terminal").font(.system(size: 13, weight: .semibold))
-                    Text("Строка статуса Claude Code передаёт лимиты, пока работает Claude Code, без входа в аккаунт. Прежняя строка статуса продолжит работать.")
+                    Label(L("Только для Claude Code"), systemImage: "terminal").font(.system(size: 13, weight: .semibold))
+                    Text(L("Строка статуса Claude Code передаёт лимиты, пока работает Claude Code, без входа в аккаунт. Прежняя строка статуса продолжит работать."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
-                    Button { connectStatusLine() } label: { Text("Подключить строку статуса").frame(maxWidth: .infinity) }
+                    Button { connectStatusLine() } label: { Text(L("Подключить строку статуса")).frame(maxWidth: .infinity) }
                         .buttonStyle(.glass)
                 }
             }
@@ -541,10 +541,10 @@ private struct ClaudeConnect: View {
     private func connectStatusLine() {
         do {
             try ClaudeStatusLine.install()
-            message = "Строка статуса подключена. Лимиты появятся после следующего ответа Claude Code."
+            message = L("Строка статуса подключена. Лимиты появятся после следующего ответа Claude Code.")
             failed = false
         } catch {
-            message = "Не получилось: \(error.localizedDescription)"
+            message = L("Не получилось: %@", "\(error.localizedDescription)")
             failed = true
         }
     }
@@ -558,16 +558,16 @@ private struct ClaudeUsagePermission: View {
 
     var body: some View {
         Well {
-            Label("Лимиты Claude", systemImage: "gauge.with.dots.needle.67percent")
+            Label(L("Лимиты Claude"), systemImage: "gauge.with.dots.needle.67percent")
                 .font(.system(size: 13, weight: .semibold))
-            Text("Cooldown открывает в Claude Code экран /usage, как если бы вы набрали команду сами. Запросов к модели нет, токены не тратятся. Лимиты общие для подписки, поэтому учитывается и расход в Claude Desktop.")
+            Text(L("Cooldown открывает в Claude Code экран /usage, как если бы вы набрали команду сами. Запросов к модели нет, токены не тратятся. Лимиты общие для подписки, поэтому учитывается и расход в Claude Desktop."))
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            Text("Claude Code один раз спросит, можно ли ему работать в папке. Это пустая служебная папка Cooldown.")
+            Text(L("Claude Code один раз спросит, можно ли ему работать в папке. Это пустая служебная папка Cooldown."))
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             Button { allow() } label: {
                 HStack(spacing: 8) {
                     if usage.allowing { ProgressView().controlSize(.small) }
-                    Text(usage.allowing ? "Подключаю…" : "Разрешить и подключить")
+                    Text(usage.allowing ? L("Подключаю…") : L("Разрешить и подключить"))
                 }
                 .frame(maxWidth: .infinity)
             }

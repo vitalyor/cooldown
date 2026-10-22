@@ -7,7 +7,6 @@ what each agent is doing, a card when work is done, and continuing after a limit
 Everything runs locally on your Mac.
 
 > Unofficial project, not affiliated with OpenAI or Anthropic. Codex and Claude are trademarks of their owners.
-> The app's interface is currently in Russian.
 
 ## Features
 
@@ -15,11 +14,14 @@ Everything runs locally on your Mac.
 - The 5-hour and weekly limits of Codex and Claude in the menu bar: a number and a bar coloured by what is left.
 - Forecast: when the limit runs out at the current pace, whether it lasts until the reset, how much you can spend per day.
 - Comparison with your usual pace and with previous weeks.
+- When a limit runs out: when you can work again, a reminder 10 minutes before the reset, a Codex task queued for the reset moment.
 
 **What the agents are doing**
 - While an agent works, a soft light runs along its bar in the menu bar; an orange dot means it is waiting for your decision.
 - Cards under the menu bar icon: "finished" (with the start of the answer, time spent and share of the limit),
   "waiting for your decision", "limit is back", "silent for 15 minutes", "stopped with an error".
+- Answer requests right on the card: permissions and questions from Codex, Claude Code and Claude chats,
+  including multi-question requests, step by step. Cooldown never approves anything for you.
 - Sources: Codex session files, Codex and Claude Code hooks (optional), the Claude Desktop window
   via Accessibility.
 
@@ -32,7 +34,19 @@ Everything runs locally on your Mac.
 **Statistics**
 - Tokens, projects, models and the approximate API price of the same work.
 - "Year of work" — a day-by-day grid, like on GitHub.
-- The most expensive tasks, a weekly summary, CSV export.
+- The most expensive tasks, tasks per project, what an average task costs on each model.
+- A weekly summary, also as a picture you can save or share; CSV export.
+
+**Settings and diagnostics**
+- A separate settings window with sections and search.
+- Diagnostics: one button checks every link (apps, limits, hooks, the Claude window, notifications, updates)
+  and gives a report you can copy — without your paths or personal data.
+- Updates from GitHub with checksum and signature checks.
+
+**Languages**
+- English, Русский, Українська, Deutsch, Français, Español, Português (Brasil), Italiano, 日本語, 简体中文, 한국어.
+  The app follows the macOS language; you can pick another one for Cooldown in
+  System Settings → General → Language & Region → Applications.
 
 ## Requirements
 

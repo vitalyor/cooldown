@@ -64,20 +64,20 @@ enum ResumePolicy {
         if let history = state["turnHistory"] as? [String: Any], history["kind"] as? String == "canonical" {
             guard let hist = history["history"] as? [String: Any],
                   let islands = hist["islands"] as? [Any], let tail = islands.last as? [String: Any] else {
-                throw Unsupported(reason: "Нет проверяемой актуальной истории сессии")
+                throw Unsupported(reason: L("Нет проверяемой актуальной истории сессии"))
             }
             guard (tail["newerBoundary"] as? [String: Any])?["status"] as? String == "exhausted" else {
-                throw Unsupported(reason: "Хвост истории неполон; нельзя определить последний раунд")
+                throw Unsupported(reason: L("Хвост истории неполон; нельзя определить последний раунд"))
             }
             guard let entries = tail["entries"] as? [Any], let last = entries.last as? [String: Any] else {
-                throw Unsupported(reason: "Последний фрагмент истории пуст")
+                throw Unsupported(reason: L("Последний фрагмент истории пуст"))
             }
             if let key = last["value"] as? String { turn = (hist["entitiesByKey"] as? [String: Any])?[key] } else { turn = nil }
         } else {
-            guard let turns = state["turns"] as? [Any], !turns.isEmpty else { throw Unsupported(reason: "Отсутствует раунд сессии") }
+            guard let turns = state["turns"] as? [Any], !turns.isEmpty else { throw Unsupported(reason: L("Отсутствует раунд сессии")) }
             turn = turns.last
         }
-        guard let result = turn as? [String: Any] else { throw Unsupported(reason: "Неподдерживаемая структура истории сессии") }
+        guard let result = turn as? [String: Any] else { throw Unsupported(reason: L("Неподдерживаемая структура истории сессии")) }
         return result
     }
 
@@ -122,71 +122,71 @@ enum ResumePolicy {
 
     static func decide(_ state: [String: Any]?) -> Decision {
         guard let state, state["hostId"] as? String == "local" else {
-            return Decision(action: .stop, reason: "Поддерживаются только сессии локального приложения", taskState: "unsupported")
+            return Decision(action: .stop, reason: L("Поддерживаются только сессии локального приложения"), taskState: "unsupported")
         }
         guard persistentSession(state) else {
-            return Decision(action: .stop, reason: "Временные сессии и сессии неизвестного типа не поддерживаются", taskState: "unsupported")
+            return Decision(action: .stop, reason: L("Временные сессии и сессии неизвестного типа не поддерживаются"), taskState: "unsupported")
         }
         guard state["resumeState"] as? String == "resumed" else {
-            return Decision(action: .wait, reason: "Диалог ещё загружается, ждём синхронизации состояния", taskState: "connecting")
+            return Decision(action: .wait, reason: L("Диалог ещё загружается, ждём синхронизации состояния"), taskState: "connecting")
         }
         guard let requests = state["requests"] as? [Any] else {
-            return Decision(action: .stop, reason: "Нет состояния подтверждения/ввода пользователя")
+            return Decision(action: .stop, reason: L("Нет состояния подтверждения/ввода пользователя"))
         }
         if requests.contains(where: { !interruptedContextPicker(state, $0) }) {
-            return Decision(action: .stop, reason: "Задача ждёт подтверждения или ввода пользователя", taskState: "needs_attention")
+            return Decision(action: .stop, reason: L("Задача ждёт подтверждения или ввода пользователя"), taskState: "needs_attention")
         }
         if JSON.truthy(state["threadGoalResumeConfirmation"]) {
-            return Decision(action: .stop, reason: "Для возобновления задачи нужно подтверждение пользователя", taskState: "needs_attention")
+            return Decision(action: .stop, reason: L("Для возобновления задачи нужно подтверждение пользователя"), taskState: "needs_attention")
         }
         let goal = state["threadGoal"]
         let goalActive = (goal as? [String: Any])?["status"] as? String == "active"
         if !JSON.isNull(goal) && !goalActive {
-            return Decision(action: .stop, reason: "Цель задачи приостановлена, заблокирована или завершена", taskState: "needs_attention")
+            return Decision(action: .stop, reason: L("Цель задачи приостановлена, заблокирована или завершена"), taskState: "needs_attention")
         }
         if JSON.truthy(state["queuedFollowUps"]) {
-            return Decision(action: .stop, reason: "Есть сообщение пользователя в очереди", taskState: "needs_attention")
+            return Decision(action: .stop, reason: L("Есть сообщение пользователя в очереди"), taskState: "needs_attention")
         }
         guard let runtime = state["threadRuntimeStatus"] as? [String: Any] else {
-            return Decision(action: .stop, reason: "Нет состояния выполнения")
+            return Decision(action: .stop, reason: L("Нет состояния выполнения"))
         }
         let runtimeType = runtime["type"] as? String
         if runtimeType == "active" {
             if JSON.truthy(runtime["activeFlags"]) {
-                return Decision(action: .stop, reason: "Задача ждёт подтверждения, ввода или других предварительных условий", taskState: "needs_attention")
+                return Decision(action: .stop, reason: L("Задача ждёт подтверждения, ввода или других предварительных условий"), taskState: "needs_attention")
             }
-            return Decision(action: .wait, reason: "Задача выполняется; если она прервётся из-за исчерпания лимита, Cooldown дождётся его восстановления", taskState: "running")
+            return Decision(action: .wait, reason: L("Задача выполняется; если она прервётся из-за исчерпания лимита, Cooldown дождётся его восстановления"), taskState: "running")
         }
         // A real usage-limit failure shows as systemError, not idle. Only these two terminal
         // containers may be read; transitional types keep the watch but never authorize a send.
         guard runtimeType == "idle" || runtimeType == "systemError" else {
-            return Decision(action: .wait, reason: "Состояние выполнения синхронизируется; наблюдение сохранено, перепроверка позже", taskState: "connecting")
+            return Decision(action: .wait, reason: L("Состояние выполнения синхронизируется; наблюдение сохранено, перепроверка позже"), taskState: "connecting")
         }
         let turn: [String: Any]
         do { turn = try latestTurn(state) } catch let error as Unsupported {
             return Decision(action: .stop, reason: error.reason)
         } catch {
-            return Decision(action: .stop, reason: "Неподдерживаемая структура истории сессии")
+            return Decision(action: .stop, reason: L("Неподдерживаемая структура истории сессии"))
         }
         guard let turnId = JSON.nonEmptyString(turn["turnId"]) else {
-            return Decision(action: .stop, reason: "У последнего раунда нет стабильного идентификатора")
+            return Decision(action: .stop, reason: L("У последнего раунда нет стабильного идентификатора"))
         }
         switch turn["status"] as? String {
         case "inProgress":
-            return Decision(action: .wait, reason: "Состояние выполнения раунда синхронизируется", taskState: "running")
+            return Decision(action: .wait, reason: L("Состояние выполнения раунда синхронизируется"), taskState: "running")
         case "completed":
             if goalActive {
-                return Decision(action: .wait, reason: "Цель долгой задачи ещё выполняется, ждём следующего шага приложения; лишних сообщений не отправляется",
+                return Decision(action: .wait, reason: L("Цель долгой задачи ещё выполняется, ждём следующего шага приложения; лишних сообщений не отправляется"),
                                 turnId: turnId, taskState: "running")
             }
-            return Decision(action: .stop, reason: "Раунд завершён, выполняющихся задач сейчас нет — наблюдение не нужно", turnId: turnId, taskState: "idle")
+            return Decision(action: .stop, reason: L("Раунд завершён, выполняющихся задач сейчас нет — наблюдение не нужно"), turnId: turnId, taskState: "idle")
         case "interrupted":
-            return Decision(action: .stop, reason: "Раунд остановлен; автоматически перезапущен не будет", turnId: turnId, taskState: "interrupted")
+            return Decision(action: .stop, reason: L("Раунд остановлен; автоматически перезапущен не будет"), turnId: turnId, taskState: "interrupted")
         case "failed" where quotaFailure(turn):
-            return Decision(action: .resume, reason: "Задача приостановлена из-за исчерпания лимита; после восстановления лимита продолжится в том же диалоге",
+            return Decision(action: .resume, reason: L("Задача приостановлена из-за исчерпания лимита; после восстановления лимита продолжится в том же диалоге"),
                             turnId: turnId, taskState: "quota_limited")
         default:
-            return Decision(action: .stop, reason: "Это не ошибка исчерпания лимита со структурированными доказательствами", turnId: turnId, taskState: "other_failure")
+            return Decision(action: .stop, reason: L("Это не ошибка исчерпания лимита со структурированными доказательствами"), turnId: turnId, taskState: "other_failure")
         }
     }
 
@@ -199,7 +199,7 @@ enum ResumePolicy {
         var data: [String: Any] = [:]
         for key in fingerprintKeys { data[key] = state[key] ?? NSNull() }
         data["turn"] = try latestTurn(state)
-        guard let bytes = JSON.canonical(data) else { throw Unsupported(reason: "Состояние задачи нельзя однозначно сравнить") }
+        guard let bytes = JSON.canonical(data) else { throw Unsupported(reason: L("Состояние задачи нельзя однозначно сравнить")) }
         return SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
     }
 
@@ -216,36 +216,36 @@ enum ResumePolicy {
         func no(_ next: Double?, _ reason: String) -> Quota { Quota(ready: false, nextCheck: next, reason: reason) }
         var bucket: [String: Any]?
         if let buckets = response["rateLimitsByLimitId"] as? [String: Any], !buckets.isEmpty {
-            if limitId == nil && Set(buckets.keys) != ["codex"] { return no(nil, "Несколько групп лимитов; нужно выбрать одну явно") }
+            if limitId == nil && Set(buckets.keys) != ["codex"] { return no(nil, L("Несколько групп лимитов; нужно выбрать одну явно")) }
             bucket = buckets[limitId ?? "codex"] as? [String: Any]
         } else {
             bucket = response["rateLimits"] as? [String: Any]
             if let limitId, bucket?["limitId"] as? String != limitId { bucket = nil }
         }
-        guard let bucket else { return no(nil, "Выбранная группа лимитов отсутствует") }
+        guard let bucket else { return no(nil, L("Выбранная группа лимитов отсутствует")) }
         if JSON.truthy(bucket["spendControlReached"]) || !JSON.isNull(bucket["individualLimit"]) {
-            return no(nil, "У аккаунта есть отдельное ограничение использования, нужна ручная проверка")
+            return no(nil, L("У аккаунта есть отдельное ограничение использования, нужна ручная проверка"))
         }
         let reached = bucket["rateLimitReachedType"]
         if !JSON.isNull(reached) && reached as? String != "rate_limit_reached" {
-            return no(nil, "У аккаунта есть ограничение лимита вне окон")
+            return no(nil, L("У аккаунта есть ограничение лимита вне окон"))
         }
         let primary = bucket["primary"]
-        if JSON.isNull(primary) { return no(nil, "Нет данных основного окна лимита") }
+        if JSON.isNull(primary) { return no(nil, L("Нет данных основного окна лимита")) }
         var exhausted: [Double] = []
         for window in [primary, bucket["secondary"]] where !JSON.isNull(window) {
-            guard let window = window as? [String: Any] else { return no(nil, "Неподдерживаемая структура окна лимита") }
+            guard let window = window as? [String: Any] else { return no(nil, L("Неподдерживаемая структура окна лимита")) }
             guard let used = JSON.number(window["usedPercent"]), (0...100).contains(used),
                   let reset = JSON.number(window["resetsAt"]), reset > 0,
                   let duration = JSON.number(window["windowDurationMins"]), duration > 0 else {
-                return no(nil, "Данные лимита неполны, время доступности предполагать нельзя")
+                return no(nil, L("Данные лимита неполны, время доступности предполагать нельзя"))
             }
-            if used >= 100 { exhausted.append(reset) } else if reset <= now { return no(now + 60, "Данные лимита устарели, перечитаем через минуту") }
+            if used >= 100 { exhausted.append(reset) } else if reset <= now { return no(now + 60, L("Данные лимита устарели, перечитаем через минуту")) }
         }
         if let latest = exhausted.max() {
-            return no(max(now + 60, latest + 15), "Лимита всё ещё недостаточно, проверим снова сразу после сброса")
+            return no(max(now + 60, latest + 15), L("Лимита всё ещё недостаточно, проверим снова сразу после сброса"))
         }
-        if !JSON.isNull(reached) { return no(now + 60, "Сервис всё ещё помечает лимит как исчерпанный, проверим через минуту") }
-        return Quota(ready: true, nextCheck: now, reason: "Во всех окнах выбранной группы лимитов есть остаток")
+        if !JSON.isNull(reached) { return no(now + 60, L("Сервис всё ещё помечает лимит как исчерпанный, проверим через минуту")) }
+        return Quota(ready: true, nextCheck: now, reason: L("Во всех окнах выбранной группы лимитов есть остаток"))
     }
 }

@@ -37,15 +37,15 @@ final class ResumeStore {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         var info = stat()
         guard lstat(directory.path, &info) == 0, (info.st_mode & S_IFMT) == S_IFDIR, info.st_uid == getuid() else {
-            throw StoreError.unsafe("Папка состояния автопродолжения должна принадлежать вам")
+            throw StoreError.unsafe(L("Папка состояния автопродолжения должна принадлежать вам"))
         }
         if info.st_mode & 0o077 != 0 { chmod(directory.path, 0o700) }
         let path = directory.appendingPathComponent("state.sqlite3").path
-        if lstat(path, &info) == 0, (info.st_mode & S_IFMT) == S_IFLNK { throw StoreError.unsafe("База состояния не может быть ссылкой") }
+        if lstat(path, &info) == 0, (info.st_mode & S_IFMT) == S_IFLNK { throw StoreError.unsafe(L("База состояния не может быть ссылкой")) }
         guard sqlite3_open_v2(path, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOFOLLOW, nil) == SQLITE_OK else {
             sqlite3_close(db)
             db = nil
-            throw StoreError.unsafe("Не удалось открыть базу состояния автопродолжения")
+            throw StoreError.unsafe(L("Не удалось открыть базу состояния автопродолжения"))
         }
         chmod(path, 0o600)
         sqlite3_busy_timeout(db, 5000)
@@ -76,7 +76,7 @@ final class ResumeStore {
 
     private func exec(_ sql: String) throws {
         guard sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK else {
-            throw StoreError.unsafe("Ошибка базы состояния: " + String(cString: sqlite3_errmsg(db)))
+            throw StoreError.unsafe(L("Ошибка базы состояния: ") + String(cString: sqlite3_errmsg(db)))
         }
     }
 
@@ -85,7 +85,7 @@ final class ResumeStore {
     private func run(_ sql: String, _ values: [Any?] = [], row: ((OpaquePointer?) -> Void)? = nil) throws -> Int {
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
-            throw StoreError.unsafe("Ошибка базы состояния: " + String(cString: sqlite3_errmsg(db)))
+            throw StoreError.unsafe(L("Ошибка базы состояния: ") + String(cString: sqlite3_errmsg(db)))
         }
         defer { sqlite3_finalize(statement) }
         for (index, value) in values.enumerated() {
@@ -102,7 +102,7 @@ final class ResumeStore {
             let code = sqlite3_step(statement)
             if code == SQLITE_ROW { row?(statement); continue }
             if code == SQLITE_DONE { return Int(sqlite3_changes(db)) }
-            throw StoreError.unsafe("Ошибка базы состояния: " + String(cString: sqlite3_errmsg(db)))
+            throw StoreError.unsafe(L("Ошибка базы состояния: ") + String(cString: sqlite3_errmsg(db)))
         }
     }
 
@@ -148,7 +148,7 @@ final class ResumeStore {
     }
 
     func stop(_ id: String) {
-        update(id, status: "paused", reason: "Вы выключили автопродолжение", disable: true)
+        update(id, status: "paused", reason: L("Вы выключили автопродолжение"), disable: true)
     }
 
     // MARK: Attempts
@@ -215,10 +215,10 @@ final class ResumeStore {
         guard locks[id] == nil else { return }
         let path = directory.appendingPathComponent(id + ".lock").path
         let fd = Darwin.open(path, O_CREAT | O_RDWR | O_NOFOLLOW | O_CLOEXEC, 0o600)
-        guard fd >= 0 else { throw StoreError.unsafe("Не удалось создать блокировку задачи") }
+        guard fd >= 0 else { throw StoreError.unsafe(L("Не удалось создать блокировку задачи")) }
         guard flock(fd, LOCK_EX | LOCK_NB) == 0 else {
             Darwin.close(fd)
-            throw StoreError.unsafe("Для этой задачи уже работает другое наблюдение")
+            throw StoreError.unsafe(L("Для этой задачи уже работает другое наблюдение"))
         }
         locks[id] = fd
     }
@@ -268,7 +268,7 @@ final class ResumeStore {
         let watches = rows("SELECT thread_id, enabled, max_resumes, status, reason, updated FROM watches")
         let live = watches.filter { ($0[1] as? Int ?? 0) != 0 }.compactMap { $0[0] as? String }
         // Switch the old watchers off before taking over: each one notices within a second and exits.
-        sqlite3_exec(legacy, "UPDATE watches SET enabled=0, status='paused', reason='Перенесено в Cooldown' WHERE enabled=1", nil, nil, nil)
+        sqlite3_exec(legacy, "UPDATE watches SET enabled=0, status='paused', reason='Перенесено в Cooldown' WHERE enabled=1", nil, nil, nil) // l10n:skip
         for row in watches {
             guard let id = row[0] as? String, get(id) == nil else { continue }
             _ = try? run("INSERT INTO watches VALUES (?,?,?,?,?,NULL,?)",

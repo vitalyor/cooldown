@@ -39,11 +39,11 @@ enum CodexError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .binaryNotFound: return "Не найден Codex. Укажите путь к нему в настройках."
-        case .timeout: return "Codex не ответил за 20 секунд."
-        case .exited: return "Codex завершился, не прислав ответ."
-        case .server(let message): return "Codex вернул ошибку: \(message)"
-        case .unexpected: return "Codex прислал ответ в незнакомом формате."
+        case .binaryNotFound: return L("Не найден Codex. Укажите путь к нему в настройках.")
+        case .timeout: return L("Codex не ответил за 20 секунд.")
+        case .exited: return L("Codex завершился, не прислав ответ.")
+        case .server(let message): return L("Codex вернул ошибку: %@", "\(message)")
+        case .unexpected: return L("Codex прислал ответ в незнакомом формате.")
         }
     }
 }
@@ -107,7 +107,7 @@ enum CodexAppServer {
                 guard let object = (try? JSONSerialization.jsonObject(with: line)) as? [String: Any],
                       Num.int(object["id"]) == 2 else { continue }
                 if let error = object["error"] as? [String: Any] {
-                    throw CodexError.server(error["message"] as? String ?? "без описания")
+                    throw CodexError.server(error["message"] as? String ?? L("без описания"))
                 }
                 guard let result = object["result"] as? [String: Any] else { throw CodexError.unexpected }
                 return result

@@ -33,7 +33,7 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         let controller = NSHostingController(rootView: root)
         let window = NSWindow(contentViewController: controller)
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
-        window.title = "Настройки Cooldown"
+        window.title = L("Настройки Cooldown")
         window.titlebarAppearsTransparent = true
         window.toolbarStyle = .unified
         window.toolbar = NSToolbar(identifier: "settings")
@@ -64,31 +64,31 @@ enum SettingsPane: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .general: return "Основные"
-        case .menubar: return "Строка меню"
-        case .notifications: return "Уведомления"
-        case .quiet: return "Тишина"
+        case .general: return L("Основные")
+        case .menubar: return L("Строка меню")
+        case .notifications: return L("Уведомления")
+        case .quiet: return L("Тишина")
         case .codex: return "Codex"
         case .claude: return "Claude"
-        case .updates: return "Обновления"
-        case .data: return "Статистика"
-        case .diagnostics: return "Диагностика"
-        case .about: return "О Cooldown"
+        case .updates: return L("Обновления")
+        case .data: return L("Статистика")
+        case .diagnostics: return L("Диагностика")
+        case .about: return L("О Cooldown")
         }
     }
 
     var subtitle: String {
         switch self {
-        case .general: return "Что уже работает, запуск и частота проверок"
-        case .menubar: return "Как выглядит значок и что он показывает"
-        case .notifications: return "Карточки, баннеры и звуки"
-        case .quiet: return "Фокусировка и тихие часы"
-        case .codex: return "Программа, хуки и автопродолжение"
-        case .claude: return "Источники лимитов, Claude Desktop и Claude Code"
-        case .updates: return "Новые версии с GitHub"
-        case .data: return "История, таблица и демо"
-        case .diagnostics: return "Проверить, что всё работает"
-        case .about: return "Версия, лицензия и благодарности"
+        case .general: return L("Что уже работает, запуск и частота проверок")
+        case .menubar: return L("Как выглядит значок и что он показывает")
+        case .notifications: return L("Карточки, баннеры и звуки")
+        case .quiet: return L("Фокусировка и тихие часы")
+        case .codex: return L("Программа, хуки и автопродолжение")
+        case .claude: return L("Источники лимитов, Claude Desktop и Claude Code")
+        case .updates: return L("Новые версии с GitHub")
+        case .data: return L("История, таблица и демо")
+        case .diagnostics: return L("Проверить, что всё работает")
+        case .about: return L("Версия, лицензия и благодарности")
         }
     }
 
@@ -125,16 +125,16 @@ enum SettingsPane: String, CaseIterable, Identifiable {
     /// Words to find this pane by in the sidebar's search.
     var keywords: String {
         switch self {
-        case .general: return "готовность разрешения автозапуск вход горячая клавиша частота проверка лимитов"
-        case .menubar: return "значок проценты линии свечение активность"
-        case .notifications: return "карточки баннеры звуки лимит сброс задачи запросы разрешения итоги проекты"
-        case .quiet: return "фокус не беспокоить сон ночь тихие часы"
-        case .codex: return "codex путь хуки автопродолжение"
-        case .claude: return "claude code desktop usage аккаунт строка статуса хуки окно"
-        case .updates: return "версия github обновить скачивать"
-        case .data: return "csv таблица экспорт пересобрать демо iphone home assistant"
-        case .diagnostics: return "проверка отчёт ошибки не работает тест"
-        case .about: return "лицензия mit благодарности выйти"
+        case .general: return L("готовность разрешения автозапуск вход горячая клавиша частота проверка лимитов")
+        case .menubar: return L("значок проценты линии свечение активность")
+        case .notifications: return L("карточки баннеры звуки лимит сброс задачи запросы разрешения итоги проекты")
+        case .quiet: return L("фокус не беспокоить сон ночь тихие часы")
+        case .codex: return L("codex путь хуки автопродолжение")
+        case .claude: return L("claude code desktop usage аккаунт строка статуса хуки окно")
+        case .updates: return L("версия github обновить скачивать")
+        case .data: return L("csv таблица экспорт пересобрать демо iphone home assistant")
+        case .diagnostics: return L("проверка отчёт ошибки не работает тест")
+        case .about: return L("лицензия mit благодарности выйти")
         }
     }
 }
@@ -163,7 +163,7 @@ private struct SettingsRoot: View {
                     .tag(pane)
                 }
             }
-            .searchable(text: $search, placement: .sidebar, prompt: "Поиск")
+            .searchable(text: $search, placement: .sidebar, prompt: L("Поиск"))
             .navigationSplitViewColumnWidth(min: 190, ideal: 210, max: 260)
         } detail: {
             PaneView(pane: navigation.pane)
@@ -259,31 +259,31 @@ private struct GeneralPane: View {
     @State private var problem: String?
 
     var body: some View {
-        Section("Готовность") { ReadinessRows() }
+        Section(L("Готовность")) { ReadinessRows() }
         Section {
-            OptionToggle(title: "Открывать при входе в систему", detail: "Cooldown запустится сам после перезагрузки Mac.", isOn: $launchAtLogin)
+            OptionToggle(title: L("Открывать при входе в систему"), detail: L("Cooldown запустится сам после перезагрузки Mac."), isOn: $launchAtLogin)
                 .onChange(of: launchAtLogin) { _, enabled in
                     do { try LoginItem.set(enabled) } catch {
-                        problem = "Автозапуск: \(error.localizedDescription)"
+                        problem = L("Автозапуск: %@", "\(error.localizedDescription)")
                         launchAtLogin = LoginItem.isEnabled
                     }
                 }
             Picker(selection: $refreshInterval) {
-                Text("Каждые 30 секунд").tag(30.0)
-                Text("Каждую минуту").tag(60.0)
-                Text("Каждые 2 минуты").tag(120.0)
-                Text("Каждые 5 минут").tag(300.0)
+                Text(L("Каждые 30 секунд")).tag(30.0)
+                Text(L("Каждую минуту")).tag(60.0)
+                Text(L("Каждые 2 минуты")).tag(120.0)
+                Text(L("Каждые 5 минут")).tag(300.0)
             } label: {
-                Text("Проверять лимиты, пока окно открыто")
-                Text("В остальное время Cooldown узнаёт о работе агентов по событиям и не тратит ресурсы.")
+                Text(L("Проверять лимиты, пока окно открыто"))
+                Text(L("В остальное время Cooldown узнаёт о работе агентов по событиям и не тратит ресурсы."))
             }
             .onChange(of: refreshInterval) { _, _ in model.schedule() }
-            LabeledContent("Открыть Cooldown") {
+            LabeledContent(L("Открыть Cooldown")) {
                 Text("⌃⌥C").font(.system(.body, design: .rounded).weight(.semibold)).foregroundStyle(.secondary)
             }
-            LabeledContent("Быстрое меню") { Text("Правый клик по значку").foregroundStyle(.secondary) }
+            LabeledContent(L("Быстрое меню")) { Text(L("Правый клик по значку")).foregroundStyle(.secondary) }
             if let problem { Footnote(text: problem) }
-        } header: { Text("Запуск") }
+        } header: { Text(L("Запуск")) }
     }
 }
 
@@ -295,16 +295,16 @@ private struct ReadinessRows: View {
 
     var body: some View {
         Group {
-            row("Лимиты Codex", symbol: "gauge.with.dots.needle.67percent", ok: model.codex.snapshot != nil, detail: model.codex.limitError)
-            row("Лимиты Claude", symbol: "gauge.with.dots.needle.33percent", ok: model.claude.snapshot != nil && !usage.needsPermission,
-                detail: usage.needsPermission ? "Нужно разрешение для Claude Code — на главном окне, вкладка Claude." : model.claude.limitError)
-            row("Автопродолжение Codex", symbol: "arrow.triangle.2.circlepath", ok: model.relayAvailable, detail: model.relayError)
-            row("Уведомления", symbol: "bell", ok: state.notifications ?? true,
-                detail: state.notifications == false ? "Выключены в Системных настройках." : nil) {
+            row(L("Лимиты Codex"), symbol: "gauge.with.dots.needle.67percent", ok: model.codex.snapshot != nil, detail: model.codex.limitError)
+            row(L("Лимиты Claude"), symbol: "gauge.with.dots.needle.33percent", ok: model.claude.snapshot != nil && !usage.needsPermission,
+                detail: usage.needsPermission ? L("Нужно разрешение для Claude Code — на главном окне, вкладка Claude.") : model.claude.limitError)
+            row(L("Автопродолжение Codex"), symbol: "arrow.triangle.2.circlepath", ok: model.relayAvailable, detail: model.relayError)
+            row(L("Уведомления"), symbol: "bell", ok: state.notifications ?? true,
+                detail: state.notifications == false ? L("Выключены в Системных настройках.") : nil) {
                 NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension")!)
             }
-            row("Универсальный доступ", symbol: "accessibility", ok: state.accessibility,
-                detail: state.accessibility ? nil : "Нужен, чтобы видеть ответы Claude Desktop, продолжать чаты и отвечать на запросы. Если Cooldown там уже включён, удалите запись кнопкой «−» и нажмите «Исправить» снова.") {
+            row(L("Универсальный доступ"), symbol: "accessibility", ok: state.accessibility,
+                detail: state.accessibility ? nil : L("Нужен, чтобы видеть ответы Claude Desktop, продолжать чаты и отвечать на запросы. Если Cooldown там уже включён, удалите запись кнопкой «−» и нажмите «Исправить» снова.")) {
                 ClaudeSender.requestPermission()
                 NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
             }
@@ -322,10 +322,10 @@ private struct ReadinessRows: View {
             }
             Spacer()
             if ok {
-                Label("Работает", systemImage: "checkmark.circle.fill").labelStyle(.iconOnly).foregroundStyle(Theme.mint)
-                    .help("Работает")
+                Label(L("Работает"), systemImage: "checkmark.circle.fill").labelStyle(.iconOnly).foregroundStyle(Theme.mint)
+                    .help(L("Работает"))
             } else if let fix {
-                Button("Исправить", action: fix)
+                Button(L("Исправить"), action: fix)
             } else {
                 Image(systemName: "exclamationmark.circle.fill").foregroundStyle(Theme.amber)
             }
@@ -383,17 +383,17 @@ private struct MenuBarPane: View {
             }
             .padding(.vertical, 10)
         } footer: {
-            Footnote(text: "Так значок выглядит сейчас. Верхняя линия — Codex, нижняя — Claude; длина — сколько осталось на 5 часов.")
+            Footnote(text: L("Так значок выглядит сейчас. Верхняя линия — Codex, нижняя — Claude; длина — сколько осталось на 5 часов."))
         }
         Section {
-            OptionToggle(title: "Проценты рядом с линиями", isOn: $showPercent)
-            Picker("Показывать", selection: $menuSource) {
-                Text("Codex и Claude").tag("lowest")
-                Text("Только Codex").tag("codex")
-                Text("Только Claude").tag("claude")
+            OptionToggle(title: L("Проценты рядом с линиями"), isOn: $showPercent)
+            Picker(L("Показывать"), selection: $menuSource) {
+                Text(L("Codex и Claude")).tag("lowest")
+                Text(L("Только Codex")).tag("codex")
+                Text(L("Только Claude")).tag("claude")
             }
-            OptionToggle(title: "Показывать, когда агент работает",
-                         detail: "По линии работающего агента пробегает мягкий свет; оранжевая точка — агент ждёт вашего решения.",
+            OptionToggle(title: L("Показывать, когда агент работает"),
+                         detail: L("По линии работающего агента пробегает мягкий свет; оранжевая точка — агент ждёт вашего решения."),
                          isOn: $showActivity)
         }
         .onChange(of: showPercent) { _, _ in model.updateMenuImage(animated: false) }
@@ -423,39 +423,39 @@ private struct NotificationsPane: View {
 
     var body: some View {
         Section {
-            OptionToggle(title: "Карточки под значком", detail: "Стеклянные карточки с кнопками. Выключено — обычные баннеры macOS.", isOn: $toasts)
-            OptionToggle(title: "Даже если агент на экране",
-                         detail: "Выключено: пока вы в Codex или Claude, Cooldown считает, что вы видите всё сами. Событие всё равно попадёт в ленту.",
+            OptionToggle(title: L("Карточки под значком"), detail: L("Стеклянные карточки с кнопками. Выключено — обычные баннеры macOS."), isOn: $toasts)
+            OptionToggle(title: L("Даже если агент на экране"),
+                         detail: L("Выключено: пока вы в Codex или Claude, Cooldown считает, что вы видите всё сами. Событие всё равно попадёт в ленту."),
                          isOn: $cardsWhenFront)
             HStack {
                 Spacer()
-                Button("Показать примеры карточек") { ToastController.shared.showExamples() }
+                Button(L("Показать примеры карточек")) { ToastController.shared.showExamples() }
             }
-        } header: { Text("Как показывать") }
-        Section("Лимиты") {
-            OptionToggle(title: "Осталось 20% и 5%", detail: "Только когда вас нет за Mac или карточка может что-то изменить.", isOn: $notifyThresholds)
-            OptionToggle(title: "Лимит восстановился", isOn: $notifyReset)
-            OptionToggle(title: "Лимит кончится раньше сброса", detail: "Если в вашем темпе окно закончится до времени сброса.", isOn: $notifyPace)
+        } header: { Text(L("Как показывать")) }
+        Section(L("Лимиты")) {
+            OptionToggle(title: L("Осталось 20% и 5%"), detail: L("Только когда вас нет за Mac или карточка может что-то изменить."), isOn: $notifyThresholds)
+            OptionToggle(title: L("Лимит восстановился"), isOn: $notifyReset)
+            OptionToggle(title: L("Лимит кончится раньше сброса"), detail: L("Если в вашем темпе окно закончится до времени сброса."), isOn: $notifyPace)
         }
-        Section("Агенты") {
-            OptionToggle(title: "Агент закончил задачу", detail: "Для задач дольше минуты, с последними словами агента.", isOn: $notifyFinished)
-            OptionToggle(title: "Агент ждёт вашего решения",
-                         detail: "Разрешения и вопросы Codex, Claude Code и чатов Claude — с кнопками ответа прямо на карточке.",
+        Section(L("Агенты")) {
+            OptionToggle(title: L("Агент закончил задачу"), detail: L("Для задач дольше минуты, с последними словами агента."), isOn: $notifyFinished)
+            OptionToggle(title: L("Агент ждёт вашего решения"),
+                         detail: L("Разрешения и вопросы Codex, Claude Code и чатов Claude — с кнопками ответа прямо на карточке."),
                          isOn: $notifyAttention)
-            OptionToggle(title: "Автопродолжение", detail: "Задача ждёт сброса, продолжена или требует проверки.", isOn: $notifyTasks)
+            OptionToggle(title: L("Автопродолжение"), detail: L("Задача ждёт сброса, продолжена или требует проверки."), isOn: $notifyTasks)
         }
-        Section("Сводки") {
-            OptionToggle(title: "Итоги недели", detail: "В воскресенье вечером.", isOn: $weeklySummary)
-            OptionToggle(title: "Проект съедает много недели", detail: "Только для Codex.", isOn: $notifyProjects)
+        Section(L("Сводки")) {
+            OptionToggle(title: L("Итоги недели"), detail: L("В воскресенье вечером."), isOn: $weeklySummary)
+            OptionToggle(title: L("Проект съедает много недели"), detail: L("Только для Codex."), isOn: $notifyProjects)
         }
         Section {
-            OptionToggle(title: "Задача закончена", isOn: $soundFinished)
+            OptionToggle(title: L("Задача закончена"), isOn: $soundFinished)
                 .onChange(of: soundFinished) { _, on in if on { CardSound.play(for: .finished) } }
-            OptionToggle(title: "Агент ждёт вас", isOn: $soundAttention)
+            OptionToggle(title: L("Агент ждёт вас"), isOn: $soundAttention)
                 .onChange(of: soundAttention) { _, on in if on { CardSound.play(for: .attention) } }
-            OptionToggle(title: "Лимит восстановился", isOn: $soundReset)
+            OptionToggle(title: L("Лимит восстановился"), isOn: $soundReset)
                 .onChange(of: soundReset) { _, on in if on { CardSound.play(for: .reset) } }
-        } header: { Text("Звук карточки") } footer: { Footnote(text: "Включённый звук сразу проигрывается, чтобы его можно было услышать.") }
+        } header: { Text(L("Звук карточки")) } footer: { Footnote(text: L("Включённый звук сразу проигрывается, чтобы его можно было услышать.")) }
     }
 }
 
@@ -470,18 +470,18 @@ private struct QuietPane: View {
 
     var body: some View {
         Section {
-            OptionToggle(title: "Молчать при фокусировке",
-                         detail: "Пока включён «Не беспокоить», «Сон» или другой режим, всё копится в ленте, а потом приходит короткая сводка.",
+            OptionToggle(title: L("Молчать при фокусировке"),
+                         detail: L("Пока включён «Не беспокоить», «Сон» или другой режим, всё копится в ленте, а потом приходит короткая сводка."),
                          isOn: $quietWithFocus)
         }
         Section {
-            OptionToggle(title: "Тихие часы", detail: "Ночью без карточек и баннеров; утром — сводка.", isOn: $quietHours)
+            OptionToggle(title: L("Тихие часы"), detail: L("Ночью без карточек и баннеров; утром — сводка."), isOn: $quietHours)
             if quietHours {
-                Picker("С", selection: $quietFrom) { ForEach(hours, id: \.self) { Text(Self.text($0)).tag($0) } }
-                Picker("До", selection: $quietTo) { ForEach(hours, id: \.self) { Text(Self.text($0)).tag($0) } }
+                Picker(L("С"), selection: $quietFrom) { ForEach(hours, id: \.self) { Text(Self.text($0)).tag($0) } }
+                Picker(L("До"), selection: $quietTo) { ForEach(hours, id: \.self) { Text(Self.text($0)).tag($0) } }
             }
         } footer: {
-            Footnote(text: "Карточки с запросами агентов в тишину тоже не показываются: запрос подождёт и будет в ленте.")
+            Footnote(text: L("Карточки с запросами агентов в тишину тоже не показываются: запрос подождёт и будет в ленте."))
         }
     }
 
@@ -496,38 +496,38 @@ private struct CodexPane: View {
 
     var body: some View {
         Section {
-            PathRow(label: "Программа codex", path: CodexPaths.binary(override: codexPath)?.path, choose: {
+            PathRow(label: L("Программа codex"), path: CodexPaths.binary(override: codexPath)?.path, choose: {
                 if let path = chooseFile() {
                     codexPath = path
                     Task { await model.refreshLimits() }
                 }
             })
-            LabeledContent("Приложение Codex") {
-                Text(CodexApp.url.map { ($0.path as NSString).abbreviatingWithTildeInPath } ?? "не найдено")
+            LabeledContent(L("Приложение Codex")) {
+                Text(CodexApp.url.map { ($0.path as NSString).abbreviatingWithTildeInPath } ?? L("не найдено"))
                     .foregroundStyle(CodexApp.url == nil ? Theme.amber : .secondary)
             }
-        } header: { Text("Где Codex") } footer: {
-            Footnote(text: "Лимиты Codex идут из его файлов сессий, пока он работает, и из `codex app-server` — в остальное время.")
+        } header: { Text(L("Где Codex")) } footer: {
+            Footnote(text: L("Лимиты Codex идут из его файлов сессий, пока он работает, и из `codex app-server` — в остальное время."))
         }
         Section {
             HookRow(agent: .codex)
-        } header: { Text("Хуки") } footer: {
-            Footnote(text: "Codex сам сообщает Cooldown, когда начал и закончил работу или ждёт разрешения. Хук только дописывает строку в файл и выходит; хуки других программ остаются как были.")
+        } header: { Text(L("Хуки")) } footer: {
+            Footnote(text: L("Codex сам сообщает Cooldown, когда начал и закончил работу или ждёт разрешения. Хук только дописывает строку в файл и выходит; хуки других программ остаются как были."))
         }
         Section {
-            LabeledContent("Под наблюдением") {
-                Text("\(model.watches.filter(\.enabled).count) из \(model.watches.count)").foregroundStyle(.secondary)
+            LabeledContent(L("Под наблюдением")) {
+                Text(L("%@ из %@", "\(model.watches.filter(\.enabled).count)", "\(model.watches.count)")).foregroundStyle(.secondary)
             }
             if let error = model.relayError { Footnote(text: error) }
             HStack {
                 Spacer()
-                Button("Открыть задачи") {
+                Button(L("Открыть задачи")) {
                     AppModel.shared.selected = .codex
                     StatusController.shared?.open()
                 }
             }
-        } header: { Text("Автопродолжение") } footer: {
-            Footnote(text: "Задача, упёршаяся в лимит, продолжается сама сразу после сброса — одно сообщение на раунд, без одобрений за вас. Включается для каждой задачи на вкладке «Задачи».")
+        } header: { Text(L("Автопродолжение")) } footer: {
+            Footnote(text: L("Задача, упёршаяся в лимит, продолжается сама сразу после сброса — одно сообщение на раунд, без одобрений за вас. Включается для каждой задачи на вкладке «Задачи»."))
         }
     }
 }
@@ -544,33 +544,33 @@ private struct ClaudePane: View {
 
     var body: some View {
         Section {
-            OptionToggle(title: "Через Claude Code",
-                         detail: "Cooldown открывает экран /usage в Claude Code и сразу закрывает. Запросов к модели нет, токены не тратятся; лимиты общие для всей подписки.",
+            OptionToggle(title: L("Через Claude Code"),
+                         detail: L("Cooldown открывает экран /usage в Claude Code и сразу закрывает. Запросов к модели нет, токены не тратятся; лимиты общие для всей подписки."),
                          isOn: $claudeUsageCLI)
                 .onChange(of: claudeUsageCLI) { _, _ in Task { await model.refreshLimits() } }
             ClaudeAccountRow(web: ClaudeWeb.shared)
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Строка статуса Claude Code")
-                    Footnote(text: statusLine ? "Подключена, прежняя команда работает дальше." : "Даёт самые свежие цифры, пока вы работаете в Claude Code.")
+                    Text(L("Строка статуса Claude Code"))
+                    Footnote(text: statusLine ? L("Подключена, прежняя команда работает дальше.") : L("Даёт самые свежие цифры, пока вы работаете в Claude Code."))
                 }
                 Spacer()
-                Button(statusLine ? "Отключить" : "Подключить") { toggleStatusLine() }
+                Button(statusLine ? L("Отключить") : L("Подключить")) { toggleStatusLine() }
             }
             if let message { Footnote(text: message) }
-        } header: { Text("Откуда брать лимиты") }
+        } header: { Text(L("Откуда брать лимиты")) }
         Section {
-            OptionToggle(title: "Следить за ответами в чатах",
-                         detail: "Через «Универсальный доступ» Cooldown видит, что Claude пишет ответ или просит разрешение. Ничего не уходит в сеть.",
+            OptionToggle(title: L("Следить за ответами в чатах"),
+                         detail: L("Через «Универсальный доступ» Cooldown видит, что Claude пишет ответ или просит разрешение. Ничего не уходит в сеть."),
                          isOn: $watchClaudeWindow)
         } header: { Text("Claude Desktop") }
         Section {
             HookRow(agent: .claude)
-            PathRow(label: "Программа claude", path: ClaudePaths.binary(override: claudePath)?.path, choose: {
+            PathRow(label: L("Программа claude"), path: ClaudePaths.binary(override: claudePath)?.path, choose: {
                 if let path = chooseFile() { claudePath = path }
             })
         } header: { Text("Claude Code") } footer: {
-            Footnote(text: "Хуки сообщают, когда Claude Code работает, и приносят его запросы разрешений в карточки, пока вы в другом приложении. В самом терминале он спрашивает как обычно.")
+            Footnote(text: L("Хуки сообщают, когда Claude Code работает, и приносят его запросы разрешений в карточки, пока вы в другом приложении. В самом терминале он спрашивает как обычно."))
         }
     }
 
@@ -578,9 +578,9 @@ private struct ClaudePane: View {
         do {
             if statusLine { try ClaudeStatusLine.uninstall() } else { try ClaudeStatusLine.install() }
             statusLine = ClaudeStatusLine.isInstalled
-            message = statusLine ? "Подключена. Копия settings.json сохранена рядом с ним." : "Строка статуса возвращена как была."
+            message = statusLine ? L("Подключена. Копия settings.json сохранена рядом с ним.") : L("Строка статуса возвращена как была.")
         } catch {
-            message = "Не получилось: \(error.localizedDescription)"
+            message = L("Не получилось: %@", "\(error.localizedDescription)")
         }
     }
 }
@@ -592,24 +592,24 @@ private struct ClaudeAccountRow: View {
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Аккаунт claude.ai")
+                Text(L("Аккаунт claude.ai"))
                 Footnote(text: status)
             }
             Spacer()
             if web.isConnected {
-                Button("Выйти") { Task { await web.signOut(); await model.refreshLimits() } }
+                Button(L("Выйти")) { Task { await web.signOut(); await model.refreshLimits() } }
             } else {
-                Button("Войти") { web.showLogin() }
+                Button(L("Войти")) { web.showLogin() }
             }
         }
     }
 
     private var status: String {
         switch web.state {
-        case .connected(let plan): return plan.map { "Подключён, план \($0)." } ?? "Подключён."
-        case .connecting: return "Жду входа в окне claude.ai."
-        case .signedOut: return "Вход истёк, войдите снова."
-        case .disconnected: return "Необязательно: добавляет лимиты по моделям и список чатов."
+        case .connected(let plan): return plan.map { L("Подключён, план %@.", "\($0)") } ?? L("Подключён.")
+        case .connecting: return L("Жду входа в окне claude.ai.")
+        case .signedOut: return L("Вход истёк, войдите снова.")
+        case .disconnected: return L("Необязательно: добавляет лимиты по моделям и список чатов.")
         }
     }
 }
@@ -627,42 +627,42 @@ private struct UpdatesPane: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Cooldown \(GitHubUpdater.current)").font(.headline)
                     if let available = updater.available {
-                        Text(updater.readyVersion == available.version ? "Версия \(available.version) загружена и готова" : "Доступна версия \(available.version)")
+                        Text(updater.readyVersion == available.version ? L("Версия %@ загружена и готова", "\(available.version)") : L("Доступна версия %@", "\(available.version)"))
                             .font(.callout).foregroundStyle(Theme.mint)
                     } else {
-                        Text(updater.state ?? "Установлена эта версия").font(.callout).foregroundStyle(.secondary)
+                        Text(updater.state ?? L("Установлена эта версия")).font(.callout).foregroundStyle(.secondary)
                     }
                 }
                 Spacer()
                 if updater.available != nil {
-                    Button("Обновить") { Task { await updater.install() } }.buttonStyle(.borderedProminent)
+                    Button(L("Обновить")) { Task { await updater.install() } }.buttonStyle(.borderedProminent)
                 } else {
-                    Button(updater.checking ? "Проверяю…" : "Проверить") { Task { await updater.check(manual: true) } }
+                    Button(updater.checking ? L("Проверяю…") : L("Проверить")) { Task { await updater.check(manual: true) } }
                         .disabled(updater.checking)
                 }
             }
             .padding(.vertical, 2)
         }
         Section {
-            Picker("Новые версии", selection: $updateMode) {
-                Text("Не проверять").tag("off")
-                Text("Только скачивать").tag("download")
-                Text("Скачивать и ставить").tag("auto")
+            Picker(L("Новые версии"), selection: $updateMode) {
+                Text(L("Не проверять")).tag("off")
+                Text(L("Только скачивать")).tag("download")
+                Text(L("Скачивать и ставить")).tag("auto")
             }
             .pickerStyle(.radioGroup)
             .onChange(of: updateMode) { _, _ in updater.modeChanged() }
         } footer: {
             Footnote(text: updateMode == "off"
-                     ? "Cooldown сам не проверяет новые версии; кнопка «Проверить» работает всегда."
+                     ? L("Cooldown сам не проверяет новые версии; кнопка «Проверить» работает всегда.")
                      : updateMode == "download"
-                     ? "Новая версия загружается и проверяется заранее, а ставится одним нажатием — на карточке или здесь."
-                     : "Новая версия ставится сама, когда Mac пару минут без дела. Перед установкой проверяются контрольная сумма и подпись тем же сертификатом.")
+                     ? L("Новая версия загружается и проверяется заранее, а ставится одним нажатием — на карточке или здесь.")
+                     : L("Новая версия ставится сама, когда Mac пару минут без дела. Перед установкой проверяются контрольная сумма и подпись тем же сертификатом."))
         }
         if let release = updater.available, !release.notes.isEmpty {
-            Section("Что нового в \(release.version)") {
+            Section(L("Что нового в %@", "\(release.version)")) {
                 Text(release.notes.components(separatedBy: "\n---").first ?? release.notes)
                     .font(.callout).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
-                Button("Открыть на GitHub") { updater.openReleasePage() }.buttonStyle(.link)
+                Button(L("Открыть на GitHub")) { updater.openReleasePage() }.buttonStyle(.link)
             }
         }
     }
@@ -679,48 +679,48 @@ private struct DataPane: View {
         Section {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Таблица по дням")
-                    Footnote(text: "Токены, деньги и доля недели для Codex и Claude — CSV для Numbers или Excel.")
+                    Text(L("Таблица по дням"))
+                    Footnote(text: L("Токены, деньги и доля недели для Codex и Claude — CSV для Numbers или Excel."))
                 }
                 Spacer()
-                Button("Сохранить…") { exportCSV() }
+                Button(L("Сохранить…")) { exportCSV() }
             }
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Пересобрать статистику")
-                    Footnote(text: "Заново прочитать историю сессий, если цифры кажутся неверными.")
+                    Text(L("Пересобрать статистику"))
+                    Footnote(text: L("Заново прочитать историю сессий, если цифры кажутся неверными."))
                 }
                 Spacer()
-                Button(rebuilding ? "Читаю…" : "Пересобрать") {
+                Button(rebuilding ? L("Читаю…") : L("Пересобрать")) {
                     rebuilding = true
                     Task {
                         await model.codex.scan(fullRebuild: true)
                         await model.claude.scan(fullRebuild: true)
                         rebuilding = false
-                        message = "Статистика пересобрана."
+                        message = L("Статистика пересобрана.")
                     }
                 }
                 .disabled(rebuilding)
             }
             if let message { Footnote(text: message) }
-        } header: { Text("История") } footer: {
-            Footnote(text: "Подробности — из сессий Codex и Claude Code за 45 дней; итоги по дням для «Года работы» хранятся дольше. Всё только на этом Mac.")
+        } header: { Text(L("История")) } footer: {
+            Footnote(text: L("Подробности — из сессий Codex и Claude Code за 45 дней; итоги по дням для «Года работы» хранятся дольше. Всё только на этом Mac."))
         }
         Section {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Демо")
-                    Footnote(text: "За минуту по шагам на выдуманных данных: лимит кончается, задача ждёт и продолжается. Ваши данные потом вернутся.")
+                    Text(L("Демо"))
+                    Footnote(text: L("За минуту по шагам на выдуманных данных: лимит кончается, задача ждёт и продолжается. Ваши данные потом вернутся."))
                 }
                 Spacer()
-                Button("Показать") {
+                Button(L("Показать")) {
                     StatusController.shared?.open()
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { DemoController.shared.start() }
                 }
             }
         }
         if HomeAssistant.featureEnabled {
-            Section("iPhone через Home Assistant") { HomeAssistantRow() }
+            Section(L("iPhone через Home Assistant")) { HomeAssistantRow() }
         }
     }
 
@@ -737,9 +737,9 @@ private struct DataPane: View {
         }
         do {
             try (rows.joined(separator: "\n") + "\n").write(to: url, atomically: true, encoding: .utf8)
-            message = "Сохранено: \(url.lastPathComponent)"
+            message = L("Сохранено: %@", "\(url.lastPathComponent)")
         } catch {
-            message = "Не сохранилось: \(error.localizedDescription)"
+            message = L("Не сохранилось: %@", "\(error.localizedDescription)")
         }
     }
 }
@@ -755,13 +755,13 @@ private struct DiagnosticsPane: View {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(headline).font(.headline)
-                    Footnote(text: "Cooldown по очереди пробует каждое звено: приложения, лимиты, хуки, окно Claude, уведомления, обновления и свои правила безопасности. Ничего не отправляет и не меняет.")
+                    Footnote(text: L("Cooldown по очереди пробует каждое звено: приложения, лимиты, хуки, окно Claude, уведомления, обновления и свои правила безопасности. Ничего не отправляет и не меняет."))
                 }
                 Spacer()
                 Button {
                     diagnostics.run()
                 } label: {
-                    if diagnostics.running { ProgressView().controlSize(.small) } else { Text(diagnostics.checks.isEmpty ? "Проверить всё" : "Проверить снова") }
+                    if diagnostics.running { ProgressView().controlSize(.small) } else { Text(diagnostics.checks.isEmpty ? L("Проверить всё") : L("Проверить снова")) }
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(diagnostics.running)
@@ -782,14 +782,14 @@ private struct DiagnosticsPane: View {
                         }
                         Spacer()
                         if let millis = check.millis, millis > 300 {
-                            Text(String(format: "%.1f с", Double(millis) / 1000)).font(.caption).monospacedDigit().foregroundStyle(.tertiary)
+                            Text(String(format: L("%.1f с"), Double(millis) / 1000)).font(.caption).monospacedDigit().foregroundStyle(.tertiary)
                         }
                     }
                 }
             } footer: {
                 HStack {
                     Spacer()
-                    Button(copied ? "Скопировано" : "Скопировать отчёт") {
+                    Button(copied ? L("Скопировано") : L("Скопировать отчёт")) {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(diagnostics.report, forType: .string)
                         copied = true
@@ -801,13 +801,13 @@ private struct DiagnosticsPane: View {
     }
 
     private var headline: String {
-        if diagnostics.running { return "Проверяю…" }
-        guard diagnostics.finished != nil else { return "Проверка всех связей" }
+        if diagnostics.running { return L("Проверяю…") }
+        guard diagnostics.finished != nil else { return L("Проверка всех связей") }
         let summary = diagnostics.summary
-        if summary.failed == 0 && summary.warnings == 0 { return "Всё работает" }
+        if summary.failed == 0 && summary.warnings == 0 { return L("Всё работает") }
         var parts: [String] = []
-        if summary.failed > 0 { parts.append("не работает: \(summary.failed)") }
-        if summary.warnings > 0 { parts.append("стоит посмотреть: \(summary.warnings)") }
+        if summary.failed > 0 { parts.append(L("не работает: %@", "\(summary.failed)")) }
+        if summary.warnings > 0 { parts.append(L("стоит посмотреть: %@", "\(summary.warnings)")) }
         return parts.joined(separator: ", ").capitalizedFirst
     }
 
@@ -835,24 +835,24 @@ private struct AboutPane: View {
             VStack(spacing: 8) {
                 Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 96, height: 96)
                 Text("Cooldown").font(.system(size: 22, weight: .bold))
-                Text("Версия \(GitHubUpdater.current)").foregroundStyle(.secondary)
-                Text("Лимиты, работа агентов и автопродолжение для Codex и Claude — в строке меню.")
+                Text(L("Версия %@", "\(GitHubUpdater.current)")).foregroundStyle(.secondary)
+                Text(L("Лимиты, работа агентов и автопродолжение для Codex и Claude — в строке меню."))
                     .multilineTextAlignment(.center).foregroundStyle(.secondary).font(.callout)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
         }
         Section {
-            if let repo { Link(destination: repo) { LabeledContent("Исходный код", value: "GitHub") } }
-            LabeledContent("Лицензия", value: "MIT")
-            LabeledContent("Автопродолжение Codex") {
-                Link("по мотивам codex-auto-resume (MIT)", destination: URL(string: "https://github.com/progressrdx/codex-auto-resume")!)
+            if let repo { Link(destination: repo) { LabeledContent(L("Исходный код"), value: "GitHub") } }
+            LabeledContent(L("Лицензия"), value: "MIT")
+            LabeledContent(L("Автопродолжение Codex")) {
+                Link(L("по мотивам codex-auto-resume (MIT)"), destination: URL(string: "https://github.com/progressrdx/codex-auto-resume")!)
             }
         }
         Section {
             HStack {
                 Spacer()
-                Button("Выйти из Cooldown", role: .destructive) { NSApp.terminate(nil) }
+                Button(L("Выйти из Cooldown"), role: .destructive) { NSApp.terminate(nil) }
             }
         }
     }
@@ -878,7 +878,7 @@ private struct PathRow: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
-                Text(path.map { ($0 as NSString).abbreviatingWithTildeInPath } ?? "не найдена")
+                Text(path.map { ($0 as NSString).abbreviatingWithTildeInPath } ?? L("не найдена"))
                     .font(.caption)
                     .foregroundStyle(path == nil ? Theme.amber : .secondary)
                     .lineLimit(1)
@@ -886,7 +886,7 @@ private struct PathRow: View {
                     .textSelection(.enabled)
             }
             Spacer()
-            Button("Изменить…", action: choose)
+            Button(L("Изменить…"), action: choose)
         }
     }
 }
@@ -901,17 +901,17 @@ private struct HookRow: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(agent == .claude ? "Хуки Claude Code" : "Хуки Codex")
+                    Text(agent == .claude ? L("Хуки Claude Code") : L("Хуки Codex"))
                     HStack(spacing: 5) {
                         Circle().fill(dot).frame(width: 7, height: 7)
                         Text(caption).font(.caption).foregroundStyle(.secondary)
                     }
                 }
                 Spacer()
-                Button(status == .off ? "Подключить" : "Отключить") { toggle() }
+                Button(status == .off ? L("Подключить") : L("Отключить")) { toggle() }
             }
             if case .needsTrust = status {
-                Footnote(text: "Откройте Codex: он попросит проверить новые хуки — разрешите хуки Cooldown. В терминале то же делает команда /hooks.")
+                Footnote(text: L("Откройте Codex: он попросит проверить новые хуки — разрешите хуки Cooldown. В терминале то же делает команда /hooks."))
             }
             if let error { Footnote(text: error) }
         }
@@ -932,9 +932,9 @@ private struct HookRow: View {
 
     private var caption: String {
         switch status {
-        case .off: return "Не подключены"
-        case .on: return HookEventReader.shared.lastEvent[agent].map { "Работают · последнее событие \(Format.relative($0))" } ?? "Подключены"
-        case .needsTrust: return "Ждут вашего разрешения в Codex"
+        case .off: return L("Не подключены")
+        case .on: return HookEventReader.shared.lastEvent[agent].map { L("Работают · последнее событие %@", "\(Format.relative($0))") } ?? L("Подключены")
+        case .needsTrust: return L("Ждут вашего разрешения в Codex")
         }
     }
 
@@ -960,10 +960,10 @@ private struct HomeAssistantRow: View {
     @State private var busy = false
 
     var body: some View {
-        TextField("Адрес", text: $url, prompt: Text("http://localhost:8123"))
+        TextField(L("Адрес"), text: $url, prompt: Text("http://localhost:8123"))
         HStack {
-            SecureField("Токен", text: $token, prompt: Text(hasToken ? "Сохранён в Связке ключей" : "Долгосрочный токен"))
-            Button("Сохранить") {
+            SecureField(L("Токен"), text: $token, prompt: Text(hasToken ? L("Сохранён в Связке ключей") : L("Долгосрочный токен")))
+            Button(L("Сохранить")) {
                 HomeAssistant.token = token.trimmingCharacters(in: .whitespacesAndNewlines)
                 token = ""
                 hasToken = !(HomeAssistant.token ?? "").isEmpty
@@ -976,15 +976,15 @@ private struct HomeAssistantRow: View {
                 ForEach(ha.devices, id: \.self) { Text($0.replacingOccurrences(of: "mobile_app_", with: "")).tag($0) }
             }
         }
-        OptionToggle(title: "Live Activity с лимитами", isOn: $live)
-        OptionToggle(title: "Уведомления, когда вы не за Mac", isOn: $notify)
+        OptionToggle(title: L("Live Activity с лимитами"), isOn: $live)
+        OptionToggle(title: L("Уведомления, когда вы не за Mac"), isOn: $notify)
         HStack {
             Spacer()
-            Button(busy ? "Отправляю…" : "Проверить на iPhone") { run() }.disabled(busy || !hasToken)
-            Button("Виджет в Scriptable") {
+            Button(busy ? L("Отправляю…") : L("Проверить на iPhone")) { run() }.disabled(busy || !hasToken)
+            Button(L("Виджет в Scriptable")) {
                 do {
                     let address = try HomeAssistant.shared.installWidget()
-                    ha.status = "Скрипт «Cooldown» добавлен в Scriptable через iCloud (адрес \(address))."
+                    ha.status = L("Скрипт «Cooldown» добавлен в Scriptable через iCloud (адрес %@).", "\(address)")
                 } catch { ha.status = error.localizedDescription }
             }
             .disabled(!hasToken)

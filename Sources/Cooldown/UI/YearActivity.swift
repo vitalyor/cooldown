@@ -21,10 +21,10 @@ struct YearActivityCard: View {
         var id: String { rawValue }
         var title: String {
             switch self {
-            case .week: return "% недели"
-            case .tokens: return "Токены"
+            case .week: return L("% недели")
+            case .tokens: return L("Токены")
             case .dollars: return "≈ $ API"
-            case .done: return "Задачи"
+            case .done: return L("Задачи")
             }
         }
     }
@@ -37,7 +37,7 @@ struct YearActivityCard: View {
     private static let calendar: Calendar = {
         var calendar = Calendar(identifier: .gregorian)
         calendar.firstWeekday = 2          // weeks start on Monday
-        calendar.locale = Locale(identifier: "ru_RU")
+        calendar.locale = AppLanguage.locale
         return calendar
     }()
 
@@ -47,7 +47,7 @@ struct YearActivityCard: View {
         let top = values.max() ?? 0
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Год работы").font(.system(size: 13, weight: .semibold))
+                Text(L("Год работы")).font(.system(size: 13, weight: .semibold))
                 Spacer()
                 Picker("", selection: $metric) {
                     ForEach(Metric.allCases) { Text($0.title).tag($0) }
@@ -60,7 +60,7 @@ struct YearActivityCard: View {
                 VStack(alignment: .trailing, spacing: Self.gap) {
                     Color.clear.frame(height: 12)
                     ForEach(0..<7, id: \.self) { row in
-                        Text(row == 0 ? "пн" : row == 2 ? "ср" : row == 4 ? "пт" : "")
+                        Text(row == 0 ? L("пн") : row == 2 ? L("ср") : row == 4 ? L("пт") : "")
                             .font(.system(size: 8.5)).foregroundStyle(.secondary)
                             .frame(height: Self.cell)
                     }
@@ -150,24 +150,24 @@ struct YearActivityCard: View {
         let done = provider == .codex ? day.codexDone : day.claudeDone
         let week = provider == .codex ? day.codexWeek : day.claudeWeek
         var parts: [String] = []
-        if week > 0 { parts.append("\(Format.percent(week)) недельного лимита") }
-        if tokens > 0 { parts.append("\(Format.tokens(tokens)) токенов") }
-        if parts.isEmpty { parts.append("без работы") }
+        if week > 0 { parts.append(L("%@ недельного лимита", "\(Format.percent(week))")) }
+        if tokens > 0 { parts.append(L("%@ токенов", "\(Format.tokens(tokens))")) }
+        if parts.isEmpty { parts.append(L("без работы")) }
         if dollars > 0 { parts.append("≈\(Pricing.format(dollars))") }
-        if done > 0 { parts.append("\(done) \(Format.plural(done, "задача", "задачи", "задач"))") }
-        if provider == .claude, day.chats > 0 { parts.append("\(day.chats) \(Format.plural(day.chats, "чат", "чата", "чатов"))") }
+        if done > 0 { parts.append(Format.count(done, L("задача|задачи|задач"))) }
+        if provider == .claude, day.chats > 0 { parts.append(Format.count(day.chats, L("чат|чата|чатов"))) }
         return parts.joined(separator: " · ")
     }
 
     private func tooltip(_ date: Date) -> String {
-        date.formatted(.dateTime.day().month(.wide).locale(Locale(identifier: "ru_RU"))) + ": " + describe(date)
+        date.formatted(.dateTime.day().month(.wide).locale(AppLanguage.locale)) + ": " + describe(date)
     }
 
     @ViewBuilder
     private func footer(_ columns: [[Date?]], values: [Double]) -> some View {
         if let selected {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(selected.formatted(.dateTime.weekday(.wide).day().month(.wide).locale(Locale(identifier: "ru_RU"))))
+                Text(selected.formatted(.dateTime.weekday(.wide).day().month(.wide).locale(AppLanguage.locale)))
                     .font(.caption.weight(.semibold))
                 Text(describe(selected)).font(.caption).foregroundStyle(.secondary)
             }
@@ -179,12 +179,12 @@ struct YearActivityCard: View {
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
         if log.backfilling {
-            Text("Собираю прошлые месяцы из файлов на диске…").font(.caption2).foregroundStyle(.secondary)
+            Text(L("Собираю прошлые месяцы из файлов на диске…")).font(.caption2).foregroundStyle(.secondary)
         }
     }
 
     private func summary(days: [Date], active: [Date]) -> String {
-        guard !active.isEmpty else { return "Здесь появится каждый день работы \(provider.displayName)." }
+        guard !active.isEmpty else { return L("Здесь появится каждый день работы %@.", "\(provider.displayName)") }
         // Current streak: consecutive active days ending today (or yesterday).
         var streak = 0
         var cursor = Self.calendar.startOfDay(for: Date())
@@ -196,9 +196,9 @@ struct YearActivityCard: View {
         var byWeekday = [Int: Double]()
         for day in active { byWeekday[Self.calendar.component(.weekday, from: day), default: 0] += value(day) }
         let busiest = byWeekday.max { $0.value < $1.value }.map { Self.calendar.weekdaySymbols[$0.key - 1] }
-        var parts = ["\(active.count) \(Format.plural(active.count, "день", "дня", "дней")) с работой за год"]
-        if streak > 1 { parts.append("подряд \(streak) \(Format.plural(streak, "день", "дня", "дней"))") }
-        if let busiest { parts.append("чаще всего: \(busiest)") }
+        var parts = [L("%@ с работой за год", "\(Format.count(active.count, L("день|дня|дней")))")]
+        if streak > 1 { parts.append(L("подряд %@", "\(Format.count(streak, L("день|дня|дней")))")) }
+        if let busiest { parts.append(L("чаще всего: %@", "\(busiest)")) }
         return parts.joined(separator: " · ")
     }
 

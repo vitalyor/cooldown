@@ -60,3 +60,20 @@ Cooldown --render --out out.png --provider codex --tab stats   # the window as a
 
 What the sources did and why a card was or wasn't shown is in
 `~/Library/Application Support/Cooldown/activity.log`.
+
+## Localization
+
+Interface strings are written in Russian in the code and wrapped in `L("…")`; the Russian text is the key.
+`L(key, args…)` formats with `%@` placeholders in the app's locale. Plural words are keys of the form
+`"one|few|many"`; each translation has as many forms as its language needs, and `AppLanguage.pluralIndex`
+picks one.
+
+Translations live in `Resources/Localization/src/<lang>.json` (key → text). To add or change strings:
+
+```sh
+python3 scripts/l10n_wrap.py keys     # list every key in the code
+python3 scripts/l10n_build.py         # check coverage, placeholders and plural forms, write *.lproj
+```
+
+`l10n_build.py` must report `problems: 0` before a release. `build.sh` copies the `.lproj` folders into the app.
+Check a language without switching macOS: `Cooldown --settings-window general -AppleLanguages '(de)'`.

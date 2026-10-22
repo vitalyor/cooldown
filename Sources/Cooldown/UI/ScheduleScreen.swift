@@ -11,13 +11,13 @@ struct ScheduleScreen: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            BackBar(title: "Запуск после сброса") { screen = .home }
+            BackBar(title: L("Запуск после сброса")) { screen = .home }
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 14) {
                     Text(waitingText)
                         .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     VStack(alignment: .leading, spacing: 6) {
-                        SectionTitle(text: "Что сделать")
+                        SectionTitle(text: L("Что сделать"))
                         TextEditor(text: $prompt)
                             .font(.system(size: 13))
                             .scrollContentBackground(.hidden)
@@ -26,18 +26,18 @@ struct ScheduleScreen: View {
                             .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.well))
                     }
                     VStack(alignment: .leading, spacing: 6) {
-                        SectionTitle(text: "Папка проекта")
+                        SectionTitle(text: L("Папка проекта"))
                         Well {
                             HStack {
-                                Text(folder.isEmpty ? "Не выбрана" : folder)
+                                Text(folder.isEmpty ? L("Не выбрана") : folder)
                                     .font(.caption).foregroundStyle(folder.isEmpty ? Theme.amber : .secondary)
                                     .lineLimit(2).truncationMode(.middle)
                                 Spacer()
-                                Button("Выбрать…") { choose() }.buttonStyle(.link)
+                                Button(L("Выбрать…")) { choose() }.buttonStyle(.link)
                             }
-                            Toggle("Может менять файлы в этой папке", isOn: $canEdit).toggleStyle(.switch)
-                            Text(canEdit ? "Codex работает в песочнице этой папки и сам решает простые подтверждения. За её пределы он не выходит."
-                                         : "Только чтение: Codex изучит файлы и ответит, но ничего не изменит.")
+                            Toggle(L("Может менять файлы в этой папке"), isOn: $canEdit).toggleStyle(.switch)
+                            Text(canEdit ? L("Codex работает в песочнице этой папки и сам решает простые подтверждения. За её пределы он не выходит.")
+                                         : L("Только чтение: Codex изучит файлы и ответит, но ничего не изменит."))
                                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                         }
                     }
@@ -46,7 +46,7 @@ struct ScheduleScreen: View {
                         UserDefaults.standard.set(folder, forKey: "scheduleFolder")
                         screen = .home
                     } label: {
-                        Label("Запланировать", systemImage: "clock.arrow.circlepath").frame(maxWidth: .infinity)
+                        Label(L("Запланировать"), systemImage: "clock.arrow.circlepath").frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.glassProminent)
                     .tint(Theme.tint(for: .codex))
@@ -62,12 +62,12 @@ struct ScheduleScreen: View {
 
     private var waitingText: String {
         guard let session = model.codex.snapshot?.session else {
-            return "Cooldown запустит задачу в Codex, как только у него будет лимит."
+            return L("Cooldown запустит задачу в Codex, как только у него будет лимит.")
         }
         if session.remaining(at: Date()) < 5 {
-            return "Лимит Codex сейчас исчерпан. Задача запустится сама после сброса в \(Format.time(session.resetsAt)) — даже если вас не будет рядом."
+            return L("Лимит Codex сейчас исчерпан. Задача запустится сама после сброса в %@ — даже если вас не будет рядом.", "\(Format.time(session.resetsAt))")
         }
-        return "Лимит у Codex сейчас есть, поэтому задача запустится сразу. Ставьте задачи сюда, когда лимит кончился, — они пойдут в работу после сброса."
+        return L("Лимит у Codex сейчас есть, поэтому задача запустится сразу. Ставьте задачи сюда, когда лимит кончился, — они пойдут в работу после сброса.")
     }
 
     private func choose() {
@@ -88,13 +88,13 @@ struct ScheduledSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                SectionTitle(text: "Запуск после сброса")
+                SectionTitle(text: L("Запуск после сброса"))
                 Spacer()
-                Button { screen = .schedule } label: { Label("Запланировать", systemImage: "plus") }
+                Button { screen = .schedule } label: { Label(L("Запланировать"), systemImage: "plus") }
                     .buttonStyle(.link).font(.caption)
             }
             if runner.waiting.isEmpty && runner.recent.isEmpty {
-                Text("Лимит кончился, а задачи ещё есть? Запишите их сюда — Codex начнёт сразу после сброса.")
+                Text(L("Лимит кончился, а задачи ещё есть? Запишите их сюда — Codex начнёт сразу после сброса."))
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 4)
             } else {
@@ -118,12 +118,12 @@ struct ScheduledSection: View {
             Spacer(minLength: 4)
             switch task.state {
             case .waiting, .running:
-                Button(task.state == .running ? "Остановить" : "Отменить") { runner.cancel(task.id) }
+                Button(task.state == .running ? L("Остановить") : L("Отменить")) { runner.cancel(task.id) }
                     .buttonStyle(.link).font(.caption)
             default:
                 Menu {
-                    Button("Открыть журнал") { NSWorkspace.shared.open(runner.logURL(task)) }
-                    Button("Убрать из списка") { runner.remove(task.id) }
+                    Button(L("Открыть журнал")) { NSWorkspace.shared.open(runner.logURL(task)) }
+                    Button(L("Убрать из списка")) { runner.remove(task.id) }
                 } label: { Image(systemName: "ellipsis") }
                 .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().frame(width: 28, height: 22)
             }
@@ -133,11 +133,11 @@ struct ScheduledSection: View {
     private func subtitle(_ task: ScheduledTask) -> String {
         let place = Stats.projectName(task.folder)
         switch task.state {
-        case .waiting: return "\(place) · ждёт лимита"
-        case .running: return "\(place) · выполняется с \(task.started.map { Format.time($0) } ?? "")"
-        case .done: return "\(place) · \(task.result ?? "готово")"
-        case .failed: return "\(place) · \(task.result ?? "не удалось")"
-        case .cancelled: return "\(place) · отменено"
+        case .waiting: return L("%@ · ждёт лимита", "\(place)")
+        case .running: return L("%@ · выполняется с %@", "\(place)", "\(task.started.map { Format.time($0) } ?? "")")
+        case .done: return "\(place) · \(task.result ?? L("готово"))"
+        case .failed: return "\(place) · \(task.result ?? L("не удалось"))"
+        case .cancelled: return L("%@ · отменено", "\(place)")
         }
     }
 

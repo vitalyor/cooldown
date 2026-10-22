@@ -21,7 +21,7 @@ enum WindowKind: String, Codable, CaseIterable {
 
     static func from(minutes: Int) -> WindowKind { minutes <= 24 * 60 ? .session : .weekly }
 
-    var title: String { self == .session ? "5 часов" : "Неделя" }
+    var title: String { self == .session ? L("5 часов") : L("Неделя") }
     var defaultMinutes: Int { self == .session ? 300 : 10080 }
 }
 

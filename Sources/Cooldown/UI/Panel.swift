@@ -157,12 +157,12 @@ final class StatusController: NSObject {
             entry.target = self
             menu.addItem(entry)
         }
-        add("Обновить лимиты", #selector(menuRefresh), "r")
-        add("События", #selector(menuFeed))
-        add("Запланировать задачу Codex…", #selector(menuSchedule))
+        add(L("Обновить лимиты"), #selector(menuRefresh), "r")
+        add(L("События"), #selector(menuFeed))
+        add(L("Запланировать задачу Codex…"), #selector(menuSchedule))
         menu.addItem(.separator())
-        add("Настройки…", #selector(menuSettings), ",")
-        add("Выйти из Cooldown", #selector(menuQuit), "q")
+        add(L("Настройки…"), #selector(menuSettings), ",")
+        add(L("Выйти из Cooldown"), #selector(menuQuit), "q")
         item.menu = menu
         item.button?.performClick(nil)
         item.menu = nil

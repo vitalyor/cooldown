@@ -39,7 +39,7 @@ final class ScheduledRunner: ObservableObject {
             // A run interrupted by quitting Cooldown is not resumed silently.
             tasks = saved.map { task in
                 var task = task
-                if task.state == .running { task.state = .failed; task.result = "Cooldown был закрыт во время выполнения." }
+                if task.state == .running { task.state = .failed; task.result = L("Cooldown был закрыт во время выполнения.") }
                 return task
             }
         }
@@ -79,12 +79,12 @@ final class ScheduledRunner: ObservableObject {
 
     private func start(_ index: Int) {
         guard let binary = CodexPaths.binary(override: Settings.codexPath) else {
-            fail(index, "Не найдена программа codex.")
+            fail(index, L("Не найдена программа codex."))
             return
         }
         var task = tasks[index]
         guard FileManager.default.fileExists(atPath: task.folder) else {
-            fail(index, "Папка \(task.folder) не найдена.")
+            fail(index, L("Папка %@ не найдена.", "\(task.folder)"))
             return
         }
         let last = logs.appendingPathComponent("scheduled-\(task.id.uuidString)-answer.txt")
@@ -112,7 +112,7 @@ final class ScheduledRunner: ObservableObject {
         do {
             try process.run()
         } catch {
-            fail(index, "Не удалось запустить codex: \(error.localizedDescription)")
+            fail(index, L("Не удалось запустить codex: %@", "\(error.localizedDescription)"))
             return
         }
         processes[id] = process
@@ -120,10 +120,10 @@ final class ScheduledRunner: ObservableObject {
         task.started = Date()
         tasks[index] = task
         save()
-        let detail = "Лимит Codex восстановился, задача запущена в папке \(Stats.projectName(task.folder))."
-        Notifier.shared.post(id: "scheduled-start-\(id)", title: "Запланированная задача запущена", body: "«\(task.title)». \(detail)",
+        let detail = L("Лимит Codex восстановился, задача запущена в папке %@.", "\(Stats.projectName(task.folder))")
+        Notifier.shared.post(id: "scheduled-start-\(id)", title: L("Запланированная задача запущена"), body: "«\(task.title)». \(detail)",
                              toast: ToastContent(key: "scheduled-\(id)", kind: .reset, provider: .codex,
-                                                 title: "Запущено: «\(task.title)»", body: detail, actions: [.openPanel], life: .auto(10)))
+                                                 title: L("Запущено: «%@»", "\(task.title)"), body: detail, actions: [.openPanel], life: .auto(10)))
     }
 
     private func finished(_ id: UUID, status: Int32, answer: URL) {
@@ -133,14 +133,14 @@ final class ScheduledRunner: ObservableObject {
         let text = (try? String(contentsOf: answer, encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         tasks[index].finished = Date()
         tasks[index].state = status == 0 ? .done : .failed
-        tasks[index].result = text.isEmpty ? (status == 0 ? "Готово." : "Codex завершился с ошибкой (код \(status)). Подробности в журнале.") : String(text.prefix(400))
+        tasks[index].result = text.isEmpty ? (status == 0 ? L("Готово.") : L("Codex завершился с ошибкой (код %@). Подробности в журнале.", "\(status)")) : String(text.prefix(400))
         save()
         let task = tasks[index]
         let body = String((task.result ?? "").replacingOccurrences(of: "\n", with: " ").prefix(200))
-        Notifier.shared.post(id: "scheduled-done-\(id)", title: task.state == .done ? "Запланированная задача выполнена" : "Запланированная задача не удалась",
+        Notifier.shared.post(id: "scheduled-done-\(id)", title: task.state == .done ? L("Запланированная задача выполнена") : L("Запланированная задача не удалась"),
                              body: "«\(task.title)»: \(body)",
                              toast: ToastContent(key: "scheduled-\(id)", kind: task.state == .done ? .finished : .warning, provider: .codex,
-                                                 title: (task.state == .done ? "Выполнено: «" : "Не удалось: «") + task.title + "»",
+                                                 title: (task.state == .done ? L("Выполнено: «") : L("Не удалось: «")) + task.title + "»",
                                                  body: body, actions: [.openPanel], life: task.state == .done ? .auto(14) : .sticky))
         tick(limits: AppModel.shared.codex.snapshot)
     }
@@ -150,8 +150,8 @@ final class ScheduledRunner: ObservableObject {
         tasks[index].result = reason
         tasks[index].finished = Date()
         save()
-        Notifier.shared.post(id: "scheduled-fail-\(tasks[index].id)", title: "Запланированная задача не запущена", body: reason,
-                             toast: ToastCatalog.failure("Не запущено: «\(tasks[index].title)»", reason, provider: .codex))
+        Notifier.shared.post(id: "scheduled-fail-\(tasks[index].id)", title: L("Запланированная задача не запущена"), body: reason,
+                             toast: ToastCatalog.failure(L("Не запущено: «%@»", "\(tasks[index].title)"), reason, provider: .codex))
     }
 
     func logURL(_ task: ScheduledTask) -> URL { logs.appendingPathComponent("scheduled-\(task.id.uuidString).log") }

@@ -46,11 +46,11 @@ final class Diagnostics: ObservableObject {
         running = true
         finished = nil
         let plan: [(String, String)] = [
-            ("codex-app", "Приложение Codex"), ("codex-ipc", "Связь с окнами Codex"), ("codex-limits", "Лимиты Codex"),
-            ("codex-hooks", "Хуки Codex"), ("autoresume", "Автопродолжение"),
-            ("claude-binary", "Claude Code"), ("claude-usage", "Лимиты Claude"), ("claude-hooks", "Хуки Claude Code"),
-            ("claude-window", "Окно Claude Desktop"), ("notifications", "Уведомления"), ("updates", "Обновления с GitHub"),
-            ("selftest", "Правила безопасности"),
+            ("codex-app", L("Приложение Codex")), ("codex-ipc", L("Связь с окнами Codex")), ("codex-limits", L("Лимиты Codex")),
+            ("codex-hooks", L("Хуки Codex")), ("autoresume", L("Автопродолжение")),
+            ("claude-binary", "Claude Code"), ("claude-usage", L("Лимиты Claude")), ("claude-hooks", L("Хуки Claude Code")),
+            ("claude-window", L("Окно Claude Desktop")), ("notifications", L("Уведомления")), ("updates", L("Обновления с GitHub")),
+            ("selftest", L("Правила безопасности")),
         ]
         checks = plan.map { Check(id: $0.0, title: $0.1) }
         Task {
@@ -69,53 +69,53 @@ final class Diagnostics: ObservableObject {
                 try CodexApp.checkVersion()
                 set("codex-app", .ok, (url.path as NSString).abbreviatingWithTildeInPath, since: start)
             } catch {
-                set("codex-app", .failed, error.localizedDescription, advice: "Обновите приложение Codex.", since: start)
+                set("codex-app", .failed, error.localizedDescription, advice: L("Обновите приложение Codex."), since: start)
             }
         } else {
-            set("codex-app", .warning, "Не установлено", advice: "Без приложения Codex не работают автопродолжение и карточки запросов; лимиты читаются через codex.")
+            set("codex-app", .warning, L("Не установлено"), advice: L("Без приложения Codex не работают автопродолжение и карточки запросов; лимиты читаются через codex."))
         }
 
         start = Date()
         if !CodexApp.isRunning {
-            set("codex-ipc", .skipped, "Codex не запущен — проверю, когда он будет открыт.")
+            set("codex-ipc", .skipped, L("Codex не запущен — проверю, когда он будет открыт."))
         } else {
             let result: Result<Void, Error> = await Task.detached {
                 Result { let connection = CodexIPCConnection(timeout: 5); try connection.open(); connection.close() }
             }.value
             switch result {
-            case .success: set("codex-ipc", .ok, "Подключение есть" + (CodexRequestWatcher.shared.live ? ", запросы видны" : ""), since: start)
-            case .failure(let error): set("codex-ipc", .failed, error.localizedDescription, advice: "Перезапустите приложение Codex.", since: start)
+            case .success: set("codex-ipc", .ok, L("Подключение есть") + (CodexRequestWatcher.shared.live ? L(", запросы видны") : ""), since: start)
+            case .failure(let error): set("codex-ipc", .failed, error.localizedDescription, advice: L("Перезапустите приложение Codex."), since: start)
             }
         }
 
         start = Date()
         do {
             let snapshot = try await CodexLimits.fetch(binaryOverride: Settings.codexPath)
-            let left = snapshot.session.map { "осталось \(Format.percent($0.remainingPercent))" } ?? "окно не начато"
+            let left = snapshot.session.map { L("осталось %@", "\(Format.percent($0.remainingPercent))") } ?? L("окно не начато")
             set("codex-limits", .ok, left, since: start)
         } catch {
-            set("codex-limits", .failed, error.localizedDescription, advice: "Проверьте, что codex вошёл в аккаунт (codex login) и есть сеть.", since: start)
+            set("codex-limits", .failed, error.localizedDescription, advice: L("Проверьте, что codex вошёл в аккаунт (codex login) и есть сеть."), since: start)
         }
 
         switch AgentHooks.status(.codex) {
-        case .off: set("codex-hooks", .warning, "Не подключены", advice: "Подключите в «Настройки → Codex»: события придут сразу, а не по файлам.")
-        case .on: set("codex-hooks", .ok, HookEventReader.shared.lastEvent[.codex].map { "Последнее событие \(Format.relative($0))" } ?? "Подключены")
-        case .needsTrust(let count): set("codex-hooks", .warning, "\(count) ждут разрешения в Codex", advice: "Откройте Codex и разрешите хуки Cooldown (/hooks).")
+        case .off: set("codex-hooks", .warning, L("Не подключены"), advice: L("Подключите в «Настройки → Codex»: события придут сразу, а не по файлам."))
+        case .on: set("codex-hooks", .ok, HookEventReader.shared.lastEvent[.codex].map { L("Последнее событие %@", "\(Format.relative($0))") } ?? L("Подключены"))
+        case .needsTrust(let count): set("codex-hooks", .warning, L("%@ ждут разрешения в Codex", "\(count)"), advice: L("Откройте Codex и разрешите хуки Cooldown (/hooks)."))
         }
 
         let watches = AppModel.shared.watches
         let uncertain = watches.filter { $0.status == "uncertain" }.count
         set("autoresume", uncertain > 0 ? .warning : .ok,
-            "Под наблюдением \(watches.filter(\.enabled).count) из \(watches.count)" + (uncertain > 0 ? ", неподтверждённых отправок: \(uncertain)" : ""),
-            advice: uncertain > 0 ? "Посмотрите эти задачи в Codex: повторно Cooldown их не отправит." : nil)
+            L("Под наблюдением %@ из %@", "\(watches.filter(\.enabled).count)", "\(watches.count)") + (uncertain > 0 ? L(", неподтверждённых отправок: %@", "\(uncertain)") : ""),
+            advice: uncertain > 0 ? L("Посмотрите эти задачи в Codex: повторно Cooldown их не отправит.") : nil)
     }
 
     private func claude() async {
         var start = Date()
         guard let binary = ClaudePaths.binary(override: Settings.claudePath) else {
-            set("claude-binary", .warning, "Не найден", advice: "Установите Claude Code или откройте вкладку Code в Claude Desktop один раз.")
-            set("claude-usage", .skipped, "Нужен Claude Code")
-            set("claude-hooks", .skipped, "Нужен Claude Code")
+            set("claude-binary", .warning, L("Не найден"), advice: L("Установите Claude Code или откройте вкладку Code в Claude Desktop один раз."))
+            set("claude-usage", .skipped, L("Нужен Claude Code"))
+            set("claude-hooks", .skipped, L("Нужен Claude Code"))
             await window()
             return
         }
@@ -137,31 +137,31 @@ final class Diagnostics: ObservableObject {
         if Settings.claudeUsageCLI {
             do {
                 let snapshot = try await ClaudeUsageCLI.shared.read(binary: binary, force: true)
-                let left = snapshot.session.map { "осталось \(Format.percent($0.remainingPercent))" } ?? "окно не начато"
+                let left = snapshot.session.map { L("осталось %@", "\(Format.percent($0.remainingPercent))") } ?? L("окно не начато")
                 set("claude-usage", .ok, "/usage: " + left, since: start)
             } catch {
-                set("claude-usage", .failed, error.localizedDescription, advice: "Запустите claude в Терминале и проверьте вход; затем повторите проверку.", since: start)
+                set("claude-usage", .failed, error.localizedDescription, advice: L("Запустите claude в Терминале и проверьте вход; затем повторите проверку."), since: start)
             }
         } else {
-            set("claude-usage", .skipped, "Чтение через Claude Code выключено")
+            set("claude-usage", .skipped, L("Чтение через Claude Code выключено"))
         }
 
         switch AgentHooks.status(.claude) {
-        case .off: set("claude-hooks", .warning, "Не подключены", advice: "Подключите в «Настройки → Claude»: Cooldown увидит работу Claude Code и принесёт его запросы в карточки.")
+        case .off: set("claude-hooks", .warning, L("Не подключены"), advice: L("Подключите в «Настройки → Claude»: Cooldown увидит работу Claude Code и принесёт его запросы в карточки."))
         default:
             let update = AgentHooks.needsUpdate(.claude)
             set("claude-hooks", update ? .warning : .ok,
-                update ? "Нет хука разрешений" : (HookEventReader.shared.lastEvent[.claude].map { "Последнее событие \(Format.relative($0))" } ?? "Подключены"),
-                advice: update ? "Отключите и подключите хуки заново в «Настройки → Claude»." : nil)
+                update ? L("Нет хука разрешений") : (HookEventReader.shared.lastEvent[.claude].map { L("Последнее событие %@", "\(Format.relative($0))") } ?? L("Подключены")),
+                advice: update ? L("Отключите и подключите хуки заново в «Настройки → Claude».") : nil)
         }
         await window()
     }
 
     private func window() async {
         let start = Date()
-        guard let app = ClaudeSender.claudeApp else { set("claude-window", .skipped, "Claude Desktop не запущен"); return }
+        guard let app = ClaudeSender.claudeApp else { set("claude-window", .skipped, L("Claude Desktop не запущен")); return }
         guard ClaudeSender.hasPermission else {
-            set("claude-window", .failed, "Нет «Универсального доступа»", advice: "«Настройки → Основные → Готовность» → «Исправить».")
+            set("claude-window", .failed, L("Нет «Универсального доступа»"), advice: L("«Настройки → Основные → Готовность» → «Исправить»."))
             return
         }
         let pid = app.processIdentifier
@@ -180,38 +180,38 @@ final class Diagnostics: ObservableObject {
             return nil
         }.value
         set("claude-window", chat == nil ? .warning : .ok,
-            chat.map { "Виден чат «\($0)»" } ?? "Окно читается, но открытого чата не видно",
-            advice: chat == nil ? "Откройте любой чат в Claude Desktop и повторите." : nil, since: start)
+            chat.map { L("Виден чат «%@»", "\($0)") } ?? L("Окно читается, но открытого чата не видно"),
+            advice: chat == nil ? L("Откройте любой чат в Claude Desktop и повторите.") : nil, since: start)
     }
 
     private func system() async {
         let settings = await UNUserNotificationCenter.current().notificationSettings()
         let allowed = settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
-        set("notifications", allowed ? .ok : .warning, allowed ? "Разрешены" : "Выключены в Системных настройках",
-            advice: allowed ? nil : "Без них Cooldown не сможет сообщить, когда экран заблокирован.")
+        set("notifications", allowed ? .ok : .warning, allowed ? L("Разрешены") : L("Выключены в Системных настройках"),
+            advice: allowed ? nil : L("Без них Cooldown не сможет сообщить, когда экран заблокирован."))
 
         var start = Date()
         let updater = GitHubUpdater.shared
         await updater.check(manual: true, announce: false)
         if let available = updater.available {
-            set("updates", .warning, "Доступна \(available.version), установлена \(GitHubUpdater.current)", advice: "«Настройки → Обновления».", since: start)
-        } else if let state = updater.state, state.contains("Нет связи") || state.contains("Не удалось") {
+            set("updates", .warning, L("Доступна %@, установлена %@", "\(available.version)", "\(GitHubUpdater.current)"), advice: L("«Настройки → Обновления»."), since: start)
+        } else if let state = updater.state, state.contains(L("Нет связи")) || state.contains(L("Не удалось")) {
             set("updates", .failed, state, since: start)
         } else {
-            set("updates", .ok, "Установлена последняя \(GitHubUpdater.current)", since: start)
+            set("updates", .ok, L("Установлена последняя %@", "\(GitHubUpdater.current)"), since: start)
         }
 
         start = Date()
         let failures = SelfTest.run()
         set("selftest", failures.isEmpty ? .ok : .failed,
-            failures.isEmpty ? "Все проверки пройдены" : failures.joined(separator: "; "),
-            advice: failures.isEmpty ? nil : "Пришлите этот отчёт разработчику.", since: start)
+            failures.isEmpty ? L("Все проверки пройдены") : failures.joined(separator: "; "),
+            advice: failures.isEmpty ? nil : L("Пришлите этот отчёт разработчику."), since: start)
     }
 
     /// Plain text for copying.
     var report: String {
         var lines = ["Cooldown \(GitHubUpdater.current) · macOS \(ProcessInfo.processInfo.operatingSystemVersionString)",
-                     "Проверено: \((finished ?? Date()).formatted(date: .abbreviated, time: .shortened))", ""]
+                     L("Проверено: %@", "\((finished ?? Date()).formatted(date: .abbreviated, time: .shortened))"), ""]
         for check in checks {
             let mark: String
             switch check.verdict {
@@ -222,7 +222,7 @@ final class Diagnostics: ObservableObject {
             case .running: mark = "…"
             }
             var line = "\(mark) \(check.title): \(check.detail)"
-            if let millis = check.millis, millis > 300 { line += " (\(millis) мс)" }
+            if let millis = check.millis, millis > 300 { line += L(" (%@ мс)", "\(millis)") }
             lines.append(line)
             if let advice = check.advice { lines.append("    → \(advice)") }
         }

@@ -46,7 +46,7 @@ final class CodexReadOnlyServer {
 
     func query(_ method: String, _ params: [String: Any]? = nil) throws -> [String: Any] {
         guard Self.methods.contains(method) else {
-            throw CodexError.server("это соединение разрешает только чтение лимитов и диалогов")
+            throw CodexError.server(L("это соединение разрешает только чтение лимитов и диалогов"))
         }
         return try call(method, params)
     }
@@ -71,7 +71,7 @@ final class CodexReadOnlyServer {
                 buffer.removeSubrange(buffer.startIndex...newline)
                 guard let reply = (try? JSONSerialization.jsonObject(with: line)) as? [String: Any],
                       Num.int(reply["id"]) == id, reply["method"] == nil else { continue }
-                if reply["error"] != nil { throw CodexError.server("запрос только для чтения не выполнен; проверьте вход в Codex и сеть") }
+                if reply["error"] != nil { throw CodexError.server(L("запрос только для чтения не выполнен; проверьте вход в Codex и сеть")) }
                 guard let result = reply["result"] as? [String: Any] else { throw CodexError.unexpected }
                 return result
             }
@@ -103,13 +103,13 @@ final class CodexReadOnlyServer {
             var cursor: String?
             var seen = Set<String>()
             repeat {
-                guard Date() < deadline else { throw CodexError.server("список диалогов ещё не прочитан полностью") }
+                guard Date() < deadline else { throw CodexError.server(L("список диалогов ещё не прочитан полностью")) }
                 var params: [String: Any] = ["limit": 100, "archived": archived, "sourceKinds": Self.sourceKinds,
                                              "sortKey": "updated_at", "modelProviders": [String]()]
                 if let cursor { params["cursor"] = cursor }
                 let page = try query("thread/list", params)
                 guard let data = page["data"] as? [Any], page.keys.contains("nextCursor") else {
-                    throw CodexError.server("список диалогов неполон")
+                    throw CodexError.server(L("список диалогов неполон"))
                 }
                 for row in data {
                     guard let row = row as? [String: Any], let id = row["id"] as? String else { throw CodexError.unexpected }
@@ -119,7 +119,7 @@ final class CodexReadOnlyServer {
                 }
                 if JSON.isNull(page["nextCursor"]) { cursor = nil; break }
                 guard let next = JSON.nonEmptyString(page["nextCursor"]), seen.insert(next).inserted else {
-                    throw CodexError.server("аномальный курсор списка диалогов")
+                    throw CodexError.server(L("аномальный курсор списка диалогов"))
                 }
                 cursor = next
             } while cursor != nil

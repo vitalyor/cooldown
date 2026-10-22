@@ -24,8 +24,8 @@ enum ResetReminder {
         UserDefaults.standard.set(fire.timeIntervalSince1970, forKey: key(provider))
         schedule()
         ToastController.shared.show(ToastContent(key: "remind-set-\(provider.rawValue)", kind: .info, provider: provider,
-                                                 title: "Напомню в \(Format.clock(fire))",
-                                                 body: "За 10 минут до сброса лимита \(provider.displayName).", life: .auto(5)))
+                                                 title: L("Напомню в %@", "\(Format.clock(fire))"),
+                                                 body: L("За 10 минут до сброса лимита %@.", "\(provider.displayName)"), life: .auto(5)))
     }
 
     static func cancel(_ provider: ProviderID) {
@@ -56,11 +56,11 @@ enum ResetReminder {
         var actions: [ToastAction] = [.openPanel]
         if provider == .codex { actions.insert(.openSchedule, at: 0) }
         Notifier.shared.post(id: "remind-\(provider.rawValue)-\(Int(reset.timeIntervalSince1970))",
-                             title: "Скоро лимит \(provider.displayName) восстановится",
-                             body: "Сброс в \(Format.clock(reset)) — через 10 минут.",
+                             title: L("Скоро лимит %@ восстановится", "\(provider.displayName)"),
+                             body: L("Сброс в %@ — через 10 минут.", "\(Format.clock(reset))"),
                              toast: ToastContent(key: "remind-\(provider.rawValue)", kind: .reset, provider: provider,
-                                                 title: "Через 10 минут лимит \(provider.displayName) восстановится",
-                                                 body: "Сброс в \(Format.clock(reset)). Самое время приготовить следующую задачу.",
+                                                 title: L("Через 10 минут лимит %@ восстановится", "\(provider.displayName)"),
+                                                 body: L("Сброс в %@. Самое время приготовить следующую задачу.", "\(Format.clock(reset))"),
                                                  actions: actions, life: .sticky))
     }
 }

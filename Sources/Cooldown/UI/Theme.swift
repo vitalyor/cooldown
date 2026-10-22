@@ -377,7 +377,7 @@ struct BackBar: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            GlassIconButton(symbol: "chevron.left", help: "Назад", action: back)
+            GlassIconButton(symbol: "chevron.left", help: L("Назад"), action: back)
             Text(title).font(.system(size: 17, weight: .semibold))
             Spacer()
         }

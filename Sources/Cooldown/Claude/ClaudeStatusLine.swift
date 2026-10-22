@@ -44,10 +44,10 @@ enum ClaudeStatusLine {
               let limits = object["rate_limits"] as? [String: Any] else { return nil }
         var parts: [String] = []
         if let five = limits["five_hour"] as? [String: Any], let used = Num.double(five["used_percentage"]) {
-            parts.append("5 ч: осталось \(Int((100 - used).rounded()))%")
+            parts.append(L("5 ч: осталось %@%%", "\(Int((100 - used).rounded()))"))
         }
         if let week = limits["seven_day"] as? [String: Any], let used = Num.double(week["used_percentage"]) {
-            parts.append("неделя: \(Int((100 - used).rounded()))%")
+            parts.append(L("неделя: %@%%", "\(Int((100 - used).rounded()))"))
         }
         return parts.isEmpty ? nil : parts.joined(separator: ", ")
     }
@@ -101,14 +101,14 @@ enum ClaudeStatusLine {
         guard let command = currentStatusLine()?["command"] as? String, !command.isEmpty else { return nil }
         if command.contains("NotchBuddy") || command.contains("nb-hook") { return "Coucou" }
         if command.contains("Cooldown") { return "Cooldown" }
-        return "своя команда"
+        return L("своя команда")
     }
 
     private static func readSettings() throws -> [String: Any] {
         guard FileManager.default.fileExists(atPath: ClaudePaths.settings.path) else { return [:] }
         let data = try Data(contentsOf: ClaudePaths.settings)
         guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw NSError(domain: "Cooldown", code: 1, userInfo: [NSLocalizedDescriptionKey: "settings.json Claude Code имеет неожиданный формат, Cooldown его не трогает."])
+            throw NSError(domain: "Cooldown", code: 1, userInfo: [NSLocalizedDescriptionKey: L("settings.json Claude Code имеет неожиданный формат, Cooldown его не трогает.")])
         }
         return object
     }

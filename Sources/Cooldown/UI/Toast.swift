@@ -23,19 +23,19 @@ enum ToastAction: Equatable {
 
     var title: String {
         switch self {
-        case .openFeed: return "Посмотреть"
-        case .remindBeforeReset: return "Напомнить за 10 мин"
-        case .openFile: return "Открыть отчёт"
-        case .openSchedule: return "Отложить задачу"
-        case .installUpdate: return "Перезапустить"
-        case .installRelease: return "Обновить"
-        case .openReleasePage: return "Что нового"
-        case .continueClaudeChat: return "Продолжить"
-        case .continueAllClaude(let chats): return "Продолжить все (\(chats.count))"
-        case .openPanel: return "Открыть Cooldown"
-        case .openClaude, .openClaudeChat: return "Открыть Claude"
-        case .openCodex, .openCodexThread: return "Открыть Codex"
-        case .continueClaude: return "Продолжить"
+        case .openFeed: return L("Посмотреть")
+        case .remindBeforeReset: return L("Напомнить за 10 мин")
+        case .openFile: return L("Открыть отчёт")
+        case .openSchedule: return L("Отложить задачу")
+        case .installUpdate: return L("Перезапустить")
+        case .installRelease: return L("Обновить")
+        case .openReleasePage: return L("Что нового")
+        case .continueClaudeChat: return L("Продолжить")
+        case .continueAllClaude(let chats): return L("Продолжить все (%@)", "\(chats.count)")
+        case .openPanel: return L("Открыть Cooldown")
+        case .openClaude, .openClaudeChat: return L("Открыть Claude")
+        case .openCodex, .openCodexThread: return L("Открыть Codex")
+        case .continueClaude: return L("Продолжить")
         }
     }
 }
@@ -101,9 +101,9 @@ enum ToastCatalog {
     static func limitLow(_ provider: ProviderID, remaining: Double, reset: Date) -> ToastContent {
         let critical = remaining <= 5
         return ToastContent(key: "low-\(provider.rawValue)", kind: critical ? .warning : .attention, provider: provider,
-                            title: "\(provider.displayName): осталось \(Format.percent(remaining))",
-                            body: critical ? "Лимит на 5 часов почти кончился. Сброс в \(Format.time(reset))."
-                                           : "Лимит на 5 часов заканчивается. Сброс в \(Format.time(reset)).",
+                            title: L("%@: осталось %@", "\(provider.displayName)", "\(Format.percent(remaining))"),
+                            body: critical ? L("Лимит на 5 часов почти кончился. Сброс в %@.", "\(Format.time(reset))")
+                                           : L("Лимит на 5 часов заканчивается. Сброс в %@.", "\(Format.time(reset))"),
                             actions: [.openPanel], life: .auto(critical ? 14 : 9))
     }
 
@@ -113,52 +113,52 @@ enum ToastCatalog {
         if ResetReminder.possible(before: reset) { actions.append(.remindBeforeReset(provider, reset)) }
         if provider == .codex { actions.append(.openSchedule) }
         return ToastContent(key: "out-\(provider.rawValue)", kind: .warning, provider: provider,
-                            title: "Лимит \(provider.displayName) исчерпан",
-                            body: "Снова можно работать в \(Format.clock(reset)) — через \(Format.duration(max(60, reset.timeIntervalSinceNow))).",
+                            title: L("Лимит %@ исчерпан", "\(provider.displayName)"),
+                            body: L("Снова можно работать в %@ — через %@.", "\(Format.clock(reset))", "\(Format.duration(max(60, reset.timeIntervalSinceNow)))"),
                             actions: actions.isEmpty ? [.openPanel] : actions, life: .sticky)
     }
 
     static func limitReset(_ provider: ProviderID, demo: Bool = false) -> ToastContent {
         if provider == .claude {
             // Needs the person: Cooldown never writes into a Claude chat on its own.
-            let target = ClaudeSender.pendingChat.map { "в чат «\($0.title)»" } ?? "в открытый чат Claude"
-            return ToastContent(key: "reset-claude", kind: .reset, provider: .claude, title: "Лимит Claude восстановился",
-                                body: "Можно продолжать. «Продолжить» отправит «\(ClaudeSender.text)» \(target).",
+            let target = ClaudeSender.pendingChat.map { L("в чат «%@»", "\($0.title)") } ?? L("в открытый чат Claude")
+            return ToastContent(key: "reset-claude", kind: .reset, provider: .claude, title: L("Лимит Claude восстановился"),
+                                body: L("Можно продолжать. «Продолжить» отправит «%@» %@.", "\(ClaudeSender.text)", "\(target)"),
                                 actions: [.continueClaude(demo: demo), .openClaude], life: .sticky)
         }
-        return ToastContent(key: "reset-codex", kind: .reset, provider: .codex, title: "Лимит Codex восстановился",
-                            body: "Окно на 5 часов сбросилось, можно работать дальше.", actions: [.openPanel], life: .auto(9))
+        return ToastContent(key: "reset-codex", kind: .reset, provider: .codex, title: L("Лимит Codex восстановился"),
+                            body: L("Окно на 5 часов сбросилось, можно работать дальше."), actions: [.openPanel], life: .auto(9))
     }
 
     static func taskWaiting(_ provider: ProviderID, title: String, until: Date?) -> ToastContent {
-        ToastContent(key: "task-\(title)", kind: .waiting, provider: provider, title: "«\(title)» ждёт сброса",
-                     body: until.map { "Лимит кончился. Cooldown продолжит задачу сам в \(Format.time($0))." }
-                        ?? "Лимит кончился. Cooldown продолжит задачу сам сразу после сброса.",
+        ToastContent(key: "task-\(title)", kind: .waiting, provider: provider, title: L("«%@» ждёт сброса", "\(title)"),
+                     body: until.map { L("Лимит кончился. Cooldown продолжит задачу сам в %@.", "\(Format.time($0))") }
+                        ?? L("Лимит кончился. Cooldown продолжит задачу сам сразу после сброса."),
                      actions: [.openPanel], life: .auto(9))
     }
 
     static func taskResumed(_ provider: ProviderID, title: String) -> ToastContent {
-        ToastContent(key: "task-\(title)", kind: .reset, provider: provider, title: "«\(title)» продолжена",
-                     body: "Лимит восстановился, Cooldown отправил «продолжай». Задача снова работает.",
+        ToastContent(key: "task-\(title)", kind: .reset, provider: provider, title: L("«%@» продолжена", "\(title)"),
+                     body: L("Лимит восстановился, Cooldown отправил «продолжай». Задача снова работает."),
                      actions: [provider == .codex ? .openCodex : .openPanel], life: .auto(9))
     }
 
     static func taskFinished(_ provider: ProviderID, title: String, detail: String, threadId: String? = nil) -> ToastContent {
-        ToastContent(key: "task-\(title)", kind: .finished, provider: provider, title: "\(provider.displayName) закончил «\(title)»",
-                     body: detail.isEmpty ? "Задача завершена, можно посмотреть результат." : detail,
+        ToastContent(key: "task-\(title)", kind: .finished, provider: provider, title: L("%@ закончил «%@»", "\(provider.displayName)", "\(title)"),
+                     body: detail.isEmpty ? L("Задача завершена, можно посмотреть результат.") : detail,
                      actions: [threadId.map { .openCodexThread($0) } ?? (provider == .codex ? .openCodex : .openPanel)],
                      life: .auto(12), threadId: threadId)
     }
 
     static func taskAttention(_ provider: ProviderID, title: String, reason: String) -> ToastContent {
-        ToastContent(key: "task-\(title)", kind: .attention, provider: provider, title: "«\(title)» ждёт вашего решения",
-                     body: reason.isEmpty ? "Автопродолжение остановилось, нужно ваше участие." : reason,
+        ToastContent(key: "task-\(title)", kind: .attention, provider: provider, title: L("«%@» ждёт вашего решения", "\(title)"),
+                     body: reason.isEmpty ? L("Автопродолжение остановилось, нужно ваше участие.") : reason,
                      actions: [provider == .codex ? .openCodex : .openPanel], life: .sticky)
     }
 
     static func taskBudget(_ provider: ProviderID, title: String) -> ToastContent {
-        ToastContent(key: "task-\(title)", kind: .warning, provider: provider, title: "«\(title)»: попытки закончились",
-                     body: "Задача несколько раз упиралась в лимит. Автопродолжение остановлено, загляните в диалог.",
+        ToastContent(key: "task-\(title)", kind: .warning, provider: provider, title: L("«%@»: попытки закончились", "\(title)"),
+                     body: L("Задача несколько раз упиралась в лимит. Автопродолжение остановлено, загляните в диалог."),
                      actions: [.openPanel], life: .sticky)
     }
 
@@ -432,7 +432,7 @@ final class ToastController: ObservableObject {
         case .continueClaudeChat(let chat):
             Task {
                 do { try await ClaudeSender.continueChat(chat) } catch {
-                    ToastController.shared.show(ToastCatalog.failure("Не отправлено в «\(chat.title)»", error.localizedDescription, provider: .claude))
+                    ToastController.shared.show(ToastCatalog.failure(L("Не отправлено в «%@»", "\(chat.title)"), error.localizedDescription, provider: .claude))
                 }
             }
         case .openClaude:
@@ -447,13 +447,13 @@ final class ToastController: ObservableObject {
             CodexApp.open(thread: id)
         case .continueClaude(let demo):
             if demo {
-                show(ToastContent(key: "demo-sent", kind: .info, provider: .claude, title: "Пример · ничего не отправлено",
-                                  body: "Сейчас Cooldown вывел бы Claude вперёд и отправил в открытый чат: «\(ClaudeSender.text)»"))
+                show(ToastContent(key: "demo-sent", kind: .info, provider: .claude, title: L("Пример · ничего не отправлено"),
+                                  body: L("Сейчас Cooldown вывел бы Claude вперёд и отправил в открытый чат: «%@»", "\(ClaudeSender.text)")))
                 return
             }
             Task {
                 do { try await ClaudeSender.continueChat(ClaudeSender.pendingChat) } catch {
-                    ToastController.shared.show(ToastCatalog.failure("Не отправлено", error.localizedDescription, provider: .claude))
+                    ToastController.shared.show(ToastCatalog.failure(L("Не отправлено"), error.localizedDescription, provider: .claude))
                 }
             }
         }
@@ -467,11 +467,11 @@ final class ToastController: ObservableObject {
     /// A short tour of the card types, one after another.
     func showExamples() {
         let examples: [ToastContent] = [
-            ToastCatalog.taskWaiting(.codex, title: "Рефакторинг парсера", until: Date().addingTimeInterval(7200)),
-            ToastCatalog.taskResumed(.codex, title: "Рефакторинг парсера"),
-            ToastCatalog.taskFinished(.codex, title: "Продумать структуру таблицы учёта",
-                                      detail: "Готово: структура собрана, файл лежит в /Volumes/T7/AI_ПМР."),
-            ToastCatalog.taskAttention(.codex, title: "Рефакторинг парсера", reason: "Codex спрашивает разрешение выполнить команду."),
+            ToastCatalog.taskWaiting(.codex, title: L("Рефакторинг парсера"), until: Date().addingTimeInterval(7200)),
+            ToastCatalog.taskResumed(.codex, title: L("Рефакторинг парсера")),
+            ToastCatalog.taskFinished(.codex, title: L("Продумать структуру таблицы учёта"),
+                                      detail: L("Готово: структура собрана, файл лежит в /Volumes/T7/AI_ПМР.")),
+            ToastCatalog.taskAttention(.codex, title: L("Рефакторинг парсера"), reason: L("Codex спрашивает разрешение выполнить команду.")),
             ToastCatalog.limitReset(.claude, demo: true),
         ]
         for (index, example) in examples.enumerated() {
@@ -507,7 +507,7 @@ private struct ToastView: View {
                             Text(provider.displayName).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                         }
                         if content.life == .sticky {
-                            Label("ждёт вас", systemImage: "pin.fill")
+                            Label(L("ждёт вас"), systemImage: "pin.fill")
                                 .font(.caption2.weight(.semibold))
                                 .foregroundStyle(content.tint)
                         }
@@ -584,7 +584,7 @@ private struct RequestBlock: View {
                 Text(problem).font(.caption).foregroundStyle(Theme.signal).fixedSize(horizontal: false, vertical: true)
             }
             if model.busy {
-                HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Отправляю…").font(.caption).foregroundStyle(.secondary) }
+                HStack(spacing: 6) { ProgressView().controlSize(.small); Text(L("Отправляю…")).font(.caption).foregroundStyle(.secondary) }
             } else {
                 // Answer options of a question: one per line, the whole text visible.
                 ForEach(options) { choice in
@@ -601,7 +601,7 @@ private struct RequestBlock: View {
                                                      prominent: choice.role == .allow))
                     }
                     if !extra.isEmpty && !model.showExtra {
-                        Button("Ещё…") { choose(RequestChoice(id: "__more", title: "")) }
+                        Button(L("Ещё…")) { choose(RequestChoice(id: "__more", title: "")) }
                             .buttonStyle(ToastButton(fill: .primary, prominent: false))
                     }
                 }

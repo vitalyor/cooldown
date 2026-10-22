@@ -83,14 +83,14 @@ enum MorningSummary {
         guard !events.isEmpty else { return }
         let count: (CooldownEvent.Kind) -> Int = { kind in events.filter { $0.kind == kind }.count }
         var parts: [String] = []
-        if count(.finished) > 0 { parts.append("закончено задач: \(count(.finished))") }
-        if count(.resumed) > 0 { parts.append("продолжено: \(count(.resumed))") }
-        if count(.reset) > 0 { parts.append("сбросов лимита: \(count(.reset))") }
-        if count(.attention) > 0 { parts.append("ждут вашего решения: \(count(.attention))") }
+        if count(.finished) > 0 { parts.append(L("закончено задач: %@", "\(count(.finished))")) }
+        if count(.resumed) > 0 { parts.append(L("продолжено: %@", "\(count(.resumed))")) }
+        if count(.reset) > 0 { parts.append(L("сбросов лимита: %@", "\(count(.reset))")) }
+        if count(.attention) > 0 { parts.append(L("ждут вашего решения: %@", "\(count(.attention))")) }
         let codex = AppModel.shared.codex.snapshot?.session.map { Format.percent($0.remaining(at: Date())) } ?? "—"
         let claude = AppModel.shared.claude.snapshot?.session.map { Format.percent($0.remaining(at: Date())) } ?? "—"
-        let body = (parts.isEmpty ? "\(events.count) событий" : parts.joined(separator: ", ")) + ". Сейчас: Codex \(codex), Claude \(claude)."
-        ToastController.shared.show(ToastContent(key: "morning", kind: .info, provider: nil, title: "Пока вас не было",
+        let body = (parts.isEmpty ? L("%@ событий", "\(events.count)") : parts.joined(separator: ", ")) + L(". Сейчас: Codex %@, Claude %@.", "\(codex)", "\(claude)")
+        ToastController.shared.show(ToastContent(key: "morning", kind: .info, provider: nil, title: L("Пока вас не было"),
                                                  body: body, actions: [.openFeed], life: .sticky))
     }
 }

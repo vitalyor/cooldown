@@ -22,17 +22,17 @@ final class ClaudeDesktopWatcher {
     private var firstLook = true
 
     /// The composer's stop button while an answer is being written (the app's own words).
-    nonisolated private static let stopLabels: Set<String> = ["Остановить ответ", "Stop response", "Stop generating", "Остановить генерацию"]
-    nonisolated private static let answerMarkers = ["Ответ Claude:", "Claude responded:", "Claude said:", "Claude’s response:"]
+    nonisolated private static let stopLabels: Set<String> = ["Остановить ответ", "Stop response", "Stop generating", "Остановить генерацию"] // l10n:skip
+    nonisolated private static let answerMarkers = ["Ответ Claude:", "Claude responded:", "Claude said:", "Claude’s response:"] // l10n:skip
 
     /// Buttons of a permission prompt in a chat (a connector or tool asking to run), in the
     /// app's own words. A group of two or more of them is a prompt.
     nonisolated static func permissionRole(_ label: String) -> RequestChoice.Role? {
         let text = label.lowercased().trimmingCharacters(in: .whitespaces)
         guard text.count < 40 else { return nil }
-        if text.hasPrefix("разрешить") || text.hasPrefix("всегда разрешать") || text.hasPrefix("allow") || text.hasPrefix("always allow")
-            || text == "одобрить" || text == "approve" { return .allow }
-        if text == "запретить" || text == "отклонить" || text == "не разрешать" || text == "deny" || text == "don't allow"
+        if text.hasPrefix("разрешить") || text.hasPrefix("всегда разрешать") || text.hasPrefix("allow") || text.hasPrefix("always allow") // l10n:skip
+            || text == "одобрить" || text == "approve" { return .allow } // l10n:skip
+        if text == "запретить" || text == "отклонить" || text == "не разрешать" || text == "deny" || text == "don't allow" // l10n:skip
             || text == "decline" || text == "reject" { return .decline }
         return nil
     }
@@ -190,20 +190,20 @@ final class ClaudeDesktopWatcher {
             let chat = look.chat
             let choices = prompt.buttons.map { label in
                 RequestChoice(id: "press:" + label, title: label, role: Self.permissionRole(label) ?? .normal)
-            } + [RequestChoice(id: "open", title: "Открыть чат", role: .open)]
+            } + [RequestChoice(id: "open", title: L("Открыть чат"), role: .open)]
             let lines = prompt.text.split(separator: "\n").map(String.init)
             let request = AgentRequest(key: Self.promptKey(key, prompt), provider: .claude, chat: "«\(chat.title)»",
-                                       headline: lines.first ?? "Claude просит разрешение",
+                                       headline: lines.first ?? L("Claude просит разрешение"),
                                        detail: lines.dropFirst().joined(separator: "\n"), choices: choices,
                                        appBundleIDs: ["com.anthropic.claudefordesktop"],
                                        threadId: nil)
             RequestCenter.shared.post(request, open: { Task { await ClaudeSender.reveal(chat) } }) { choice in
                 guard choice.id.hasPrefix("press:"), let pid = ClaudeSender.claudeApp?.processIdentifier else {
-                    throw ResumeError.refused("Claude не открыт.")
+                    throw ResumeError.refused(L("Claude не открыт."))
                 }
                 let label = String(choice.id.dropFirst("press:".count))
                 let pressed = await Task.detached(priority: .userInitiated) { Self.press(label, prompt: prompt, chat: chat, pid: pid) }.value
-                guard pressed else { throw ResumeError.refused("Запрос в чате уже закрыт или выглядит иначе.") }
+                guard pressed else { throw ResumeError.refused(L("Запрос в чате уже закрыт или выглядит иначе.")) }
                 AgentActivity.trace("claude desktop prompt in \(chat.id): pressed «\(label)»")
             }
         }
