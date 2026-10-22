@@ -4,6 +4,14 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>Cooldown</string>
+	<key>CFBundleExecutable</key>
+	<string>Cooldown</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIdentifier</key>
+	<string>__BUNDLE_ID__</string>
 	<key>CFBundleLocalizations</key>
 	<array>
 		<string>en</string>
@@ -18,20 +26,12 @@
 		<string>zh-Hans</string>
 		<string>ko</string>
 	</array>
-	<key>CFBundleDisplayName</key>
-	<string>Cooldown</string>
-	<key>CFBundleExecutable</key>
-	<string>Cooldown</string>
-	<key>CFBundleIconFile</key>
-	<string>AppIcon</string>
-	<key>CFBundleIdentifier</key>
-	<string>__BUNDLE_ID__</string>
 	<key>CFBundleName</key>
 	<string>Cooldown</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.0</string>
+	<string>1.2.0</string>
 	<key>CFBundleVersion</key>
 	<string>2</string>
 	<key>CooldownUpdateRepo</key>
