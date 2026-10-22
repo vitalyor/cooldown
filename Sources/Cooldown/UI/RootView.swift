@@ -3,7 +3,6 @@ import SwiftUI
 enum Screen: Equatable {
     case home
     case addTask
-    case settings
     case schedule
     case feed
 }
@@ -60,9 +59,6 @@ struct RootView: View {
                     .transition(.move(edge: .leading).combined(with: .opacity))
             case .addTask:
                 AddTaskScreen(screen: $screen, provider: model.selected, render: render)
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
-            case .settings:
-                SettingsScreen(screen: $screen, render: render)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             case .schedule:
                 ScheduleScreen(screen: $screen)
@@ -200,7 +196,8 @@ private struct Header: View {
             Spacer()
             FeedButton(screen: $screen)
             RefreshButton(codex: model.codex, claude: model.claude)
-            GlassIconButton(symbol: "gearshape", help: "Настройки") { screen = .settings }
+            GlassIconButton(symbol: "gearshape", help: "Настройки (⌘,)") { SettingsWindow.shared.show() }
+                .keyboardShortcut(",", modifiers: .command)
         }
     }
 }

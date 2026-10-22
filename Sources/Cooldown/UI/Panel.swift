@@ -171,7 +171,7 @@ final class StatusController: NSObject {
     @objc private func menuRefresh() { Task { await model.refreshLimits() } }
     @objc private func menuFeed() { open(to: .feed) }
     @objc private func menuSchedule() { open(to: .schedule) }
-    @objc private func menuSettings() { open(to: .settings) }
+    @objc private func menuSettings() { SettingsWindow.shared.show() }
     @objc private func menuQuit() { NSApp.terminate(nil) }
 
     /// Opens the window on a given screen (feed, settings, …).
