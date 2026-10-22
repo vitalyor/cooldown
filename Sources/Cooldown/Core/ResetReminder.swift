@@ -61,6 +61,6 @@ enum ResetReminder {
                              toast: ToastContent(key: "remind-\(provider.rawValue)", kind: .reset, provider: provider,
                                                  title: L("Через 10 минут лимит %@ восстановится", "\(provider.displayName)"),
                                                  body: L("Сброс в %@. Самое время приготовить следующую задачу.", "\(Format.clock(reset))"),
-                                                 actions: actions, life: .sticky))
+                                                 actions: actions, life: .auto(20)))
     }
 }
