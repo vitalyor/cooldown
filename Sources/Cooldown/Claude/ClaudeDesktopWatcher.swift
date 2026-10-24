@@ -16,7 +16,10 @@ final class ClaudeDesktopWatcher {
 
     private var timer: Timer?
     private var writing: [String: Writing] = [:]
-    private var lastAnswer: [String: String] = [:]
+    /// Answers already on the page before the current turn began. The new answer's buttons
+    /// appear only a moment after it ends, and a long chat shows only part of its messages, so
+    /// a word-for-word match with one of these means the new answer was not found yet.
+    private var earlier: [String: Set<String>] = [:]
     private var tick = 0
     /// The first look after Cooldown starts: answers already being written then started earlier.
     private var firstLook = true
@@ -150,7 +153,9 @@ final class ClaudeDesktopWatcher {
         let now = Date()
         let activity = AgentActivity.shared
         for (key, look) in seen {
-            if let answer = look.answer { lastAnswer[key] = answer }
+            if let answer = look.answer {
+                if writing[key] == nil { earlier[key, default: []].insert(answer) }
+            }
             writing[key]?.missed = 0
             if look.busy {
                 if writing[key] == nil {
@@ -160,9 +165,7 @@ final class ClaudeDesktopWatcher {
                     activity.touch(.claude, key: key)
                 }
             } else if let was = writing.removeValue(forKey: key) {
-                activity.finished(.claude, key: key, title: look.chat.title, message: lastAnswer[key] ?? "",
-                                  duration: was.sawStart ? now.timeIntervalSince(was.since) : nil, source: .window,
-                                  opener: .claudeChat(look.chat), at: now, startUnknown: !was.sawStart)
+                announceFinished(key: key, was: was, chat: look.chat, seenNow: look.answer, at: now)
             }
         }
         // A chat missing from one look is usually the window redrawing (as it does when an answer
@@ -178,6 +181,33 @@ final class ClaudeDesktopWatcher {
         activity.replace(.claude, source: .window, with: Set(writing.keys))
         firstLook = false
         updatePrompts(seen)
+    }
+
+    /// The answer has ended. Its words are read again a moment later, once the app has drawn
+    /// the message's buttons; words that were already on the page before the turn are an older
+    /// answer, and the card then goes without a quote rather than with the wrong one.
+    private func announceFinished(key: String, was: Writing, chat: ClaudeChat, seenNow: String?, at end: Date) {
+        let cache = self.cache
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2))
+            var answer = seenNow
+            if let pid = ClaudeSender.claudeApp?.processIdentifier {
+                let looks = await Task.detached(priority: .utility) {
+                    Self.read(pid: pid, cache: cache, writing: [], full: true)
+                }.value
+                if let fresh = looks.first(where: { Self.key($0.chat) == key })?.answer { answer = fresh }
+            }
+            var message = ""
+            if let answer, !(earlier[key]?.contains(answer) ?? false) {
+                message = answer
+            } else {
+                AgentActivity.trace("  \(key): latest answer not on screen yet, card without a quote")
+            }
+            if let answer { earlier[key, default: []].insert(answer) }
+            AgentActivity.shared.finished(.claude, key: key, title: chat.title, message: message,
+                                          duration: was.sawStart ? end.timeIntervalSince(was.since) : nil, source: .window,
+                                          opener: .claudeChat(chat), at: end, startUnknown: !was.sawStart)
+        }
     }
 
     private func updatePrompts(_ seen: [String: Look]) {
