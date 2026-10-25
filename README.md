@@ -146,8 +146,7 @@ resource use low. Ideas behind the features: [IDEAS.md](IDEAS.md).
 
 - [Codex Auto Resume](https://github.com/progressrdx/codex-auto-resume) by progressrdx showed that
   continuing Codex after a limit reset can be done safely. Since version 1.3 Cooldown's auto-continue is
-  its own implementation, written from a specification without that project's code
-  ([docs/clean-room](docs/clean-room)).
+  its own implementation, written from a specification without that project's code.
 
 ## License
 
