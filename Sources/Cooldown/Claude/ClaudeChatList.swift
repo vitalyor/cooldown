@@ -158,9 +158,27 @@ final class ClaudeChatList: ObservableObject {
         let id = key.hasPrefix("chat:") ? String(key.dropFirst(5)) : key
         guard let entry = entries.first(where: { !$0.chat.id.isEmpty && $0.chat.id == id }) else { return }
         ToastController.shared.dismiss(key: "claude-chat-\(entry.id)")
-        if entries.count == 1 {
+    }
+
+    /// A reset card was answered or closed, on the Mac or on the phone: it is not offered again.
+    func cardClosed(_ key: String) {
+        if key.hasPrefix("claude-chat-") || key == "claude-chats-all" { cardsWaiting = false }
+    }
+
+    /// Every half minute: a reset card still unanswered is shown again where it can be seen — on the
+    /// Mac when someone is there, otherwise on the phone. Once the limit runs out again it is moot.
+    func offerAgain() {
+        guard cardsWaiting else { return }
+        let cards = resetCards()
+        if cards.isEmpty || AgentActivity.spent(.claude) != nil {
             cardsWaiting = false
-            ToastController.shared.dismiss(key: "claude-chats-all")
+            cards.forEach { ToastController.shared.dismiss(key: $0.key) }
+            return
+        }
+        if ToastController.shared.canShow, !QuietHours.active, ToastController.idleSeconds < 60 {
+            for card in cards where !ToastController.shared.isShowing(card.key) { ToastController.shared.show(card) }
+        } else {
+            cards.forEach { PhoneLink.shared.forward($0) }
         }
     }
 

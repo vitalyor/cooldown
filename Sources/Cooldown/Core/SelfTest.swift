@@ -80,6 +80,14 @@ enum SelfTest {
         expect(PhoneLink.actionID(.continueAfterReset(opener)) == "afterReset", "continue after reset is a phone button")
         expect(PhoneLink.actionID(.remindBeforeReset(.codex, Date())) == nil, "reminders stay on the Mac")
 
+        let list = ClaudeChatList.shared
+        let wasWaiting = list.cardsWaiting
+        list.cardsWaiting = true
+        list.cardClosed("finished-claude:x")
+        expect(list.cardsWaiting, "other cards leave the Continue offer open")
+        list.cardClosed("claude-chat-x")
+        expect(!list.cardsWaiting, "a closed Continue card is not offered again")
+        list.cardsWaiting = wasWaiting
         return failures
     }
 }

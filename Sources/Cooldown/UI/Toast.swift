@@ -263,6 +263,10 @@ final class ToastController: ObservableObject {
         CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: CGEventType(rawValue: ~0)!)
     }
 
+    func isShowing(_ key: String) -> Bool {
+        cards.contains { $0.content.key == key } || waiting.contains { $0.key == key }
+    }
+
     func dismiss(key: String) {
         PhoneLink.shared.resolve(key)
         waiting.removeAll { $0.key == key }
@@ -439,8 +443,6 @@ final class ToastController: ObservableObject {
         relayout(animated: true)
         if !waiting.isEmpty, cards.count < Self.maxVisible { present(waiting.removeFirst()) }
     }
-
-    func dismissAll() { cards.forEach(remove) }
 
     private func perform(_ action: ToastAction, from card: Card) {
         PhoneLink.shared.resolve(card.content.key)

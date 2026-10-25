@@ -281,6 +281,7 @@ final class PhoneLink: ObservableObject {
 
     /// A card was answered or closed on the Mac: it goes away on the phone as well.
     func resolve(_ key: String, by: String = "mac") {
+        ClaudeChatList.shared.cardClosed(key)
         guard let item = cards.removeValue(forKey: key) else { return }
         send(.resolve(key, by: by), ttl: 12 * 3600,
              push: item.pushed ? LinkPush(remove: [item.card.collapseID], silent: true) : nil)
@@ -694,7 +695,7 @@ final class PhoneLink: ObservableObject {
         default: typesIntoClaude = false
         }
         // Answered from the phone: the Mac does not bring the same card up again later.
-        if typesIntoClaude { ClaudeChatList.shared.cardsWaiting = false }
+        ClaudeChatList.shared.cardClosed(key)
         if typesIntoClaude && ToastController.screenLocked {
             afterUnlock.append((cmd, phone, Date()))
             note(phone, L("«%@» — после разблокировки", "\(action.title)"), provider: content.provider)

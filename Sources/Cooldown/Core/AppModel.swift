@@ -301,11 +301,7 @@ final class AppModel: ObservableObject {
                     MorningSummary.check()
                     Insights.checkWeek()
                     Insights.checkDay()
-                    if ClaudeChatList.shared.cardsWaiting, ToastController.shared.canShow, !QuietHours.active,
-                       ToastController.idleSeconds < 60 {
-                        ClaudeChatList.shared.cardsWaiting = false
-                        ClaudeChatList.shared.limitReset()
-                    }
+                    ClaudeChatList.shared.offerAgain()
                     AppModel.shared.checkResets()
                 }
             },
@@ -439,12 +435,13 @@ final class AppModel: ObservableObject {
             if provider == .claude, !isRenderMode, !ClaudeChatList.shared.entries.isEmpty {
                 EventLog.shared.add(CooldownEvent(kind: .reset, provider: .claude, title: L("Лимит Claude восстановлен"),
                                                   body: L("Ждут продолжения: ") + ClaudeChatList.shared.entries.map { "«\($0.chat.title)»" }.joined(separator: ", ")))
+                // Open until answered or closed, here or on the phone, even across a restart.
+                ClaudeChatList.shared.cardsWaiting = true
                 if ToastController.shared.canShow && !QuietHours.active {
                     ClaudeChatList.shared.limitReset()
                     continue
                 }
-                // Away: the cards wait until someone is back at the Mac; the phone gets them now.
-                ClaudeChatList.shared.cardsWaiting = true
+                // Away: the phone gets them now; the Mac shows them when someone is back.
                 ClaudeChatList.shared.resetCards().forEach { PhoneLink.shared.forward($0) }
             }
             if Settings.notifyReset && !isRenderMode {
