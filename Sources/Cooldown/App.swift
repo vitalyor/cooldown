@@ -169,6 +169,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MainActor.assumeIsolated {
             AppModel.shared.start()
             PhoneLink.shared.start()
+            // Diagnostics: a harmless card that should reach paired phones as a notification.
+            if CommandLine.arguments.contains("--link-test-card") {
+                UserDefaults.standard.set(true, forKey: SettingsKey.phoneAlways)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
+                    ToastController.shared.show(ToastContent(key: "link-test", kind: .info, provider: nil, title: L("Проверка связи"),
+                                                             body: L("Если это видно на iPhone, уведомления работают.") + " " + Format.time(Date()), life: .auto(10)))
+                }
+            }
             // Diagnostics: turn the iPhone link on and write a pairing link to the given file.
             if let i = CommandLine.arguments.firstIndex(of: "--link-invite"), i + 1 < CommandLine.arguments.count {
                 let path = CommandLine.arguments[i + 1]

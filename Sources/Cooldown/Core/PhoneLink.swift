@@ -35,7 +35,9 @@ final class PhoneLink: ObservableObject {
     /// Commands that type into Claude, waiting for the Mac to be unlocked.
     private var afterUnlock: [(cmd: LinkCommand, phone: String)] = []
 
-    private var liveOn = false
+    private var liveOn = UserDefaults.standard.bool(forKey: "phoneLiveOn") {
+        didSet { UserDefaults.standard.set(liveOn, forKey: "phoneLiveOn") }
+    }
     private var lastLive: LiveState?
     private var lastLiveSent = Date.distantPast
 
@@ -177,6 +179,9 @@ final class PhoneLink: ObservableObject {
         struct Rows: Decodable { var devices: [LinkDeviceRow] }
         if let rows = try? await LinkHTTP.json(Rows.self, account.relay, "GET", "v1/devices", token: account.token) {
             devices = rows.devices.filter { $0.role == "phone" }
+            // A phone the relay no longer knows was unpaired elsewhere: stop sealing boxes for it.
+            let known = Set(rows.devices.map(\.id))
+            for peer in account.peers where !known.contains(peer.id) { forget(peer.id) }
         }
     }
 
@@ -233,7 +238,7 @@ final class PhoneLink: ObservableObject {
 
     static func actionID(_ action: ToastAction) -> String? {
         switch action {
-        case .continueClaude: return "continue"
+        case .continueClaude(let demo): return demo ? nil : "continue" // a sample card sends nothing
         case .continueClaudeChat: return "continueChat"
         case .continueAllClaude: return "continueAll"
         case .remindBeforeReset: return "remind"
@@ -347,7 +352,9 @@ final class PhoneLink: ObservableObject {
         }
         let codex = limit("codex"), claude = limit("claude")
         let working = state.agents.filter(\.working).map(\.provider)
-        let waiting = state.watches.count
+        // Waiting means waiting for a limit now: Codex tasks stopped by it, Claude chats while its limit is spent.
+        let claudeSpent = AgentActivity.spent(.claude) != nil
+        let waiting = state.watches.filter { $0.provider == "codex" ? ["quota_limited", "waiting_reset"].contains($0.state) : claudeSpent }.count
         let ready = state.cards.filter { $0.kind == "reset" && !$0.actions.isEmpty }.count
         let threshold = Double(Settings.phoneLiveThreshold)
         let high = [codex, claude].compactMap { $0?.session }.contains { $0 >= threshold }
