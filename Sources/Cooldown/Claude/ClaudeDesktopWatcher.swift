@@ -270,7 +270,7 @@ final class ClaudeDesktopWatcher {
         while let element = stack.popLast(), visited < 8000 {
             visited += 1
             // One request for the three things needed from each element.
-            let values = ClaudeSender.values(element, [kAXRoleAttribute, kAXDescriptionAttribute, kAXChildrenAttribute, kAXTitleAttribute])
+            let values = ClaudeSender.values(element, [kAXRoleAttribute, kAXDescriptionAttribute, kAXChildrenAttribute, kAXTitleAttribute, kAXValueAttribute])
             let role = values[0] as? String
             if role == "AXWebArea", chat == nil, let found = ClaudeSender.chat(of: element) {
                 chat = found
@@ -289,6 +289,14 @@ final class ClaudeDesktopWatcher {
                         answer = String(label[range.upperBound...]).trimmingCharacters(in: .whitespaces)
                         break
                     }
+                }
+            }
+            // Newer versions of the app put the same words in a hidden heading of each message
+            // instead of on its buttons.
+            if role == "AXStaticText", let text = values[4] as? String {
+                for marker in answerMarkers where text.hasPrefix(marker) {
+                    answer = String(text.dropFirst(marker.count)).trimmingCharacters(in: .whitespaces)
+                    break
                 }
             }
             // Web buttons carry their words as a description or as a title.
