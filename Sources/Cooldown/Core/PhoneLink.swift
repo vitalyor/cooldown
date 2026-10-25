@@ -425,9 +425,11 @@ final class PhoneLink: ObservableObject {
             guard urgent || Date().timeIntervalSince(lastLiveSent) > 60 else { return }
             lastLive = live
             lastLiveSent = Date()
-            // A new card that asks for a press also makes a sound and lights the screen.
-            let alert = live.card != nil && previous.card?.id != live.card?.id ? LiveAlert(title: "Cooldown", body: live.card!.title) : nil
-            client.send(.live("update", live, alert: alert, stale: Date().addingTimeInterval(1800), urgent: urgent))
+            // A new card that asks for a press is started afresh (in case the last one was swiped
+            // away), with a sound; the phone keeps only the newest Live Activity.
+            let fresh = live.card != nil && previous.card?.id != live.card?.id
+            let alert = fresh ? LiveAlert(title: "Cooldown", body: live.card!.title) : nil
+            client.send(.live(fresh ? "start" : "update", live, alert: alert, stale: Date().addingTimeInterval(1800), urgent: urgent))
         } else if liveOn {
             liveOn = false
             let last = lastLive ?? LiveState(codex: nil, claude: nil, working: [], waiting: 0, ready: 0)
