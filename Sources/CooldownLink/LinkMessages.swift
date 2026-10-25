@@ -123,7 +123,7 @@ public struct LinkChat: Codable, Equatable, Identifiable, Sendable {
 }
 
 public struct LinkCommand: Codable, Equatable, Sendable {
-    public enum Op: String, Codable, Sendable { case cardAct = "card.act", chats, watch, refresh, cancel }
+    public enum Op: String, Codable, Sendable { case cardAct = "card.act", chats, watch, refresh }
     public var id: String
     public var op: Op
     public var args: [String: String]

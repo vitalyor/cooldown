@@ -431,6 +431,8 @@ final class AppModel: ObservableObject {
                 continue
             }
             Settings.setPendingReset(provider, nil)
+            // "Limit spent" is over: off the Mac and the phone.
+            ToastController.shared.dismiss(key: "out-\(provider.rawValue)")
             // Watched Codex tasks re-read the limits right away (they also wake at the reset by themselves).
             if provider == .codex { AutoResume.shared.pokeAll(after: 15) }
             // Chats chosen for Claude get their own "Продолжить «…»?" cards.
@@ -441,8 +443,9 @@ final class AppModel: ObservableObject {
                     ClaudeChatList.shared.limitReset()
                     continue
                 }
-                // Away: the cards wait until someone is back at the Mac.
+                // Away: the cards wait until someone is back at the Mac; the phone gets them now.
                 ClaudeChatList.shared.cardsWaiting = true
+                ClaudeChatList.shared.resetCards().forEach { PhoneLink.shared.forward($0) }
             }
             if Settings.notifyReset && !isRenderMode {
                 Notifier.shared.post(id: "reset-\(provider.rawValue)-\(Int(pending.timeIntervalSince1970))",

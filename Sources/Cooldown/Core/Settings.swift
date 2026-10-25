@@ -37,7 +37,6 @@ enum SettingsKey {
     static let phoneRelay = "phoneRelay"
     static let phoneAlways = "phoneAlways"
     static let phoneLive = "phoneLive"
-    static let phoneLiveThreshold = "phoneLiveThreshold"
     static let haDevice = "haDevice"
     static let haLive = "haLive"
     static let haNotify = "haNotify"
@@ -128,12 +127,11 @@ enum Settings {
         set { defaults.set(Array(newValue.suffix(80)), forKey: SettingsKey.notifiedKeys) }
     }
 
-    /// Cooldown for iPhone: on, notifications even while someone is at the Mac, the Live Activity
-    /// and the share of the 5-hour window that starts it.
+    /// Cooldown for iPhone: on, notifications even while someone is at the Mac, and the Live
+    /// Activity with buttons and the countdown to a reset.
     static var phoneLink: Bool { bool(SettingsKey.phoneLink, false) }
     static var phoneAlways: Bool { bool(SettingsKey.phoneAlways, false) }
     static var phoneLive: Bool { bool(SettingsKey.phoneLive, true) }
-    static var phoneLiveThreshold: Int { defaults.object(forKey: SettingsKey.phoneLiveThreshold) as? Int ?? 80 }
 
     private static func bool(_ key: String, _ fallback: Bool) -> Bool {
         defaults.object(forKey: key) as? Bool ?? fallback

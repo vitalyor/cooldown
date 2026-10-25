@@ -76,6 +76,7 @@ final class AgentActivity: ObservableObject {
     func started(_ provider: ProviderID, key: String, title: String, source: Source, at date: Date = Date()) {
         if sessions["\(provider.rawValue):\(key)"] == nil { Self.trace("start \(provider.rawValue) \(source.rawValue) \(key) «\(title)»") }
         let id = "\(provider.rawValue):\(key)"
+        if provider == .claude { ClaudeChatList.shared.chatStarted(key) }
         if var existing = sessions[id] {
             existing.state = .working
             existing.updated = date

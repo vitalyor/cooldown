@@ -58,6 +58,28 @@ enum SelfTest {
         expect(AppLanguage.pluralIndex(1, forms: 3) == 0 && AppLanguage.pluralIndex(3, forms: 3) == 1
                && AppLanguage.pluralIndex(11, forms: 3) == 2 && AppLanguage.pluralIndex(22, forms: 3) == 1, "plural forms")
         expect(Format.word(5, "a|b|c") == "c" || Format.word(5, "a|b|c") == "b", "plural words")
+        // iPhone: what goes where, and nothing private reaches the Live Activity.
+        let request = ToastContent(key: "req-x", kind: .attention, provider: .codex, title: "Секретный чат", body: "rm -rf build", // l10n:skip
+                                   choices: [RequestChoice(id: "allow", title: "OK", role: .allow), // l10n:skip
+                                             RequestChoice(id: "open", title: "Open", role: .open)]) // l10n:skip
+        let requestCard = PhoneLink.card(request)
+        expect(requestCard.actions.map(\.id) == ["choice:allow"], "phone gets the answers, not 'open'")
+        expect(requestCard.actions.first?.auth == true, "allowing needs Face ID")
+        let item = PhoneLink.liveItem(requestCard)
+        expect(!item.title.contains("Секретный") && !item.title.contains("rm -rf"), "Lock Screen title is general") // l10n:skip
+        expect(PhoneLink.shared.delivery(request, card: requestCard, away: false) == .live, "a request goes to the Live Activity")
+        let finished = ToastContent(key: "finished-x", kind: .finished, provider: .codex, title: "T", body: "B",
+                                    actions: [.openCodexThread("t1")])
+        let finishedCard = PhoneLink.card(finished)
+        expect(finishedCard.actions.map(\.id) == ["reply"] && finishedCard.actions.first?.input == true, "a finished chat can be answered")
+        expect(PhoneLink.shared.delivery(finished, card: finishedCard, away: false) == .none, "nothing on the phone while at the Mac")
+        expect(PhoneLink.shared.delivery(finished, card: finishedCard, away: true) != .none, "finished reaches the phone when away")
+        let pace = ToastContent(key: "pace-codex", kind: .info, provider: .codex, title: "T", body: "B")
+        expect(PhoneLink.shared.delivery(pace, card: PhoneLink.card(pace), away: true) == .none, "numbers stay off the phone")
+        let opener = AgentActivity.Opener.codexThread("t2")
+        expect(PhoneLink.actionID(.continueAfterReset(opener)) == "afterReset", "continue after reset is a phone button")
+        expect(PhoneLink.actionID(.remindBeforeReset(.codex, Date())) == nil, "reminders stay on the Mac")
+
         return failures
     }
 }

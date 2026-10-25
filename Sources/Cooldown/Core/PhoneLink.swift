@@ -32,14 +32,15 @@ final class PhoneLink: ObservableObject {
     private var cards: [String: (content: ToastContent, card: LinkCard, pushed: Bool)] = [:]
     /// Commands already carried out, for a day, so a repeated one does nothing.
     private var done: [String: Date] = [:]
-    /// Commands that type into Claude, waiting for the Mac to be unlocked.
-    private var afterUnlock: [(cmd: LinkCommand, phone: String)] = []
+    /// Commands that type into Claude, waiting for the Mac to be unlocked (for as long as they live).
+    private var afterUnlock: [(cmd: LinkCommand, phone: String, at: Date)] = []
 
     private var liveOn = UserDefaults.standard.bool(forKey: "phoneLiveOn") {
         didSet { UserDefaults.standard.set(liveOn, forKey: "phoneLiveOn") }
     }
     private var lastLive: LiveState?
-    private var lastLiveSent = Date.distantPast
+    private var countdownEnd: Task<Void, Never>?
+    private var endSent = false
 
     var paired: Bool { !(account?.peers.isEmpty ?? true) }
     var relay: URL { URL(string: UserDefaults.standard.string(forKey: SettingsKey.phoneRelay) ?? "") ?? Self.defaultRelay }
@@ -225,8 +226,10 @@ final class PhoneLink: ObservableObject {
         guard away else { return .none }
         // Reference, not news: numbers, summaries and the Mac's own business stay in the app.
         let quiet = ["low-", "pace-", "week", "day-", "morning", "project-", "report-", "update", "github-update",
-                     "remind-set-", "claude-all-done", "task-"]
+                     "remind-set-", "claude-all-done"]
         if quiet.contains(where: { key.hasPrefix($0) }) && content.kind != .attention && content.kind != .finished { return .none }
+        // "Waits for the reset": the Live Activity counts that down already.
+        if content.kind == .waiting { return .none }
         // Night: only an agent that needs an answer is worth waking for.
         if QuietHours.active && content.kind != .attention { return .alert(sound: false, level: "passive") }
         switch content.kind {
@@ -406,11 +409,16 @@ final class PhoneLink: ObservableObject {
             LinkWatch(provider: "codex", id: w.threadId, title: model.knownTitle(w.threadId) ?? L("Без названия"),
                       state: w.status, detail: w.reason, resumes: w.attempts, max: w.maxResumes)
         }
+        // A chosen Claude chat waits only while the limit is spent; otherwise it is just looked after.
+        let claudeReset = AgentActivity.spent(.claude, now: now)
         watches += ClaudeChatList.shared.entries.map { e in
-            LinkWatch(provider: "claude", id: e.id, title: e.chat.title, state: "waiting_reset",
-                      detail: L("После сброса придёт карточка «Продолжить»."), at: model.claude.snapshot?.session?.resetsAt)
+            LinkWatch(provider: "claude", id: e.id, title: e.chat.title, state: claudeReset != nil ? "waiting_reset" : "watching",
+                      detail: claudeReset != nil ? L("После сброса придёт карточка «Продолжить».")
+                                                 : L("Упрётся в лимит — после сброса придёт карточка «Продолжить»."),
+                      at: claudeReset)
         }
-        let open = cards.values.map(\.card).filter { ($0.expires ?? .distantFuture) > now }.sorted { $0.created > $1.created }
+        cards = cards.filter { ($0.value.card.expires ?? .distantFuture) > now }
+        let open = cards.values.map(\.card).sorted { $0.created > $1.created }
         let mac = LinkMac(name: Host.current().localizedName ?? "Mac", version: GitHubUpdater.current,
                           locked: ToastController.screenLocked, language: AppLanguage.code)
         let live = liveState(limits: limits, agents: agents, watches: watches, cards: open)
@@ -496,7 +504,9 @@ final class PhoneLink: ObservableObject {
     private func live(_ state: LinkState) {
         guard let client else { return }
         guard var live = state.live else {
-            if liveOn {
+            // Also once per connection: a Live Activity the Mac lost track of (a restart) goes too.
+            if liveOn || !endSent {
+                endSent = true
                 liveOn = false
                 lastLive = nil
                 // Nothing left to press or wait for: gone at once.
@@ -505,6 +515,16 @@ final class PhoneLink: ObservableObject {
             return
         }
         live.updated = Date().timeIntervalSince1970
+        // When a countdown runs out, look again: the limit is back and the countdown goes.
+        countdownEnd?.cancel()
+        if let next = live.countdowns.map(\.until).min() {
+            let wait = max(1, next - Date().timeIntervalSince1970 + 3)
+            countdownEnd = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(wait))
+                guard !Task.isCancelled else { return }
+                self?.publishState()
+            }
+        }
         var previous = lastLive
         previous?.updated = live.updated
         if liveOn, previous == live { return }
@@ -522,7 +542,6 @@ final class PhoneLink: ObservableObject {
         }
         liveOn = true
         lastLive = live
-        lastLiveSent = Date()
         // Something new starts afresh (in case the last one was swiped away); the phone keeps one.
         client.send(.live(fresh ? "start" : "update", live, alert: alert, stale: Date().addingTimeInterval(1800), urgent: true))
     }
@@ -533,6 +552,7 @@ final class PhoneLink: ObservableObject {
         switch frame.t {
         case "ready":
             lastState = nil
+            endSent = false
             publishState(now: true)
             Task { await refreshDevices() }
         case "paired":
@@ -616,11 +636,6 @@ final class PhoneLink: ObservableObject {
             lastState = nil
             publishState(now: true)
             return ok("")
-        case .cancel:
-            let target = cmd.args["cmd"] ?? ""
-            let before = afterUnlock.count
-            afterUnlock.removeAll { $0.cmd.id == target }
-            return before != afterUnlock.count ? ok(L("Отменено.")) : LinkResult(cmd: cmd.id, code: "stale", text: L("Уже выполнено или отменено."))
         case .chats:
             return await chats(cmd)
         case .watch:
@@ -631,20 +646,11 @@ final class PhoneLink: ObservableObject {
     }
 
     private func act(_ cmd: LinkCommand, from phone: String) async -> LinkResult {
-        var key = cmd.args["key"] ?? "", actionID = cmd.args["action"] ?? ""
+        var key = cmd.args["key"] ?? ""
+        let actionID = cmd.args["action"] ?? ""
         // From a Live Activity button: the card by its opaque id.
         if key.hasPrefix("#"), let found = cards.first(where: { $0.value.card.collapseID == String(key.dropFirst()) }) {
             key = found.key
-        }
-        // From the Live Activity: the newest card that continues a chat whose limit came back.
-        if key == "@ready" {
-            let ready = cards.values.filter { $0.content.kind == .reset }.sorted { $0.card.created > $1.card.created }
-                .first { $0.card.actions.contains { $0.id.hasPrefix("continue") } }
-            guard let ready else {
-                return LinkResult(cmd: cmd.id, code: "stale", text: L("Нечего продолжать: карточка уже закрыта."))
-            }
-            key = ready.content.key
-            actionID = ready.card.actions.first { $0.id.hasPrefix("continue") }?.id ?? ""
         }
         guard let item = cards[key] else {
             return LinkResult(cmd: cmd.id, code: "stale", text: L("Уже не актуально: карточку закрыли или ответили на Mac."))
@@ -652,9 +658,7 @@ final class PhoneLink: ObservableObject {
         let content = item.content
         if key.hasPrefix("linkdemo") {
             // A sample card: the press made it all the way here, and nothing is done.
-            cards.removeValue(forKey: key)
-            send(.resolve(key, by: phone), ttl: 3600, push: LinkPush(remove: [item.card.collapseID], silent: true))
-            scheduleState()
+            resolve(key, by: phone)
             return LinkResult(cmd: cmd.id, code: "ok", text: L("Пример · ничего не отправлено"))
         }
         if actionID.hasPrefix("choice:") {
@@ -689,8 +693,10 @@ final class PhoneLink: ObservableObject {
         case .continueClaude, .continueClaudeChat, .continueAllClaude: typesIntoClaude = true
         default: typesIntoClaude = false
         }
+        // Answered from the phone: the Mac does not bring the same card up again later.
+        if typesIntoClaude { ClaudeChatList.shared.cardsWaiting = false }
         if typesIntoClaude && ToastController.screenLocked {
-            afterUnlock.append((cmd, phone))
+            afterUnlock.append((cmd, phone, Date()))
             note(phone, L("«%@» — после разблокировки", "\(action.title)"), provider: content.provider)
             return LinkResult(cmd: cmd.id, code: "locked", text: L("Mac заблокирован. Отправлю, как только его разблокируют."))
         }
@@ -716,15 +722,6 @@ final class PhoneLink: ObservableObject {
             case .continueAfterReset(let opener):
                 let text = await AgentActivity.continueAfterReset(opener)
                 return LinkResult(cmd: cmd.id, code: "ok", text: text)
-            case .remindBeforeReset(let p, let reset):
-                ResetReminder.set(p, reset: reset)
-                return LinkResult(cmd: cmd.id, code: "ok", text: L("Напомню за 10 минут до сброса."))
-            case .installUpdate:
-                UpdateWatch.install()
-                return LinkResult(cmd: cmd.id, code: "ok", text: L("Cooldown на Mac перезапускается с новой версией."))
-            case .installRelease:
-                Task { await GitHubUpdater.shared.install() }
-                return LinkResult(cmd: cmd.id, code: "ok", text: L("Cooldown на Mac обновляется."))
             default:
                 return LinkResult(cmd: cmd.id, code: "unknown", text: L("Это действие доступно только на Mac."))
             }
@@ -748,7 +745,7 @@ final class PhoneLink: ObservableObject {
             }
         case .claudeChat(let chat):
             if ToastController.screenLocked {
-                afterUnlock.append((cmd, phone))
+                afterUnlock.append((cmd, phone, Date()))
                 return LinkResult(cmd: cmd.id, code: "locked", text: L("Mac заблокирован. Отправлю, как только его разблокируют."))
             }
             do {
@@ -766,9 +763,9 @@ final class PhoneLink: ObservableObject {
 
     private func runAfterUnlock() {
         guard !afterUnlock.isEmpty, !ToastController.screenLocked else { return }
-        let waiting = afterUnlock
+        let waiting = afterUnlock.filter { Date().timeIntervalSince($0.at) < $0.cmd.ttl }
         afterUnlock = []
-        for (cmd, phone) in waiting {
+        for (cmd, phone, _) in waiting {
             Task {
                 let result: LinkResult
                 if cmd.op == .watch {
@@ -826,7 +823,7 @@ final class PhoneLink: ObservableObject {
                 return ok(L("«%@» больше не ждёт сброса.", "\(title)"))
             case "now":
                 if ToastController.screenLocked {
-                    afterUnlock.append((cmd, phone))
+                    afterUnlock.append((cmd, phone, Date()))
                     return LinkResult(cmd: cmd.id, code: "locked", text: L("Mac заблокирован. Отправлю, как только его разблокируют."))
                 }
                 note(phone, L("продолжить «%@»", "\(title)"), provider: .claude)

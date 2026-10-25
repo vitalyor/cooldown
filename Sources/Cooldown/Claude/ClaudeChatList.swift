@@ -149,22 +149,38 @@ final class ClaudeChatList: ObservableObject {
     /// The Claude limit is back. One chat: a card for it. Several: one card that continues them
     /// all, one after another, with a single press.
     func limitReset() {
+        resetCards().forEach { ToastController.shared.show($0) }
+    }
+
+    /// A chosen chat is working again (continued here, by hand or from the phone): its
+    /// "Continue" card is done, on the Mac and on the phone.
+    func chatStarted(_ key: String) {
+        let id = key.hasPrefix("chat:") ? String(key.dropFirst(5)) : key
+        guard let entry = entries.first(where: { !$0.chat.id.isEmpty && $0.chat.id == id }) else { return }
+        ToastController.shared.dismiss(key: "claude-chat-\(entry.id)")
+        if entries.count == 1 {
+            cardsWaiting = false
+            ToastController.shared.dismiss(key: "claude-chats-all")
+        }
+    }
+
+    /// The cards for a Claude reset, shown on the Mac or sent to the phone.
+    func resetCards() -> [ToastContent] {
         if entries.count >= 2 {
             let chats = entries.map(\.chat)
             let names = chats.prefix(4).map { "«\($0.title)»" }.joined(separator: ", ") + (chats.count > 4 ? L(" и ещё %@", "\(chats.count - 4)") : "")
-            ToastController.shared.show(ToastContent(
+            return [ToastContent(
                 key: "claude-chats-all", kind: .reset, provider: .claude,
                 title: L("Лимит Claude восстановился"),
                 body: L("Ждут продолжения: %@. Cooldown откроет их по очереди и отправит «%@».", "\(names)", "\(ClaudeSender.text)"),
-                actions: [.continueAllClaude(chats), .openPanel], life: .sticky))
-            return
+                actions: [.continueAllClaude(chats), .openPanel], life: .sticky)]
         }
-        for entry in entries.prefix(1) {
-            ToastController.shared.show(ToastContent(
+        return entries.prefix(1).map { entry in
+            ToastContent(
                 key: "claude-chat-\(entry.id)", kind: .reset, provider: .claude,
                 title: L("Продолжить «%@»?", "\(entry.chat.title)"),
                 body: L("Лимит Claude восстановился. Cooldown откроет этот чат и отправит «%@».", "\(ClaudeSender.text)"),
-                actions: [.continueClaudeChat(entry.chat), .openClaude], life: .sticky))
+                actions: [.continueClaudeChat(entry.chat), .openClaude], life: .sticky)
         }
     }
 

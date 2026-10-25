@@ -167,8 +167,6 @@
 "Cooldown запустит задачу в Codex, как только у него будет лимит." = "Cooldown lancera la tâche dans Codex dès qu’il aura de la limite.";
 "Cooldown запустится сам после перезагрузки Mac." = "Cooldown se lancera tout seul après le redémarrage du Mac.";
 "Cooldown на Mac" = "Cooldown sur le Mac";
-"Cooldown на Mac обновляется." = "Cooldown se met à jour sur le Mac.";
-"Cooldown на Mac перезапускается с новой версией." = "Cooldown redémarre sur le Mac avec la nouvelle version.";
 "Cooldown на связи" = "Cooldown est connecté";
 "Cooldown обновлён до %@" = "Cooldown mis à jour vers %@";
 "Cooldown открывает в Claude Code экран /usage, как если бы вы набрали команду сами. Запросов к модели нет, токены не тратятся. Лимиты общие для подписки, поэтому учитывается и расход в Claude Desktop." = "Cooldown ouvre l’écran /usage dans Claude Code, comme si vous tapiez la commande vous-même. Aucune requête au modèle, aucun token dépensé. Les limites sont communes à l’abonnement, donc l’usage de Claude Desktop compte aussi.";
@@ -500,7 +498,6 @@
 "Напомнить за 10 мин" = "Rappel 10 min avant";
 "Напомнить за 10 минут" = "Me le rappeler 10 minutes avant";
 "Напомню в %@" = "Rappel à %@";
-"Напомню за 10 минут до сброса." = "Je vous le rappellerai 10 minutes avant la réinitialisation.";
 "Настройки (⌘,)" = "Réglages (⌘,)";
 "Настройки Cooldown" = "Réglages de Cooldown";
 "Настройки уведомлений" = "Réglages des notifications";
@@ -548,6 +545,7 @@
 "Не удалось: «" = "Échec : « ";
 "Не указан диалог." = "Aucune conversation indiquée.";
 "Не установлено" = "Non installé";
+"Недавнее" = "Récent";
 "Недавние" = "Récentes";
 "Неделя" = "Semaine";
 "Неделя пока пустая" = "La semaine est encore vide";
@@ -570,7 +568,6 @@
 "Нет связи с сервером Cooldown. Откройте приложение и нажмите ещё раз." = "Pas de connexion au serveur Cooldown. Ouvrez l’app et appuyez à nouveau.";
 "Нет связи с сервером — повторю сам" = "Pas de connexion au serveur — je réessaierai tout seul";
 "Нет хука разрешений" = "Pas de hook d’autorisation";
-"Нечего продолжать: карточка уже закрыта." = "Rien à reprendre : la carte est déjà fermée.";
 "Новая версия загружается и проверяется заранее, а ставится одним нажатием — на карточке или здесь." = "Une nouvelle version est téléchargée et vérifiée à l’avance, puis installée d’un clic — sur la carte ou ici.";
 "Новая версия подписана не тем же сертификатом — не устанавливаю." = "La nouvelle version n’est pas signée avec le même certificat — pas d’installation.";
 "Новая версия ставится сама, когда Mac пару минут без дела. Перед установкой проверяются контрольная сумма и подпись тем же сертификатом." = "Une nouvelle version s’installe d’elle-même quand le Mac reste inactif quelques minutes. La somme de contrôle et la signature par le même certificat sont vérifiées avant l’installation.";
@@ -658,7 +655,6 @@
 "Откуда брать лимиты" = "Source des limites";
 "Отложить задачу" = "Planifier une tâche";
 "Отмена" = "Annuler";
-"Отменено." = "Annulé.";
 "Отменить" = "Annuler";
 "Отмеченные разговоры Codex Cooldown продолжит сам, как только лимит сбросится." = "Cooldown reprend tout seul les conversations Codex cochées dès que la limite est réinitialisée.";
 "Отправить" = "Envoyer";
@@ -691,6 +687,7 @@
 "Повторная проверка" = "Nouvelle vérification";
 "Под наблюдением" = "Sous surveillance";
 "Под наблюдением %@ из %@" = "Observées : %@ sur %@";
+"Под присмотром" = "Sous surveillance";
 "Подключаюсь…" = "Connexion…";
 "Подключаю…" = "Connexion…";
 "Подключена, прежняя команда работает дальше." = "Connectée ; la commande précédente continue de fonctionner.";
@@ -716,6 +713,7 @@
 "Пока ни одного iPhone" = "Aucun iPhone pour l’instant";
 "Пока ничего не произошло. Здесь появятся сбросы лимитов, продолженные и законченные задачи." = "Rien ne s’est encore passé. Les réinitialisations de limite et les tâches reprises ou terminées apparaîtront ici.";
 "Показать" = "Montrer";
+"Показать все (%@)" = "Tout afficher (%@)";
 "Показать примеры карточек" = "Montrer des exemples de cartes";
 "Показывать" = "Afficher";
 "Показывать, когда агент работает" = "Montrer quand un agent travaille";
@@ -813,6 +811,7 @@
 "Сброс в %@ — через 10 минут." = "Réinitialisation à %@ — dans 10 minutes.";
 "Сброс в %@. Самое время приготовить следующую задачу." = "Réinitialisation à %@. Bon moment pour préparer la tâche suivante.";
 "Сброс через" = "Réinitialisation dans";
+"Свернуть" = "Afficher moins";
 "Сводки" = "Bilans";
 "Свой ответ в чате" = "Ma réponse dans le chat";
 "Свой ответ там" = "Ma réponse là-bas";
@@ -901,7 +900,6 @@
 "Уведомления и Live Activity с лимитами будут приходить сюда." = "Les notifications et une Activité en direct avec vos limites arriveront ici.";
 "Уведомления, когда вы не за Mac" = "Notifications quand vous n’êtes pas devant le Mac";
 "Уведомлять, даже когда я за Mac" = "Me notifier même quand je suis au Mac";
-"Уже выполнено или отменено." = "Déjà fait ou annulé.";
 "Уже не актуально." = "Plus d’actualité.";
 "Уже не актуально: агент больше не ждёт ответа." = "Plus d’actualité : l’agent n’attend plus de réponse.";
 "Уже не актуально: карточку закрыли или ответили на Mac." = "Plus d’actualité : la carte a été fermée ou a reçu une réponse sur le Mac.";
@@ -909,6 +907,7 @@
 "Универсальный доступ" = "Accessibilité";
 "Упирались в лимит" = "Limite atteinte";
 "Упирались в лимит: " = "Limite atteinte : ";
+"Упрётся в лимит — после сброса придёт карточка «Продолжить»." = "S’il atteint la limite, une carte « Continuer » arrivera après la réinitialisation.";
 "Устанавливаю %@…" = "Installation de %@…";
 "Установите Claude Code или откройте вкладку Code в Claude Desktop один раз." = "Installez Claude Code ou ouvrez une fois l’onglet « Code » dans Claude Desktop.";
 "Установлена последняя %@" = "La dernière version %@ est installée";

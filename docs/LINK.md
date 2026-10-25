@@ -96,24 +96,62 @@ Every frame is JSON with a type `t`:
 
 | `m` | From | Fields |
 |---|---|---|
-| `state` | Mac | `limits`, `agents`, `watches`, `mac` |
-| `card` | Mac | `card {key, kind, provider, title, body, actions [{id, title, style}], created, expires}` |
+| `state` | Mac | `limits`, `agents`, `watches`, `cards`, `mac`, `live` |
+| `card` | Mac | `card {key, kind, provider, title, body, actions [{id, title, style, auth, input}], created, expires}` |
 | `resolve` | both | `key`, `by`: a card was answered or closed somewhere |
 | `cmd` | phone | `id`, `op`, `args` |
-| `result` | Mac | `cmd`, `ok`, `text`, `data` |
+| `result` | Mac | `cmd`, `code`, `text`, `chats` |
+
+Button ids (`action`):
+
+- `continue`, `continueChat`, `continueAll`: send "continue" into the chat on the Mac.
+- `afterReset`: continue this chat by itself once the limit is back.
+- `choice:<id>`: answer an agent's question or permission request. `auth: true` asks for Face ID first.
+- `reply` (`input: true`): a text answer, sent in `args.text`. Only on "finished" cards.
 
 Commands (`op`):
 
-- `card.act` `{key, action}`: press a card button. The Mac checks the card is still open first and
-  answers `stale` if it isn't.
+- `card.act` `{key, action, text?}`: press a card button. `key` is the card key, or `#<collapse id>`
+  from a Live Activity button (the Lock Screen never sees the real key). The Mac checks the card is
+  still open first and answers `stale` if it isn't.
 - `chats` `{provider}`: list Codex conversations or Claude chats.
 - `watch` `{provider, id, title, mode, max}`: `mode` is `now`, `reset` or `stop`.
 - `refresh`: send the state again.
+
+## Live Activity
+
+`state.live` is what the Lock Screen shows, or nothing:
+
+```json
+{"items":[{"id":"<collapse id>","kind":"attention","provider":"codex","title":"Codex ждёт вашего решения",
+  "buttons":[{"id":"choice:allow","title":"Разрешить","primary":true,"auth":true}]}],
+ "more":1,"countdowns":[{"provider":"claude","until":1761400000,"waiting":1}],"updated":1761390000}
+```
+
+- `items`: up to two cards with buttons, most urgent first (attention, then reset, then warning).
+  Titles are general: never the chat name or the command.
+- `more`: how many other cards wait.
+- `countdowns`: spent limits and when they come back. When one runs out the Mac sends the state
+  again, so the countdown goes away instead of standing at 0:00.
+
+The Mac sends `la` frames: `start` when something new appears and nobody is at the Mac, `update`
+otherwise, `end` when nothing is left. The relay starts at most one Live Activity per phone every two
+minutes, and a new activity token replaces the old ones.
+
+## What reaches the phone, and how
+
+- At the Mac: nothing interrupts. Cards are in the app; the Live Activity is only kept current.
+- Away (screen locked, or idle for two minutes): cards with buttons go to the Live Activity; the rest
+  go as notifications. Requests are time-sensitive, resets are passive, numbers and summaries stay in
+  the app.
+- A Claude limit comes back while you're away: the "Continue" card goes to the phone right away; the
+  Mac shows it when you're back, unless the phone already answered it.
+- The Mac is offline for 15 minutes while work waits for a reset: the relay sends one notification.
 
 ## Rules on the Mac
 
 - A command runs once: the Mac remembers command ids for a day.
 - A command older than its `ttl` doesn't run. "Continue" lives 30 minutes.
 - If the Mac is locked, Claude can't be typed into. The Mac answers `locked`, keeps the command and
-  runs it after unlock, unless the phone cancels it.
+  runs it after unlock, if it hasn't expired by then.
 - Every command from a phone is written to the feed: "From iPhone: …".
