@@ -174,7 +174,8 @@ Apple does not say whether a push arrived, so the phone does:
 4. When a phone confirms one push, others still waiting for it go again at once: Apple keeps only
    the newest push for a phone that was offline.
 
-Only phones whose app confirms are tracked (the relay learns it from their first `POST /v1/got`), so
+Pending pushes are kept in `pending-pushes.json` next to the relay's data, so a restart does not
+forget them. Only phones whose app confirms are tracked (the relay learns it from their first `POST /v1/got`), so
 an older app is never sent the same thing twice. Settings → iPhone → Delivery shows the last result
 and has a button that sends a test notification and measures it.
 
