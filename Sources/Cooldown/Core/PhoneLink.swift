@@ -462,6 +462,12 @@ final class PhoneLink: ObservableObject {
         let how = delivery(content, card: card, away: away)
         var push: LinkPush?
         if case .alert(let sound, let level) = how { push = LinkPush(collapse: card.collapseID, sound: sound, level: level) }
+        // The same card again with new words (a countdown, a progress line): the notification is
+        // replaced quietly, it does not ring a second time.
+        if let old = cards[content.key], old.pushed, old.content.kind == content.kind, push != nil,
+           Date().timeIntervalSince(old.card.created) < 600, content.kind != .finished {
+            push = LinkPush(collapse: card.collapseID, sound: false, level: "passive")
+        }
         cards[content.key] = (content, card, push != nil || (cards[content.key]?.pushed ?? false))
         let ids = send(.card(card), ttl: content.life == .sticky ? 12 * 3600 : 2 * 3600, push: push)
         AgentActivity.trace("phone: card \(content.key) → \(Self.describe(how)) (\(awayReason)) env=\(ids.joined(separator: ","))")
