@@ -32,20 +32,7 @@ brew install --cask vitalyor/tap/cooldown
 **Or download** the latest [Cooldown-x.y.z.dmg](https://github.com/vitalyor/cooldown/releases/latest),
 open it and drag Cooldown to Applications.
 
-<details>
-<summary>macOS says it “can't verify the developer” — what to do</summary>
-
-Cooldown is free and open source, but it isn't notarized by Apple (that needs a paid developer account).
-So the first time you open the downloaded app, macOS stops it:
-
-1. Open Cooldown once and close the warning.
-2. Go to **System Settings → Privacy & Security**, scroll down and press **Open Anyway**.
-3. Confirm with your password. From then on Cooldown opens normally and updates itself.
-
-Or in Terminal: `xattr -dr com.apple.quarantine /Applications/Cooldown.app`.
-Homebrew does this for you. Every release lists SHA-256 checksums, and the app checks the checksum
-and signature of each update before installing it.
-</details>
+Cooldown is signed with a Developer ID certificate and notarized by Apple, so it opens like any other Mac app.
 
 **Testers welcome.** Found a bug or have an idea? [Open an issue](https://github.com/vitalyor/cooldown/issues/new/choose)
 (the diagnostics report in Settings makes it quick) or say hi in [Discussions](https://github.com/vitalyor/cooldown/discussions).
