@@ -1087,6 +1087,16 @@ private struct PhonePane: View {
                     if link.checking { ProgressView().controlSize(.small) }
                     Button(L("Проверить")) { link.checkDelivery() }.disabled(link.checking || link.devices.isEmpty)
                 }
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L("Пробный прогон"))
+                        Text(L("Как будто агент поработал, пока вас нет: на iPhone Live Activity «работает» с таймером, через 40 секунд — уведомление «готово», и Live Activity закрывается. На Mac ничего не запускается."))
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if link.rehearsing { ProgressView().controlSize(.small) }
+                    Button(L("Запустить")) { link.rehearse() }.disabled(link.rehearsing || link.devices.isEmpty)
+                }
                 if let result = link.checkResult {
                     Label(result.text, systemImage: result.ok ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
                         .font(.callout).foregroundStyle(result.ok ? .green : .orange)

@@ -12,7 +12,8 @@ final class Presence: @unchecked Sendable {
     static let shared = Presence()
 
     private let lock = NSLock()
-    private var lastPhysical = Date()       // at launch: assume someone is here
+    // At launch: the system's own idle time (the best there is before the first event).
+    private var lastPhysical = Date().addingTimeInterval(-CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: CGEventType(rawValue: ~0)!))
     private var lastSynthetic: Date?
     private var displayAsleep = false
     private var tap: CFMachPort?

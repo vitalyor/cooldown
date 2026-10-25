@@ -45,7 +45,11 @@ final class PhoneLink: ObservableObject {
     private var liveOn = UserDefaults.standard.bool(forKey: "phoneLiveOn") {
         didSet { UserDefaults.standard.set(liveOn, forKey: "phoneLiveOn") }
     }
-    private var lastLive: LiveState?
+    /// What the Live Activity shows, kept across restarts: a restarted Mac updates it instead of
+    /// starting a second one.
+    private var lastLive: LiveState? = UserDefaults.standard.data(forKey: "phoneLastLive").flatMap { try? JSONDecoder().decode(LiveState.self, from: $0) } {
+        didSet { UserDefaults.standard.set(lastLive.flatMap { try? JSONEncoder().encode($0) }, forKey: "phoneLastLive") }
+    }
     private var countdownEnd: Task<Void, Never>?
     /// An agent's stretch of work: since when, and when it was last seen working. Short pauses
     /// between turns do not end it, so the Live Activity does not flicker.
@@ -242,6 +246,36 @@ final class PhoneLink: ObservableObject {
         }
     }
 
+    // MARK: Rehearsal
+
+    /// A full run on the phone, as if an agent worked while you were away: the Live Activity shows
+    /// "at work" with its timer, then the "done" notification comes and the Live Activity closes.
+    /// Nothing runs on the Mac; it only shows the way there and back works.
+    @Published private(set) var rehearsing = false
+    private var rehearsalSince: Date?
+
+    func rehearse(seconds: Double = 40) {
+        guard paired, !rehearsing else { return }
+        rehearsing = true
+        rehearsalSince = Date()
+        AgentActivity.trace("phone: rehearsal started")
+        publishState(now: true)
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(seconds))
+            guard let self, self.rehearsing else { return }
+            self.rehearsalSince = nil
+            let content = ToastContent(key: "rehearsal-\(Int(Date().timeIntervalSince1970))", kind: .finished, provider: nil,
+                                       title: L("Проверка: задача готова"),
+                                       body: L("Так приходит «готово», когда агент закончил, а вас нет у Mac. Live Activity при этом закрывается."))
+            self.forward(content)
+            self.publishState(now: true)
+            try? await Task.sleep(for: .seconds(5))
+            self.rehearsing = false
+            self.publishState()
+            AgentActivity.trace("phone: rehearsal finished")
+        }
+    }
+
     private func finishCheck(ok: Bool, _ text: String) {
         AgentActivity.trace("phone: delivery check — \(text)")
         checking = false
@@ -264,8 +298,8 @@ final class PhoneLink: ObservableObject {
 
     /// Nobody at the Mac: cards go to the phone as notifications. At the Mac they only appear in the
     /// phone's app, unless pushes are wanted always. Only real input counts (see Presence).
-    private var away: Bool { Settings.phoneAlways || Presence.shared.away().away }
-    private var awayReason: String { Settings.phoneAlways ? "always" : Presence.shared.away().reason }
+    private var away: Bool { Settings.phoneAlways || rehearsing || Presence.shared.away().away }
+    private var awayReason: String { rehearsing ? "rehearsal" : Settings.phoneAlways ? "always" : Presence.shared.away().reason }
     private var wasAway: Bool?
 
     /// Checked every few seconds: the moment you leave, what is open goes to the phone and the Live
@@ -466,6 +500,9 @@ final class PhoneLink: ObservableObject {
         center.publisher(for: Notification.Name("com.vitalyor.cooldown.check-delivery")).sink { [weak self] _ in
             Task { @MainActor in self?.checkDelivery() }
         }.store(in: &subscriptions)
+        center.publisher(for: Notification.Name("com.vitalyor.cooldown.rehearse")).sink { [weak self] _ in
+            Task { @MainActor in self?.rehearse() }
+        }.store(in: &subscriptions)
         center.publisher(for: Notification.Name("com.apple.screenIsLocked")).sink { [weak self] _ in
             self?.scheduleState()
         }.store(in: &subscriptions)
@@ -587,8 +624,9 @@ final class PhoneLink: ObservableObject {
             }
         }
         streaks = streaks.filter { now.timeIntervalSince($0.value.last) < 45 }
-        let work = streaks.map { LiveState.Work(provider: $0.key, since: $0.value.since.timeIntervalSince1970, count: $0.value.count) }
+        var work = streaks.map { LiveState.Work(provider: $0.key, since: $0.value.since.timeIntervalSince1970, count: $0.value.count) }
             .sorted { $0.since < $1.since }
+        if let since = rehearsalSince { work.insert(LiveState.Work(provider: "cooldown", since: since.timeIntervalSince1970, count: 1), at: 0) }
         return work.isEmpty ? nil : work
     }
 
@@ -615,6 +653,27 @@ final class PhoneLink: ObservableObject {
         return LiveState.Item(id: card.collapseID, kind: card.kind, provider: card.provider, title: title, buttons: Array(buttons))
     }
 
+    /// A Live Activity that should be on the phone but did not appear (Live Activities off, iOS's
+    /// budget for starts spent, the phone offline): what waits for a press must not be lost, so it
+    /// goes as an ordinary notification instead.
+    private func verifyLive() {
+        liveCheck?.cancel()
+        liveCheck = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(45))
+            guard let self, !Task.isCancelled, self.liveOn, let live = self.lastLive, !live.items.isEmpty else { return }
+            await self.refreshDevices()
+            let phones = self.devices.filter { $0.confirms ?? false }
+            guard !phones.isEmpty, phones.allSatisfy({ ($0.activities ?? 0) == 0 }) else { return }
+            for item in live.items {
+                guard let (key, entry) = self.cards.first(where: { $0.value.card.collapseID == item.id }), !entry.pushed else { continue }
+                self.cards[key] = (entry.content, entry.card, true)
+                let level = entry.content.kind == .attention ? "time-sensitive" : "active"
+                let ids = self.send(.card(entry.card), ttl: 2 * 3600, push: LinkPush(collapse: entry.card.collapseID, sound: true, level: level))
+                AgentActivity.trace("phone: live activity did not appear — \(key) sent as a notification env=\(ids.joined(separator: ","))")
+            }
+        }
+    }
+
     static func providerName(_ id: String?) -> String {
         id == "codex" ? "Codex" : id == "claude" ? "Claude" : "Cooldown"
     }
@@ -627,8 +686,24 @@ final class PhoneLink: ObservableObject {
         }
     }
 
+    private let launched = Date()
+    private var launchSettle: Task<Void, Never>?
+    private var liveCheck: Task<Void, Never>?
+
     private func live(_ state: LinkState) {
         guard let client else { return }
+        // Just started: the limits and the agents are not read yet, so "nothing to show" is not to
+        // be believed. A Live Activity from before the restart is left alone until they are.
+        let age = Date().timeIntervalSince(launched)
+        if age < 12 || (state.live == nil && age < 25) {
+            if launchSettle == nil {
+                launchSettle = Task { @MainActor [weak self] in
+                    try? await Task.sleep(for: .seconds(26))
+                    self?.publishState()
+                }
+            }
+            return
+        }
         guard var live = state.live else {
             // Also once per connection: a Live Activity the Mac lost track of (a restart) goes too.
             if liveOn || !endSent {
@@ -658,10 +733,7 @@ final class PhoneLink: ObservableObject {
         let newItem = live.items.first { item in !(previous?.items.contains { $0.id == item.id } ?? false) }
         let newCountdown = live.countdowns.first { c in !(previous?.countdowns.contains { $0.provider == c.provider } ?? false) }
         // At the Mac the cards are in front of you: no Live Activity is started then, only kept current.
-        if !liveOn && !away {
-            lastLive = nil
-            return
-        }
+        if !liveOn && !away { return }
         let fresh = !liveOn || newItem != nil || newCountdown != nil
         var alert: LiveAlert?
         if fresh && away {
@@ -678,6 +750,7 @@ final class PhoneLink: ObservableObject {
         lastLive = live
         // Something new starts afresh (in case the last one was swiped away); the phone keeps one.
         client.send(.live(fresh ? "start" : "update", live, alert: alert, stale: Date().addingTimeInterval(1800), urgent: true))
+        if fresh, !live.items.isEmpty { verifyLive() }
         AgentActivity.trace("phone: live \(fresh ? "start" : "update") items=\(live.items.map(\.kind)) work=\((live.working ?? []).map(\.provider)) countdowns=\(live.countdowns.map(\.provider))\(alert.map { " alert «\($0.body)»" } ?? "")")
     }
 

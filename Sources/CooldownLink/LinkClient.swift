@@ -259,6 +259,7 @@ public struct LinkDeviceRow: Codable, Equatable, Identifiable, Sendable {
     public var push: Bool
     public var live: Bool?               // can show a Live Activity started from the Mac
     public var confirms: Bool?           // a newer app: confirms each notification, shows agents at work
+    public var activities: Int?          // Live Activities the phone says are on screen
 }
 
 // MARK: Connection

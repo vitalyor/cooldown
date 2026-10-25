@@ -400,6 +400,7 @@
 "Запуск после сброса" = "Avvio dopo il ripristino";
 "Запускается" = "Avvio";
 "Запустите claude в Терминале и проверьте вход; затем повторите проверку." = "Avvia claude nel Terminale, controlla l’accesso e ricontrolla.";
+"Запустить" = "Avvia";
 "Запущено: «%@»" = "Avviata: «%@»";
 "Звук карточки" = "Suono della scheda";
 "Здесь появится каждый день работы %@." = "Qui comparirà ogni giorno di lavoro con %@.";
@@ -422,6 +423,7 @@
 "Каждые 2 минуты" = "Ogni 2 minuti";
 "Каждые 30 секунд" = "Ogni 30 secondi";
 "Каждые 5 минут" = "Ogni 5 minuti";
+"Как будто агент поработал, пока вас нет: на iPhone Live Activity «работает» с таймером, через 40 секунд — уведомление «готово», и Live Activity закрывается. На Mac ничего не запускается." = "Come se un agente avesse lavorato mentre eri via: sull’iPhone un’attività in tempo reale mostra «al lavoro» con un timer; dopo 40 secondi arriva la notifica «fatto» e l’attività si chiude. Sul Mac non viene eseguito nulla.";
 "Как выглядит значок и что он показывает" = "Come appare l’icona e cosa mostra";
 "Как обычно: к этому моменту недели уходит около %@." = "Come al solito: a questo punto della settimana se ne va circa il %@.";
 "Как показывать" = "Come mostrare";
@@ -753,6 +755,7 @@
 "Приходит уведомление с кнопкой «Продолжить». По нажатию Cooldown отправил бы сообщение в открытый чат Claude. В демо ничего не отправляется, но кнопку можно нажать." = "Arriva una notifica con il pulsante «Riprendi». Al clic, Cooldown invierebbe un messaggio nella chat di Claude aperta. Nella demo non viene inviato nulla, ma puoi premere il pulsante.";
 "Пришлите этот отчёт разработчику." = "Invia questo rapporto allo sviluppatore.";
 "Пришлёт на iPhone уведомление и покажет, за сколько оно дошло. Каждое уведомление iPhone подтверждает; неподтверждённое сервер отправит ещё раз." = "Invia una notifica all’iPhone e mostra quanto ci ha messo. L’iPhone conferma ogni notifica; il server reinvia quelle non confermate.";
+"Пробный прогон" = "Prova generale";
 "Проверена и готова. Установка займёт пару секунд; настройки и история сохранятся." = "Verificato e pronto. L’installazione richiede pochi secondi; impostazioni e cronologia restano.";
 "Проверено: %@" = "Controllato: %@";
 "Проверено: %@ готова к установке." = "Verificata: %@ è pronta per l’installazione.";
@@ -764,6 +767,7 @@
 "Проверить, что всё работает" = "Controlla che tutto funzioni";
 "Проверка всех связей" = "Controllo di tutti i collegamenti";
 "Проверка связи" = "Prova di connessione";
+"Проверка: задача готова" = "Prova: attività completata";
 "Проверьте, что codex вошёл в аккаунт (codex login) и есть сеть." = "Controlla che codex abbia effettuato l’accesso (codex login) e che ci sia rete.";
 "Проверять лимиты, пока окно открыто" = "Controlla i limiti mentre la finestra è aperta";
 "Проверяю диалог ещё раз." = "Ricontrollo la conversazione.";
@@ -887,6 +891,7 @@
 "Строка статуса подключена. Лимиты появятся после следующего ответа Claude Code." = "Riga di stato collegata. I limiti compariranno dopo la prossima risposta di Claude Code.";
 "Таблица по дням" = "Tabella per giorni";
 "Так значок выглядит сейчас. Верхняя линия — Codex, нижняя — Claude; длина — сколько осталось на 5 часов." = "Ecco come appare l’icona adesso. La linea in alto è Codex, quella in basso Claude; la lunghezza indica quanto resta delle 5 ore.";
+"Так приходит «готово», когда агент закончил, а вас нет у Mac. Live Activity при этом закрывается." = "Così arriva «fatto» quando un agente finisce mentre non sei al Mac. L’attività in tempo reale si chiude nello stesso momento.";
 "Такой ответ здесь не поддерживается." = "Questa risposta non è supportata qui.";
 "Тип" = "Tipo";
 "Тихие часы" = "Ore di silenzio";
