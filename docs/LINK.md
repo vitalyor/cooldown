@@ -1,5 +1,7 @@
 # Cooldown Link
 
+**English** · [Русский](LINK.ru.md)
+
 How Cooldown on the Mac talks to Cooldown on the iPhone. The Mac is the only side that does
 anything: it sends to Codex and Claude, answers requests and runs watches. The iPhone shows what
 the Mac reports and sends commands back. The relay in between only passes sealed messages along
@@ -13,9 +15,10 @@ iPhone ⇄ relay (WebSocket, HTTPS, APNs) ⇄ Mac
 
 - Device ids, which space (one Mac and its phones) they belong to, when they are online.
 - Message sizes and times, and the name of a "keep" slot (`state`).
-- Live Activity content: limit percentages, reset times and counters. iOS gives a Live Activity no
-  way to decrypt anything on the device, so this part travels in plain form. It never carries chat
-  titles, answers or file paths.
+- Live Activity content: general titles ("Codex is waiting for your decision", "Claude is working"),
+  button labels, reset times, how long an agent has worked and how many things wait. iOS gives a
+  Live Activity no way to decrypt anything on the device, so this part travels in plain form. It
+  never carries chat titles, answers, commands or file paths.
 
 Everything else (cards, their texts and buttons, chat lists, commands, results) is sealed on one
 device and opened on the other.
@@ -56,6 +59,7 @@ All calls but register, claim and health need `Authorization: Bearer <token>`.
 | `GET /v1/ws` | both | WebSocket, frames below. |
 | `POST /v1/send` envelope | both | For a phone woken in the background. |
 | `GET /v1/inbox` | both | Messages waiting for this device, and the kept ones. |
+| `POST /v1/got` `{ids}` | both | Confirms messages arrived. |
 | `POST /v1/push` `{kind, token, env, activity}` | phone | `kind` is `alert`, `start` or `activity`. |
 | `GET /v1/devices` | both | Devices of the space, online state, last seen. |
 | `DELETE /v1/devices/{id}` | Mac, or a phone for itself | Unpairs. |
@@ -88,6 +92,7 @@ Every frame is JSON with a type `t`:
   sealed box; the phone's notification extension opens it and shows the real text and buttons.
   `collapse` is an opaque id, so a newer card replaces an older one with the same key.
 - `push.remove` `[collapse ids]` sends a silent push that removes those notifications.
+- `push.badge`: the number for the app icon (cards waiting for a press).
 - A message for a device that is offline waits until `ttl` runs out (at most a day, 200 per device).
 
 ## Messages inside a box
@@ -119,6 +124,7 @@ Commands (`op`):
 - `chats` `{provider}`: list Codex conversations or Claude chats.
 - `watch` `{provider, id, title, mode, max}`: `mode` is `now`, `reset` or `stop`.
 - `refresh`: send the state again.
+- `diag` `{log}`: new lines of the phone's delivery log, kept by the Mac in `phone-delivery.log`.
 
 ## Live Activity
 
@@ -160,6 +166,7 @@ minutes, and a new activity token replaces the old ones.
 - The relay itself unreachable for 10 minutes: the Mac shows a card saying the iPhone gets nothing.
 - The Mac going to sleep while agents work or tasks wait: the phone is told first.
 - The app icon badge counts cards waiting for a press; every push carries the current number.
+- The same card again within ten minutes (new words, same news): replaced on the phone quietly.
 - A Live Activity with buttons that does not appear within 45 seconds: its cards go as notifications.
 
 ## Confirmed delivery
@@ -177,7 +184,8 @@ Apple does not say whether a push arrived, so the phone does:
 Pending pushes are kept in `pending-pushes.json` next to the relay's data, so a restart does not
 forget them. Only phones whose app confirms are tracked (the relay learns it from their first `POST /v1/got`), so
 an older app is never sent the same thing twice. Settings → iPhone → Delivery shows the last result
-and has a button that sends a test notification and measures it.
+and has a button that sends a test notification and measures it, plus a rehearsal: a Live Activity
+"working" for 40 seconds, then "done" and the Live Activity closes.
 
 Cards also reach the phone when the Mac holds them back (the agent's app is in front), and news
 that came while you were at the Mac is pushed when you leave, if it is still open and under ten
