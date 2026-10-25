@@ -357,6 +357,7 @@
 "Ждёт подключения" = "Aguardando conexão";
 "Ждёт разблокировки Mac" = "Aguardando o desbloqueio do Mac";
 "Ждёт сброса лимита" = "Aguarda restauração";
+"Журнал доставки" = "Registro de entrega";
 "За 10 минут до сброса лимита %@." = "10 minutos antes de o limite do %@ ser restaurado.";
 "За минуту по шагам на выдуманных данных: лимит кончается, задача ждёт и продолжается. Ваши данные потом вернутся." = "Um minuto, passo a passo, com dados inventados: o limite acaba, uma tarefa espera e continua. Depois seus dados voltam.";
 "За последние 30 дней сессий Claude Code на этом Mac не было." = "Não houve sessões do Claude Code neste Mac nos últimos 30 dias.";
@@ -663,6 +664,7 @@
 "Отменить" = "Cancelar";
 "Отмеченные разговоры Codex Cooldown продолжит сам, как только лимит сбросится." = "O Cooldown continua sozinho as conversas do Codex marcadas assim que o limite reinicia.";
 "Отправить" = "Enviar";
+"Отправить на Mac" = "Enviar ao Mac";
 "Отправка не подтверждена" = "Envio não confirmado";
 "Отправлено в Codex." = "Enviado ao Codex.";
 "Отправлено в «%@»." = "Enviado para “%@”.";
@@ -717,6 +719,7 @@
 "Пока ждали лимит, в диалоге поменялись настройки или состояние. Не продолжаю." = "Enquanto aguardava o limite, as configurações ou o estado da conversa mudaram. Não vou continuar.";
 "Пока ни одного iPhone" = "Nenhum iPhone ainda";
 "Пока ничего не произошло. Здесь появятся сбросы лимитов, продолженные и законченные задачи." = "Nada aconteceu ainda. Aqui vão aparecer restaurações de limite e tarefas retomadas e concluídas.";
+"Пока пусто" = "Nada ainda";
 "Показать" = "Mostrar";
 "Показать все (%@)" = "Mostrar tudo (%@)";
 "Показать примеры карточек" = "Mostrar cartões de exemplo";
@@ -948,6 +951,7 @@
 "Читаю…" = "Lendo…";
 "Чтение через Claude Code выключено" = "A leitura pelo Claude Code está desativada";
 "Что Cooldown делает, когда лимит Claude восстанавливается." = "O que o Cooldown faz quando o limite do Claude é restaurado.";
+"Что и когда дошло до этого iPhone — без текста карточек. Новые строки сами уходят на Mac, когда вы открываете приложение." = "O que chegou a este iPhone e quando — sem o texto dos cartões. Linhas novas vão sozinhas ao Mac quando você abre o app.";
 "Что нового" = "Novidades";
 "Что нового в %@" = "Novidades da %@";
 "Что нового — на странице релиза." = "As novidades estão na página da versão.";
@@ -979,6 +983,7 @@
 "входа прочитано из кеша" = "da entrada lida do cache";
 "вчера в %@" = "ontem às %@";
 "выбран вами" = "escolhido por você";
+"выключены" = "desativadas";
 "готовность разрешения автозапуск вход горячая клавиша частота проверка лимитов" = "prontidão permissões início login atalho de teclado frequência verificação limites";
 "готово" = "pronta";
 "демо" = "Demo";
@@ -1052,6 +1057,7 @@
 "работает" = "trabalhando";
 "работает · чатов: %@" = "trabalhando · conversas: %@";
 "раз|раза|раз" = "vez|vezes";
+"разрешены" = "permitidas";
 "сброс %@" = "restauração %@";
 "сброс|сброса|сбросов" = "restauração|restaurações";
 "сбросов лимита: %@" = "restaurações de limite: %@";

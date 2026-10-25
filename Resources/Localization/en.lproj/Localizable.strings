@@ -357,6 +357,7 @@
 "Ждёт подключения" = "Waiting to connect";
 "Ждёт разблокировки Mac" = "Waiting for the Mac to be unlocked";
 "Ждёт сброса лимита" = "Waiting for the limit reset";
+"Журнал доставки" = "Delivery log";
 "За 10 минут до сброса лимита %@." = "10 minutes before the %@ limit resets.";
 "За минуту по шагам на выдуманных данных: лимит кончается, задача ждёт и продолжается. Ваши данные потом вернутся." = "A minute, step by step, on made-up data: the limit runs out, a task waits and continues. Your data comes back afterwards.";
 "За последние 30 дней сессий Claude Code на этом Mac не было." = "No Claude Code sessions on this Mac in the last 30 days.";
@@ -663,6 +664,7 @@
 "Отменить" = "Cancel";
 "Отмеченные разговоры Codex Cooldown продолжит сам, как только лимит сбросится." = "Cooldown continues checked Codex conversations by itself as soon as the limit resets.";
 "Отправить" = "Send";
+"Отправить на Mac" = "Send to Mac";
 "Отправка не подтверждена" = "Send not confirmed";
 "Отправлено в Codex." = "Sent to Codex.";
 "Отправлено в «%@»." = "Sent to “%@”.";
@@ -717,6 +719,7 @@
 "Пока ждали лимит, в диалоге поменялись настройки или состояние. Не продолжаю." = "While waiting for the limit, the conversation's settings or state changed. Not continuing.";
 "Пока ни одного iPhone" = "No iPhone yet";
 "Пока ничего не произошло. Здесь появятся сбросы лимитов, продолженные и законченные задачи." = "Nothing has happened yet. Limit resets, continued and finished tasks will show up here.";
+"Пока пусто" = "Nothing yet";
 "Показать" = "Show";
 "Показать все (%@)" = "Show all (%@)";
 "Показать примеры карточек" = "Show sample cards";
@@ -948,6 +951,7 @@
 "Читаю…" = "Reading…";
 "Чтение через Claude Code выключено" = "Reading through Claude Code is off";
 "Что Cooldown делает, когда лимит Claude восстанавливается." = "What Cooldown does when the Claude limit resets.";
+"Что и когда дошло до этого iPhone — без текста карточек. Новые строки сами уходят на Mac, когда вы открываете приложение." = "What reached this iPhone and when — no card text. New lines go to the Mac by themselves when you open the app.";
 "Что нового" = "What's new";
 "Что нового в %@" = "What's new in %@";
 "Что нового — на странице релиза." = "What's new is on the release page.";
@@ -979,6 +983,7 @@
 "входа прочитано из кеша" = "of input read from cache";
 "вчера в %@" = "yesterday at %@";
 "выбран вами" = "chosen by you";
+"выключены" = "off";
 "готовность разрешения автозапуск вход горячая клавиша частота проверка лимитов" = "readiness permissions launch login hotkey shortcut frequency check limits";
 "готово" = "done";
 "демо" = "demo";
@@ -1052,6 +1057,7 @@
 "работает" = "working";
 "работает · чатов: %@" = "working · chats: %@";
 "раз|раза|раз" = "time|times";
+"разрешены" = "allowed";
 "сброс %@" = "resets %@";
 "сброс|сброса|сбросов" = "reset|resets";
 "сбросов лимита: %@" = "limit resets: %@";

@@ -17,20 +17,28 @@ extension Timer {
 final class FolderWatch {
     private var stream: FSEventStreamRef?
     private let handler: () -> Void
+    private let changed: (([String]) -> Void)?
 
-    init?(_ paths: [String], latency: TimeInterval, handler: @escaping () -> Void) {
+    /// `changed`, when given, also gets the paths of the files that changed.
+    init?(_ paths: [String], latency: TimeInterval, changed: (([String]) -> Void)? = nil, handler: @escaping () -> Void) {
         self.handler = handler
+        self.changed = changed
         let existing = paths.filter { FileManager.default.fileExists(atPath: $0) }
         guard !existing.isEmpty else { return nil }
         var context = FSEventStreamContext(version: 0, info: Unmanaged.passUnretained(self).toOpaque(),
                                            retain: nil, release: nil, copyDescription: nil)
-        let callback: FSEventStreamCallback = { _, info, _, _, _, _ in
+        let callback: FSEventStreamCallback = { _, info, count, paths, _, _ in
             guard let info else { return }
-            Unmanaged<FolderWatch>.fromOpaque(info).takeUnretainedValue().handler()
+            let watch = Unmanaged<FolderWatch>.fromOpaque(info).takeUnretainedValue()
+            if let changed = watch.changed, let list = Unmanaged<CFArray>.fromOpaque(paths).takeUnretainedValue() as? [String] {
+                changed(Array(list.prefix(count)))
+            }
+            watch.handler()
         }
+        let flags = kFSEventStreamCreateFlagNoDefer | kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagUseCFTypes
         guard let stream = FSEventStreamCreate(nil, callback, &context, existing as CFArray,
                                                FSEventStreamEventId(kFSEventStreamEventIdSinceNow), latency,
-                                               FSEventStreamCreateFlags(kFSEventStreamCreateFlagNoDefer)) else { return nil }
+                                               FSEventStreamCreateFlags(flags)) else { return nil }
         self.stream = stream
         FSEventStreamSetDispatchQueue(stream, .main)
         FSEventStreamStart(stream)

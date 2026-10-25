@@ -96,6 +96,8 @@ enum SelfTest {
         expect(first?.first?.since == t0.timeIntervalSince1970 && pause?.first?.since == t0.timeIntervalSince1970,
                "a short pause between turns keeps one stretch of work")
         expect(link.work([], now: Date().addingTimeInterval(120)) == nil, "work that stopped leaves the Live Activity")
+        let long = ToastContent(key: "finished-codex:x", kind: .finished, provider: .codex, title: "T", body: String(repeating: "ж", count: 5000))
+        expect(PhoneLink.card(long).body.count <= PhoneLink.maxBody, "a card fits inside the push, so the phone needs no network to show it")
         return failures
     }
 }

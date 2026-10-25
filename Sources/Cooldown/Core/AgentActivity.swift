@@ -60,18 +60,33 @@ final class AgentActivity: ObservableObject {
 
     /// A short trail of what the sources reported and what was decided (activity.log, kept small).
     nonisolated static func trace(_ text: String) {
+        traceLock.lock()
+        defer { traceLock.unlock() }
         let url = Settings.appSupport.appendingPathComponent("activity.log")
-        let line = "\(ISO8601DateFormatter().string(from: Date())) \(text)\n"
+        let line = "\(traceTime.string(from: Date())) \(text)\n"
         if let handle = try? FileHandle(forWritingTo: url) {
             handle.seekToEndOfFile()
             handle.write(Data(line.utf8))
             let size = handle.offsetInFile
             try? handle.close()
-            if size > 256 * 1024 { try? FileManager.default.removeItem(at: url) }
+            // Kept: the last two megabytes, in two files.
+            if size > 1 << 20 {
+                let old = Settings.appSupport.appendingPathComponent("activity.1.log")
+                try? FileManager.default.removeItem(at: old)
+                try? FileManager.default.moveItem(at: url, to: old)
+            }
         } else {
             try? Data(line.utf8).write(to: url)
         }
     }
+
+    nonisolated private static let traceLock = NSLock()
+    nonisolated(unsafe) private static let traceTime: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
 
     func started(_ provider: ProviderID, key: String, title: String, source: Source, at date: Date = Date()) {
         if sessions["\(provider.rawValue):\(key)"] == nil { Self.trace("start \(provider.rawValue) \(source.rawValue) \(key) «\(title)»") }

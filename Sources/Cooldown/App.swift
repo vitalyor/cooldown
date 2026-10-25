@@ -168,6 +168,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Notifier.shared.setup()
         MainActor.assumeIsolated {
             AppModel.shared.start()
+            Presence.shared.start()
             PhoneLink.shared.start()
             // Diagnostics: sample cards with buttons on paired phones.
             if CommandLine.arguments.contains("--link-samples") {

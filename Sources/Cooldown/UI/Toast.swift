@@ -261,10 +261,8 @@ final class ToastController: ObservableObject {
         return ids.contains(front)
     }
 
-    /// Seconds since the last key press, click or mouse move.
-    static var idleSeconds: Double {
-        CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: CGEventType(rawValue: ~0)!)
-    }
+    /// Seconds since the last key press, click or mouse move by a person (not by an app).
+    static var idleSeconds: Double { Presence.shared.idle }
 
     func isShowing(_ key: String) -> Bool {
         cards.contains { $0.content.key == key } || waiting.contains { $0.key == key }

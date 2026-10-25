@@ -234,6 +234,7 @@ final class PhoneLink: ObservableObject {
         let card = LinkCard(key: "linkcheck-\(Int(Date().timeIntervalSince1970))", kind: "info", provider: nil,
                             title: L("Проверка связи"), body: L("Уведомления с этого Mac доходят до iPhone."), actions: [])
         checkIDs = Set(send(.card(card), ttl: 300, push: LinkPush(collapse: card.collapseID, sound: true, level: "active")))
+        AgentActivity.trace("phone: delivery check sent env=\(checkIDs.joined(separator: ","))")
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(60))
             guard let self, self.checking else { return }
@@ -242,6 +243,7 @@ final class PhoneLink: ObservableObject {
     }
 
     private func finishCheck(ok: Bool, _ text: String) {
+        AgentActivity.trace("phone: delivery check — \(text)")
         checking = false
         checkIDs = []
         checkResult = (ok, text)
@@ -261,9 +263,19 @@ final class PhoneLink: ObservableObject {
     }
 
     /// Nobody at the Mac: cards go to the phone as notifications. At the Mac they only appear in the
-    /// phone's app, unless pushes are wanted always.
-    private var away: Bool {
-        Settings.phoneAlways || ToastController.screenLocked || ToastController.idleSeconds > 120
+    /// phone's app, unless pushes are wanted always. Only real input counts (see Presence).
+    private var away: Bool { Settings.phoneAlways || Presence.shared.away().away }
+    private var awayReason: String { Settings.phoneAlways ? "always" : Presence.shared.away().reason }
+    private var wasAway: Bool?
+
+    /// Checked every few seconds: the moment you leave, what is open goes to the phone and the Live
+    /// Activity starts — not at the next half-minute tick.
+    private func checkPresence() {
+        let now = away
+        guard now != wasAway else { return }
+        if wasAway != nil { AgentActivity.trace("phone: \(now ? "away" : "back at the Mac") — \(awayReason)") }
+        wasAway = now
+        publishState()
     }
 
     /// How a card reaches the phone. The phone interrupts only when something is wanted from you
@@ -312,8 +324,17 @@ final class PhoneLink: ObservableObject {
         var push: LinkPush?
         if case .alert(let sound, let level) = how { push = LinkPush(collapse: card.collapseID, sound: sound, level: level) }
         cards[content.key] = (content, card, push != nil || (cards[content.key]?.pushed ?? false))
-        send(.card(card), ttl: content.life == .sticky ? 12 * 3600 : 2 * 3600, push: push)
+        let ids = send(.card(card), ttl: content.life == .sticky ? 12 * 3600 : 2 * 3600, push: push)
+        AgentActivity.trace("phone: card \(content.key) → \(Self.describe(how)) (\(awayReason)) env=\(ids.joined(separator: ","))")
         scheduleState()
+    }
+
+    static func describe(_ route: Route) -> String {
+        switch route {
+        case .live: return "live activity"
+        case .alert(let sound, let level): return "push \(level)\(sound ? "" : " silent")"
+        case .none: return "app only"
+        }
     }
 
     private var resumed: [String] = []
@@ -368,6 +389,8 @@ final class PhoneLink: ObservableObject {
         return nil
     }
 
+    static let maxBody = 600
+
     static func card(_ content: ToastContent) -> LinkCard {
         var actions = content.actions.compactMap { action -> LinkAction? in
             guard let id = actionID(action) else { return nil }
@@ -384,9 +407,12 @@ final class PhoneLink: ObservableObject {
         }
         var body = content.body
         if let detail = content.detail, !detail.isEmpty { body = body.isEmpty ? detail : body + "\n" + detail }
+        // Small enough to travel inside the push itself: the phone then shows it with no network
+        // request of its own, which on a restricted mobile network may never get through.
+        if body.count > Self.maxBody { body = String(body.prefix(Self.maxBody - 1)) + "…" }
         let expires: Date? = content.life == .sticky ? Date().addingTimeInterval(24 * 3600) : Date().addingTimeInterval(2 * 3600)
         return LinkCard(key: content.key, kind: "\(content.kind)", provider: content.provider?.rawValue,
-                        title: content.title, body: body, actions: actions, created: Date(), expires: expires)
+                        title: String(content.title.prefix(160)), body: body, actions: actions, created: Date(), expires: expires)
     }
 
     /// Two sample cards with buttons, straight to the phones (not shown on the Mac): a request
@@ -424,6 +450,8 @@ final class PhoneLink: ObservableObject {
             ClaudeChatList.shared.objectWillChange.map { _ in () }.eraseToAnyPublisher(),
         ]
         Publishers.MergeMany(changes).sink { [weak self] in self?.scheduleState() }.store(in: &subscriptions)
+        Timer.publish(every: 5, on: .main, in: .common).autoconnect().sink { [weak self] _ in self?.checkPresence() }
+            .store(in: &subscriptions)
         // A half-minute tick keeps "stale" and the Live Activity honest when nothing else changes.
         Timer.publish(every: 30, on: .main, in: .common).autoconnect().sink { [weak self] _ in self?.scheduleState() }
             .store(in: &subscriptions)
@@ -433,6 +461,10 @@ final class PhoneLink: ObservableObject {
                 try? await Task.sleep(for: .seconds(2))
                 self?.runAfterUnlock()
             }
+        }.store(in: &subscriptions)
+        // `Проверить доставку` from outside the app (support, scripts): same as the button.
+        center.publisher(for: Notification.Name("com.vitalyor.cooldown.check-delivery")).sink { [weak self] _ in
+            Task { @MainActor in self?.checkDelivery() }
         }.store(in: &subscriptions)
         center.publisher(for: Notification.Name("com.apple.screenIsLocked")).sink { [weak self] _ in
             self?.scheduleState()
@@ -505,7 +537,8 @@ final class PhoneLink: ObservableObject {
         for (key, item) in cards where !item.pushed && now.timeIntervalSince(item.card.created) < 600 {
             guard case .alert(let sound, let level) = delivery(item.content, card: item.card, away: true) else { continue }
             cards[key] = (item.content, item.card, true)
-            send(.card(item.card), ttl: 2 * 3600, push: LinkPush(collapse: item.card.collapseID, sound: sound, level: level))
+            let ids = send(.card(item.card), ttl: 2 * 3600, push: LinkPush(collapse: item.card.collapseID, sound: sound, level: level))
+            AgentActivity.trace("phone: card \(key) → push \(level) after you left (\(awayReason)) env=\(ids.joined(separator: ","))")
         }
     }
 
@@ -604,6 +637,7 @@ final class PhoneLink: ObservableObject {
                 lastLive = nil
                 // Nothing left to press or wait for: gone at once.
                 client.send(.live("end", LiveState(items: []), dismiss: Date()))
+                AgentActivity.trace("phone: live end")
             }
             return
         }
@@ -624,7 +658,10 @@ final class PhoneLink: ObservableObject {
         let newItem = live.items.first { item in !(previous?.items.contains { $0.id == item.id } ?? false) }
         let newCountdown = live.countdowns.first { c in !(previous?.countdowns.contains { $0.provider == c.provider } ?? false) }
         // At the Mac the cards are in front of you: no Live Activity is started then, only kept current.
-        if !liveOn && !away { return }
+        if !liveOn && !away {
+            lastLive = nil
+            return
+        }
         let fresh = !liveOn || newItem != nil || newCountdown != nil
         var alert: LiveAlert?
         if fresh && away {
@@ -641,6 +678,7 @@ final class PhoneLink: ObservableObject {
         lastLive = live
         // Something new starts afresh (in case the last one was swiped away); the phone keeps one.
         client.send(.live(fresh ? "start" : "update", live, alert: alert, stale: Date().addingTimeInterval(1800), urgent: true))
+        AgentActivity.trace("phone: live \(fresh ? "start" : "update") items=\(live.items.map(\.kind)) work=\((live.working ?? []).map(\.provider)) countdowns=\(live.countdowns.map(\.provider))\(alert.map { " alert «\($0.body)»" } ?? "")")
     }
 
     // MARK: Receiving
@@ -654,6 +692,8 @@ final class PhoneLink: ObservableObject {
             Task { await refreshDevices() }
         case "paired":
             paired(frame)
+        case "error":
+            AgentActivity.trace("phone: relay refused env=\(frame.id ?? "") — \(frame.code ?? "") \(frame.text ?? "")")
         case "delivered":
             delivered(frame, ok: true)
         case "undelivered":
@@ -688,12 +728,12 @@ final class PhoneLink: ObservableObject {
                 return
             }
             remember(cmd.id)
-            AgentActivity.trace("phone \(phone): \(cmd.op.rawValue) \(cmd.args.filter { $0.key != "text" })")
+            AgentActivity.trace("phone \(phone): \(cmd.op.rawValue) \(cmd.args.filter { $0.key != "text" && $0.key != "log" })")
             Task {
                 let result = await run(cmd, from: phone)
                 AgentActivity.trace("phone \(phone): \(cmd.op.rawValue) → \(result.code)")
                 // A press that worked needs no notification: the card simply goes away.
-                reply(result, to: phone, quiet: cmd.op == .chats || cmd.op == .refresh || (cmd.op == .cardAct && result.ok))
+                reply(result, to: phone, quiet: cmd.op == .chats || cmd.op == .refresh || cmd.op == .diag || (cmd.op == .cardAct && result.ok))
                 scheduleState()
             }
         case .resolve:
@@ -743,6 +783,19 @@ final class PhoneLink: ObservableObject {
             return await watch(cmd, from: phone)
         case .cardAct:
             return await act(cmd, from: phone)
+        case .diag:
+            // The phone's own delivery log: what arrived when, so delivery can be checked end to end.
+            let url = Settings.appSupport.appendingPathComponent("phone-delivery.log")
+            let text = (cmd.args["log"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if !text.isEmpty {
+                let block = "— \(phoneName(phone)), \(Date().formatted(.iso8601))\n\(text)\n"
+                if let handle = try? FileHandle(forWritingTo: url) {
+                    handle.seekToEndOfFile(); handle.write(Data(block.utf8)); try? handle.close()
+                } else {
+                    try? Data(block.utf8).write(to: url)
+                }
+            }
+            return ok("")
         }
     }
 

@@ -22,10 +22,19 @@ final class CodexFinishWatcher {
     private var timer: Timer?
     private var watch: FolderWatch?
     private var primed = false
+    /// Session files the folder watch saw change, and when: wherever they are (a conversation
+    /// started days ago keeps writing into that day's folder).
+    var touched: [String: Date] = [:]
 
     func start() {
         // Codex's session folders tell when they change; the timer is only a safety net.
-        watch = FolderWatch([CodexPaths.sessions.path, CodexPaths.home.appendingPathComponent("archived_sessions").path], latency: 1.5) {
+        watch = FolderWatch([CodexPaths.sessions.path, CodexPaths.home.appendingPathComponent("archived_sessions").path], latency: 1.0,
+                            changed: { paths in
+                                MainActor.assumeIsolated {
+                                    let now = Date()
+                                    for path in paths where path.hasSuffix(".jsonl") { CodexFinishWatcher.shared.touched[path] = now }
+                                }
+                            }) {
             MainActor.assumeIsolated { CodexFinishWatcher.shared.poll() }
         }
         timer?.invalidate()
@@ -53,22 +62,24 @@ final class CodexFinishWatcher {
         primed = true
     }
 
-    /// Session files of conversations active in the last 15 minutes. Codex's own index says
-    /// where each file is; if it cannot be read, both session folders are scanned instead.
+    /// Session files of conversations active in the last 15 minutes: the ones written to lately,
+    /// plus what Codex's own index lists (it knows titles and who started each). Both, because
+    /// the index is updated only now and then: a long turn (one started from the Codex app on a
+    /// phone, say) drops out of it while it runs, and its end would be noticed only by the timer.
     private func recentFiles() -> [URL] {
         let cutoff = Date().addingTimeInterval(-15 * 60)
-        if let threads = CodexThreadIndex.updated(since: cutoff) {
-            var files: [URL] = []
-            for thread in threads where !thread.rolloutPath.isEmpty && thread.rolloutPath.hasSuffix(".jsonl") {
-                let url = URL(fileURLWithPath: thread.rolloutPath)
-                userThreads[url.path] = thread.isUser
-                threadIds[url.path] = thread.id
-                if !thread.title.isEmpty { titles[thread.id] = thread.title }
-                files.append(url)
-            }
-            return files
+        var files = scannedFiles(cutoff: cutoff)
+        var seen = Set(files.map(\.path))
+        touched = touched.filter { $0.value > cutoff }
+        for path in touched.keys where seen.insert(path).inserted { files.append(URL(fileURLWithPath: path)) }
+        for thread in CodexThreadIndex.updated(since: cutoff) ?? [] where !thread.rolloutPath.isEmpty && thread.rolloutPath.hasSuffix(".jsonl") {
+            let url = URL(fileURLWithPath: thread.rolloutPath)
+            userThreads[url.path] = thread.isUser
+            threadIds[url.path] = thread.id
+            if !thread.title.isEmpty { titles[thread.id] = thread.title }
+            if seen.insert(url.path).inserted { files.append(url) }
         }
-        return scannedFiles(cutoff: cutoff)
+        return files
     }
 
     private func scannedFiles(cutoff: Date) -> [URL] {

@@ -146,7 +146,10 @@ minutes, and a new activity token replaces the old ones.
 ## What reaches the phone, and how
 
 - At the Mac: nothing interrupts. Cards are in the app; the Live Activity is only kept current.
-- Away (screen locked, or idle for two minutes): cards with buttons go to the Live Activity; the rest
+- "At the Mac" means real input: a hardware mouse, trackpad or keyboard within two minutes. Input
+  made by apps — Codex Computer Use, remote control from a phone, scripts — does not count; the Mac
+  tells them apart by the event's source (an event tap that only listens).
+- Away (screen locked, display asleep, or no real input for two minutes): cards with buttons go to the Live Activity; the rest
   go as notifications. Requests are time-sensitive, resets are passive, numbers and summaries stay in
   the app.
 - A Claude limit comes back while you're away: the "Continue" card goes to the phone right away; the
@@ -171,6 +174,22 @@ and has a button that sends a test notification and measures it.
 Cards also reach the phone when the Mac holds them back (the agent's app is in front), and news
 that came while you were at the Mac is pushed when you leave, if it is still open and under ten
 minutes old.
+
+## Diagnostics
+
+Every step is logged, without card text:
+
+- Mac, `~/Library/Application Support/Cooldown/activity.log`: each card with its route
+  (`push active`, `live activity`, `app only`) and the reason (`no input for 300 s`, `locked`),
+  envelope ids, Live Activity starts and ends, presence changes, confirmations and losses.
+- Relay (journal): each push with envelope, phone, priority, try and Apple's id; confirmations with
+  how long they took; refused envelopes; pushes never confirmed.
+- iPhone: the notification extension writes each arrival (delay, inline or fetched, confirmed or
+  not), token uploads and Live Activity starts and ends to `delivery.log`. The app shows it under
+  Mac → Delivery log and sends new lines to the Mac (`phone-delivery.log`) when opened.
+
+A card's text is cut to 600 characters so it always travels inside the push: the phone shows it
+without reaching the relay, which a restricted mobile network might not allow.
 
 ## Rules on the Mac
 
