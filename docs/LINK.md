@@ -158,6 +158,8 @@ minutes, and a new activity token replaces the old ones.
 - The Mac is gone for 5 minutes while a Live Activity shows: the relay marks it out of date, and
   the Lock Screen says the Mac has not been in touch. The Mac refreshes it when it is back.
 - The relay itself unreachable for 10 minutes: the Mac shows a card saying the iPhone gets nothing.
+- The Mac going to sleep while agents work or tasks wait: the phone is told first.
+- The app icon badge counts cards waiting for a press; every push carries the current number.
 - A Live Activity with buttons that does not appear within 45 seconds: its cards go as notifications.
 
 ## Confirmed delivery
