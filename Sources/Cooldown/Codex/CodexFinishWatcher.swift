@@ -52,7 +52,7 @@ final class CodexFinishWatcher {
             guard let start = offsets[path] else {
                 // First sight (a new conversation, or Codex moved/continued one into a new file):
                 // read it all; turns older than a few minutes are skipped by their timestamps.
-                offsets[path] = primed ? 0 : size
+                offsets[path] = size
                 if primed { read(file, from: 0, to: size) }
                 continue
             }
