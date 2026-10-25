@@ -155,6 +155,10 @@ minutes, and a new activity token replaces the old ones.
 - A Claude limit comes back while you're away: the "Continue" card goes to the phone right away; the
   Mac shows it when you're back, unless the phone already answered it.
 - The Mac is offline for 15 minutes while work waits for a reset: the relay sends one notification.
+- The Mac is gone for 5 minutes while a Live Activity shows: the relay marks it out of date, and
+  the Lock Screen says the Mac has not been in touch. The Mac refreshes it when it is back.
+- The relay itself unreachable for 10 minutes: the Mac shows a card saying the iPhone gets nothing.
+- A Live Activity with buttons that does not appear within 45 seconds: its cards go as notifications.
 
 ## Confirmed delivery
 
@@ -162,8 +166,9 @@ Apple does not say whether a push arrived, so the phone does:
 
 1. The phone's notification extension opens the card and calls `POST /v1/got` with the envelope id.
 2. The relay tells the Mac (`delivered`, with how long it took) and stops tracking it.
-3. Not confirmed after 45 seconds: the relay sends the same push again. After 3 minutes, once more
-   without a sound. After 15 minutes the Mac hears `undelivered`.
+3. Not confirmed after 45 seconds: the relay sends the same push again, without a sound (it may
+   well have arrived and only the confirmation got lost). After 3 minutes, once more. After 15
+   minutes the Mac hears `undelivered`; the push is still kept until its time to live runs out.
 4. When a phone confirms one push, others still waiting for it go again at once: Apple keeps only
    the newest push for a phone that was offline.
 

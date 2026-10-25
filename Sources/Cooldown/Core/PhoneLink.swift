@@ -731,6 +731,7 @@ final class PhoneLink: ObservableObject {
     private let launched = Date()
     private var launchSettle: Task<Void, Never>?
     private var liveCheck: Task<Void, Never>?
+    private var refreshLive = false
 
     private func live(_ state: LinkState) {
         guard let client else { return }
@@ -771,7 +772,9 @@ final class PhoneLink: ObservableObject {
         }
         var previous = lastLive
         previous?.updated = live.updated
-        if liveOn, previous == live { return }
+        // After a reconnect it goes again even if unchanged: the relay may have marked it out of date.
+        if liveOn, previous == live, !refreshLive { return }
+        refreshLive = false
         let newItem = live.items.first { item in !(previous?.items.contains { $0.id == item.id } ?? false) }
         let newCountdown = live.countdowns.first { c in !(previous?.countdowns.contains { $0.provider == c.provider } ?? false) }
         // At the Mac the cards are in front of you: no Live Activity is started then, only kept current.
@@ -803,6 +806,7 @@ final class PhoneLink: ObservableObject {
         case "ready":
             lastState = nil
             endSent = false
+            refreshLive = true
             publishState(now: true)
             Task { await refreshDevices() }
         case "paired":
