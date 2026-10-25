@@ -362,6 +362,7 @@
 "Ждёт разблокировки Mac" = "Wartet auf das Entsperren des Mac";
 "Ждёт сброса лимита" = "Wartet auf Zurücksetzen";
 "Журнал доставки" = "Zustellprotokoll";
+"Журналы доставки: Mac и iPhone" = "Zustellprotokolle: Mac und iPhone";
 "За 10 минут до сброса лимита %@." = "10 Minuten bevor das %@-Limit zurückgesetzt wird.";
 "За минуту по шагам на выдуманных данных: лимит кончается, задача ждёт и продолжается. Ваши данные потом вернутся." = "Eine Minute Schritt für Schritt mit erfundenen Daten: Das Limit geht aus, eine Aufgabe wartet und geht weiter. Danach kommen deine Daten zurück.";
 "За последние 30 дней сессий Claude Code на этом Mac не было." = "In den letzten 30 Tagen gab es auf diesem Mac keine Claude-Code-Sitzungen.";

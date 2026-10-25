@@ -366,6 +366,7 @@
  "Ждёт разблокировки Mac": "Waiting for the Mac to be unlocked",
  "Ждёт сброса лимита": "Waiting for the limit reset",
  "Журнал доставки": "Delivery log",
+ "Журналы доставки: Mac и iPhone": "Delivery logs: Mac and iPhone",
  "За 10 минут до сброса лимита %@.": "10 minutes before the %@ limit resets.",
  "За минуту по шагам на выдуманных данных: лимит кончается, задача ждёт и продолжается. Ваши данные потом вернутся.": "A minute, step by step, on made-up data: the limit runs out, a task waits and continues. Your data comes back afterwards.",
  "За последние 30 дней сессий Claude Code на этом Mac не было.": "No Claude Code sessions on this Mac in the last 30 days.",

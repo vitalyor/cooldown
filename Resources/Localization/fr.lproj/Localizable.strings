@@ -362,6 +362,7 @@
 "Ждёт разблокировки Mac" = "En attente du déverrouillage du Mac";
 "Ждёт сброса лимита" = "Attend la réinitialisation";
 "Журнал доставки" = "Journal de livraison";
+"Журналы доставки: Mac и iPhone" = "Journaux de livraison : Mac et iPhone";
 "За 10 минут до сброса лимита %@." = "10 minutes avant la réinitialisation de la limite de %@.";
 "За минуту по шагам на выдуманных данных: лимит кончается, задача ждёт и продолжается. Ваши данные потом вернутся." = "Une minute, pas à pas, sur des données inventées : la limite s’épuise, une tâche attend puis reprend. Vos données reviennent ensuite.";
 "За последние 30 дней сессий Claude Code на этом Mac не было." = "Aucune session Claude Code sur ce Mac au cours des 30 derniers jours.";

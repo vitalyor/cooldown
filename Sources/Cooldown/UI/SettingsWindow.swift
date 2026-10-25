@@ -1097,6 +1097,16 @@ private struct PhonePane: View {
                     if link.rehearsing { ProgressView().controlSize(.small) }
                     Button(L("Запустить")) { link.rehearse() }.disabled(link.rehearsing || link.devices.isEmpty)
                 }
+                HStack {
+                    Text(L("Журналы доставки: Mac и iPhone")).foregroundStyle(.secondary)
+                    Spacer()
+                    Button(L("Показать")) {
+                        let folder = Settings.appSupport
+                        let files = ["activity.log", "phone-delivery.log"].map { folder.appendingPathComponent($0) }
+                            .filter { FileManager.default.fileExists(atPath: $0.path) }
+                        if files.isEmpty { NSWorkspace.shared.open(folder) } else { NSWorkspace.shared.activateFileViewerSelecting(files) }
+                    }
+                }
                 if let result = link.checkResult {
                     Label(result.text, systemImage: result.ok ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
                         .font(.callout).foregroundStyle(result.ok ? .green : .orange)
