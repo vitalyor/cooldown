@@ -142,12 +142,6 @@ Cooldown sends nothing to servers of its own — there are none. Details: [docs/
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — data sources, modules, and how Cooldown keeps its
 resource use low. Ideas behind the features: [IDEAS.md](IDEAS.md).
 
-## Thanks
-
-- [Codex Auto Resume](https://github.com/progressrdx/codex-auto-resume) by progressrdx showed that
-  continuing Codex after a limit reset can be done safely. Since version 1.3 Cooldown's auto-continue is
-  its own implementation, written from a specification without that project's code.
-
 ## License
 
 [MIT](LICENSE).
