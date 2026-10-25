@@ -168,8 +168,8 @@ Apple does not say whether a push arrived, so the phone does:
 
 1. The phone's notification extension opens the card and calls `POST /v1/got` with the envelope id.
 2. The relay tells the Mac (`delivered`, with how long it took) and stops tracking it.
-3. Not confirmed after 45 seconds: the relay sends the same push again, without a sound (it may
-   well have arrived and only the confirmation got lost). After 3 minutes, once more. After 15
+3. Not confirmed after 45 seconds: the relay sends the same push again, with its sound (a held-back
+   or lost push is the likelier story on a sleeping phone). After 3 minutes once more, quietly. After 15
    minutes the Mac hears `undelivered`; the push is still kept until its time to live runs out.
 4. When a phone confirms one push, others still waiting for it go again at once: Apple keeps only
    the newest push for a phone that was offline.
