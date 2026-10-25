@@ -55,6 +55,14 @@ final class PhoneLink: ObservableObject {
         return text
     }
 
+    /// Several notifications held back for minutes in a day: that is Apple's push service on the
+    /// phone's network (mobile networks with restrictions do it), not Cooldown — said in plain words.
+    var slowHint: String? {
+        let slow = history.filter { $0.ok && ($0.seconds ?? 0) > 60 }.count + history.filter { !$0.ok }.count
+        guard slow >= 3 else { return nil }
+        return L("Apple доставляет уведомления на этот iPhone с задержкой в минуты. Так бывает на мобильных сетях с ограничениями: телефон подключается к сервису уведомлений Apple только время от времени. Помогает Wi‑Fi или VPN на телефоне.")
+    }
+
     static func span(_ seconds: Double) -> String {
         seconds < 60 ? L("%@ с", seconds.formatted(.number.precision(.fractionLength(1))))
                      : L("%@ мин", (seconds / 60).formatted(.number.precision(.fractionLength(1))))

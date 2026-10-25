@@ -84,6 +84,7 @@
 "5 ч: осталось %@%%" = "5 Std.: %@%% übrig";
 "5 часов" = "5 Stunden";
 "7 дней" = "7 Tage";
+"Apple доставляет уведомления на этот iPhone с задержкой в минуты. Так бывает на мобильных сетях с ограничениями: телефон подключается к сервису уведомлений Apple только время от времени. Помогает Wi‑Fi или VPN на телефоне." = "Apple stellt Mitteilungen auf diesem iPhone mit Minuten Verspätung zu. Das passiert in Mobilfunknetzen mit Einschränkungen: Das iPhone erreicht Apples Mitteilungsdienst nur ab und zu. WLAN oder ein VPN auf dem iPhone hilft.";
 "Claude Code ждёт разрешения работать в пустой папке Cooldown." = "Claude Code wartet auf die Erlaubnis, im leeren Ordner von Cooldown zu arbeiten.";
 "Claude Code не вошёл в аккаунт. Запустите claude в Терминале и войдите." = "Claude Code ist nicht angemeldet. Starte claude im Terminal und melde dich an.";
 "Claude Code не найден. Откройте вкладку Code в Claude Desktop один раз или установите Claude Code." = "Claude Code nicht gefunden. Öffne einmal den Tab „Code“ in Claude Desktop oder installiere Claude Code.";

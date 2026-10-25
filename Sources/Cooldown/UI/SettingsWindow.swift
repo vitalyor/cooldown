@@ -1080,6 +1080,9 @@ private struct PhonePane: View {
                 if let summary = link.historySummary {
                     Text(summary).font(.callout).foregroundStyle(.secondary)
                 }
+                if let hint = link.slowHint {
+                    Label(hint, systemImage: "antenna.radiowaves.left.and.right.slash").font(.callout).foregroundStyle(.orange)
+                }
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(L("Проверить доставку"))
