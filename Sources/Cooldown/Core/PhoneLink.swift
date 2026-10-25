@@ -794,7 +794,10 @@ final class PhoneLink: ObservableObject {
         liveOn = true
         lastLive = live
         // Something new starts afresh (in case the last one was swiped away); the phone keeps one.
-        client.send(.live(fresh ? "start" : "update", live, alert: alert, stale: Date().addingTimeInterval(1800), urgent: true))
+        // iOS gives each app a budget of high-priority updates: spend it on what you would act on
+        // (something to press, an alert); timers and counts go at normal priority.
+        let urgent = fresh || alert != nil || live.items.map(\.id) != (previous?.items.map(\.id) ?? [])
+        client.send(.live(fresh ? "start" : "update", live, alert: alert, stale: Date().addingTimeInterval(1800), urgent: urgent))
         if fresh, !live.items.isEmpty { verifyLive() }
         AgentActivity.trace("phone: live \(fresh ? "start" : "update") items=\(live.items.map(\.kind)) work=\((live.working ?? []).map(\.provider)) countdowns=\(live.countdowns.map(\.provider))\(alert.map { " alert «\($0.body)»" } ?? "")")
     }
