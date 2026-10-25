@@ -71,7 +71,7 @@ final class LinkTests: XCTestCase {
     }
 
     func testLiveStateJSON() throws {
-        let s = LiveState(codex: .init(session: 81, week: 40, reset: 1_761_400_000), claude: nil, working: ["codex"], waiting: 1, ready: 0, updated: 1_761_390_000)
+        let s = LiveState(items: [], countdowns: [.init(provider: "claude", until: 1_761_400_000, waiting: 1)], updated: 1_761_390_000)
         let json = String(data: try JSONEncoder().encode(s), encoding: .utf8)!
         XCTAssertTrue(json.contains("1761400000"))
     }

@@ -1012,7 +1012,6 @@ private struct PhonePane: View {
     @AppStorage(SettingsKey.phoneLink) private var enabled = false
     @AppStorage(SettingsKey.phoneAlways) private var always = false
     @AppStorage(SettingsKey.phoneLive) private var live = true
-    @AppStorage(SettingsKey.phoneLiveThreshold) private var threshold = 80
 
     var body: some View {
         Section {
@@ -1061,16 +1060,11 @@ private struct PhonePane: View {
             }
             Section(L("Что приходит на iPhone")) {
                 OptionToggle(title: L("Уведомлять, даже когда я за Mac"),
-                             detail: L("Обычно карточки приходят на телефон, когда Mac заблокирован или вас нет у него пару минут."),
+                             detail: L("Обычно телефон молчит, пока вы за Mac, и включается, когда Mac заблокирован или вас нет у него пару минут."),
                              isOn: $always)
-                OptionToggle(title: L("Live Activity"),
-                             detail: L("Лимиты и отсчёт до сброса на экране блокировки и в Dynamic Island, с кнопкой «Продолжить»."),
+                OptionToggle(title: L("Кнопки на экране блокировки"),
+                             detail: L("Ответы агентам и «Продолжить» приходят в Live Activity с кнопками, а когда лимит кончился — отсчёт до сброса. Без лишних цифр."),
                              isOn: $live)
-                if live {
-                    Picker(L("Появляется с"), selection: $threshold) {
-                        ForEach([50, 70, 80, 90], id: \.self) { Text("\($0)%").tag($0) }
-                    }
-                }
             }
         }
     }

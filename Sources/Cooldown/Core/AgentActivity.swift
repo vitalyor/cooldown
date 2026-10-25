@@ -234,7 +234,7 @@ final class AgentActivity: ObservableObject {
             Settings.setPendingReset(provider, reset)
         }
         if provider == .claude, ClaudeSender.pendingChat == nil { ClaudeSender.rememberChatForReset() }
-        let content = ToastCatalog.limitStopped(provider, name: name, reset: reset)
+        let content = ToastCatalog.limitStopped(provider, name: name, reset: reset, opener: opener)
         EventLog.shared.add(CooldownEvent(kind: .budget, provider: provider, title: content.title, body: content.body,
                                           threadId: Self.thread(opener)))
         guard !QuietHours.active else { return }
@@ -368,6 +368,51 @@ final class AgentActivity: ObservableObject {
         case .claudeChat(let chat): return .openClaudeChat(chat)
         case .claudeApp: return .openClaude
         case .none: return provider == .codex ? .openCodex : .openPanel
+        }
+    }
+
+    /// A chat of `provider` at work right now that isn't set to continue after a reset yet.
+    func unwatchedWorking(_ provider: ProviderID) -> (Opener, String)? {
+        for session in working(provider).sorted(by: { $0.updated > $1.updated }) {
+            let opener: Opener
+            if provider == .codex {
+                opener = .codexThread(session.key)
+            } else if session.key.hasPrefix("chat:") {
+                opener = .claudeChat(ClaudeChat(id: String(session.key.dropFirst("chat:".count)), title: session.title))
+            } else {
+                continue
+            }
+            if Self.canContinueAfterReset(opener) { return (opener, session.title) }
+        }
+        return nil
+    }
+
+    /// A chat that can be put on "continue after the reset": a Codex task not watched yet, or a Claude
+    /// chat not in the list yet.
+    static func canContinueAfterReset(_ opener: Opener) -> Bool {
+        switch opener {
+        case .codexThread(let id): return !AutoResume.shared.isWatched(id)
+        case .claudeChat(let chat): return !ClaudeChatList.shared.entries.contains { $0.chat.matches(chat) }
+        default: return false
+        }
+    }
+
+    /// Puts the chat on "continue after the reset". Returns a sentence for the person.
+    @discardableResult
+    static func continueAfterReset(_ opener: Opener) async -> String {
+        switch opener {
+        case .codexThread(let id):
+            do {
+                try await AppModel.shared.startTask(id, maxResumes: 2)
+                return L("Cooldown продолжит задачу сам после сброса.")
+            } catch {
+                return ResumeError.friendly(error)
+            }
+        case .claudeChat(let chat):
+            ClaudeChatList.shared.add(chat)
+            return L("После сброса придёт карточка «Продолжить».")
+        default:
+            return ""
         }
     }
 

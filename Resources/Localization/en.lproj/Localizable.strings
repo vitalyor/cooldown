@@ -42,6 +42,8 @@
 "%@ работает: %@" = "%@ is working: %@";
 "%@ с работой в Claude" = "%@ with work in Claude";
 "%@ с работой за год" = "%@ with work this year";
+"%@ скоро упрётся в лимит" = "%@ will hit the limit soon";
+"%@ снова через" = "%@ back in";
 "%@ событий" = "%@ events";
 "%@ токенов" = "%@ tokens";
 "%@ тыс." = "%@K";
@@ -60,6 +62,7 @@
 "%@: осталось %@" = "%@: %@ left";
 "%@: попытки закончились" = "%@: attempts used up";
 "%@: сегодня ушло %@ недели" = "%@: %@ of the week used today";
+"%@: снова можно в %@" = "%@: back at %@";
 ", без моделей с неизвестной ценой" = ", excluding models with unknown prices";
 ", запросы видны" = ", requests visible";
 ", неподтверждённых отправок: %@" = ", unconfirmed sends: %@";
@@ -105,6 +108,7 @@
 "Codex Cooldown продолжает сам, Claude — по одному вашему нажатию. Нажмите «Выйти», и вернутся ваши настоящие данные." = "Cooldown continues Codex by itself, Claude with a single click of yours. Press “Exit” and your real data comes back.";
 "Codex вернул ошибку: %@" = "Codex returned an error: %@";
 "Codex ещё загружает диалог." = "Codex is still loading the conversation.";
+"Codex ещё работает в этом чате. Ответьте, когда он закончит." = "Codex is still working in this chat. Answer when it’s done.";
 "Codex ждёт вашего действия" = "Codex is waiting for you";
 "Codex ждёт вашего ответа в диалоге." = "Codex is waiting for your answer in the conversation.";
 "Codex ждёт чего-то от вас." = "Codex is waiting for something from you.";
@@ -119,6 +123,7 @@
 "Codex не ответил за 20 секунд." = "Codex didn't answer within 20 seconds.";
 "Codex не подтвердил ответ." = "Codex did not confirm the answer.";
 "Codex не принял подключение." = "Codex did not accept the connection.";
+"Codex не принял сообщение." = "Codex didn’t accept the message.";
 "Codex не сказал, где открыт диалог: %@" = "Codex did not say where the conversation is open: %@";
 "Codex не сообщил лимиты." = "Codex did not report the limits.";
 "Codex не сообщил окно лимита." = "Codex did not report the limit window.";
@@ -169,7 +174,9 @@
 "Cooldown открывает в Claude Code экран /usage, как если бы вы набрали команду сами. Запросов к модели нет, токены не тратятся. Лимиты общие для подписки, поэтому учитывается и расход в Claude Desktop." = "Cooldown opens the /usage screen in Claude Code, as if you typed the command yourself. No model requests, no tokens spent. Limits are shared across the subscription, so Claude Desktop usage counts too.";
 "Cooldown открывает экран /usage в Claude Code и сразу закрывает. Запросов к модели нет, токены не тратятся; лимиты общие для всей подписки." = "Cooldown opens the /usage screen in Claude Code and closes it right away. No model requests, no tokens spent; limits are shared across the subscription.";
 "Cooldown по очереди пробует каждое звено: приложения, лимиты, хуки, окно Claude, уведомления, обновления и свои правила безопасности. Ничего не отправляет и не меняет." = "Cooldown tries every link in turn: apps, limits, hooks, the Claude window, notifications, updates and its own safety rules. It sends and changes nothing.";
+"Cooldown продолжил задач: %@" = "Cooldown continued tasks: %@";
 "Cooldown продолжит «%@», как только Codex сможет." = "Cooldown will continue “%@” as soon as Codex can.";
+"Cooldown продолжит задачу сам после сброса." = "Cooldown will continue the task by itself after the reset.";
 "Cooldown сам не проверяет новые версии; кнопка «Проверить» работает всегда." = "Cooldown doesn't check for new versions by itself; the “Check” button always works.";
 "Home Assistant не принял токен. Создайте новый в профиле → Безопасность." = "Home Assistant didn't accept the token. Create a new one in your profile → Security.";
 "Home Assistant недоступен: %@" = "Home Assistant is unreachable: %@";
@@ -182,6 +189,7 @@
 "Mac на связи" = "The Mac is online";
 "Mac не в сети" = "The Mac is offline";
 "Mac не в сети. Выполнится, когда он проснётся." = "The Mac is offline. This will run when it wakes up.";
+"Mac не на связи — то, что ждёт сброса лимита, не продолжится, пока он не вернётся" = "The Mac is offline — what waits for the limit to reset won’t continue until it’s back";
 "Mac пока не ответил. Ответ придёт уведомлением." = "The Mac hasn’t answered yet. The answer will come as a notification.";
 "claude code desktop usage аккаунт строка статуса хуки окно" = "claude code desktop usage account status line hooks window";
 "claude.ai ответил с кодом %@." = "claude.ai answered with code %@.";
@@ -338,7 +346,6 @@
 "Ждут продолжения" = "Waiting to continue";
 "Ждут продолжения: " = "Waiting to continue: ";
 "Ждут продолжения: %@. Cooldown откроет их по очереди и отправит «%@»." = "Waiting to continue: %@. Cooldown will open them one by one and send “%@”.";
-"Ждут сброса: %@" = "Waiting for the reset: %@";
 "Ждём сброса" = "Waiting for the reset";
 "Ждём сброса лимита Claude в %@." = "Waiting for the Claude limit to reset at %@.";
 "Ждём сброса лимита Claude." = "Waiting for the Claude limit to reset.";
@@ -421,6 +428,7 @@
 "Карточки с кнопками, лимиты, задачи и Live Activity на телефоне. Нажатое там выполняет этот Mac." = "Cards with buttons, limits, tasks and a Live Activity on your phone. What you press there, this Mac carries out.";
 "Карточки, баннеры и звуки" = "Cards, banners and sounds";
 "Карточки, названия чатов и ответы шифруются на Mac и открываются только на вашем iPhone. Сервер Cooldown передаёт их, не читая; для Live Activity он видит только проценты лимитов и время сброса." = "Cards, chat titles and answers are encrypted on the Mac and opened only on your iPhone. The Cooldown server passes them on without reading them; for the Live Activity it sees only limit percentages and reset times.";
+"Кнопки на экране блокировки" = "Buttons on the Lock Screen";
 "Когда лимит восстановится, придёт карточка «Продолжить» (для нескольких чатов — одна, «Продолжить все»). Нажмёте — Cooldown сам найдёт каждый чат, даже если вы ушли в другой, проверит его и отправит сообщение." = "When the limit resets, a “Continue” card arrives (one “Continue all” card for several chats). Press it and Cooldown finds each chat — even if you've moved to another — checks it and sends the message.";
 "Когда лимит восстановится, придёт карточка «Продолжить». Нажмёте её, и Cooldown найдёт нужный чат и отправит туда сообщение ниже. Без вашего нажатия ничего не отправляется." = "When the limit resets, a “Continue” card arrives. Press it, and Cooldown finds the right chat and sends the message below. Nothing is sent without your click.";
 "Код истёк" = "The code has expired";
@@ -439,12 +447,10 @@
 "Лимит Codex восстановлен" = "Codex limit reset";
 "Лимит Codex сейчас исчерпан. Задача запустится сама после сброса в %@ — даже если вас не будет рядом." = "The Codex limit is used up now. The task will start by itself after the reset at %@ — even if you're away.";
 "Лимит восстановился" = "Limit reset";
-"Лимит восстановился — можно продолжать" = "The limit is back — you can continue";
 "Лимит восстановился, Cooldown отправил «продолжай». Задача снова работает." = "The limit has reset; Cooldown sent “continue”. The task is running again.";
 "Лимит восстановился, задача продолжена" = "The limit reset, the task continued";
 "Лимит восстановился, продолжение отправлено." = "The limit has reset; the continuation was sent.";
 "Лимит восстановился. Продолжи прерванную работу в этой сессии. Сначала сверь текущий прогресс и рабочую папку; не повторяй уже выполненные шаги, не расширяй объём работы, не обходи подтверждения. Если работа уже завершена или нужно решение пользователя, прямо скажи об этом и остановись." = "The limit has reset. Continue the interrupted work in this session. First check the current progress and the working folder; don't repeat steps already done, don't widen the scope, don't bypass confirmations. If the work is already done or a decision from the user is needed, say so plainly and stop.";
-"Лимит заканчивается" = "The limit is running out";
 "Лимит закончится в %@, за %@ до сброса." = "The limit will run out at %@, %@ before the reset.";
 "Лимит исчерпан. Продолжу в %@." = "The limit is used up. I'll continue at %@.";
 "Лимит исчерпан. Продолжу после сброса в %@." = "The limit is used up. I'll continue after the reset at %@.";
@@ -469,7 +475,6 @@
 "Лимиты Claude общие для чатов, Cowork и Claude Code. Cooldown читает их через Claude Code, токены на это не тратятся." = "Claude limits are shared by chats, Cowork and Claude Code. Cooldown reads them through Claude Code — no tokens are spent on that.";
 "Лимиты Codex" = "Codex limits";
 "Лимиты Codex идут из его файлов сессий, пока он работает, и из `codex app-server` — в остальное время." = "Codex limits come from its session files while it works, and from `codex app-server` the rest of the time.";
-"Лимиты и отсчёт до сброса на экране блокировки и в Dynamic Island, с кнопкой «Продолжить»." = "Limits and a countdown to the reset on the Lock Screen and in the Dynamic Island, with a “Continue” button.";
 "Лимиты на 5 часов и неделю, отдельно по моделям" = "5-hour and weekly limits, per model too";
 "Лимиты на экране блокировки" = "Limits on the Lock Screen";
 "Лимиты, работа агентов и автопродолжение для Codex и Claude — в строке меню." = "Limits, agents' work and auto-continue for Codex and Claude — in the menu bar.";
@@ -595,7 +600,7 @@
 "Обновления" = "Updates";
 "Обновления с GitHub" = "Updates from GitHub";
 "Обновлено %@. Считаются диалоги, которые менялись в этот период; сообщения не читаются." = "Updated %@. Counts conversations that changed in this period; messages aren't read.";
-"Обычно карточки приходят на телефон, когда Mac заблокирован или вас нет у него пару минут." = "Usually cards come to the phone when the Mac is locked or you’ve been away from it for a couple of minutes.";
+"Обычно телефон молчит, пока вы за Mac, и включается, когда Mac заблокирован или вас нет у него пару минут." = "Usually the phone stays quiet while you’re at the Mac and takes over when the Mac is locked or you’ve been away for a couple of minutes.";
 "Одобрить" = "Approve";
 "Окно" = "Window";
 "Окно Claude Desktop" = "Claude Desktop window";
@@ -608,6 +613,7 @@
 "Основные" = "General";
 "Осталось %@" = "%@ left";
 "Осталось %@%% · сброс в %@" = "%@%% left · resets at %@";
+"Осталось %@. «%@» остановится на полпути — сброс в %@." = "%@ left. “%@” will stop halfway — reset at %@.";
 "Осталось 20% и 5%" = "20% and 5% left";
 "Остальные" = "Others";
 "Остановить" = "Stop";
@@ -620,6 +626,7 @@
 "Ответить" = "Answer";
 "Ответить в чате" = "Answer in the chat";
 "Ответить там" = "Answer there";
+"Ответы агентам и «Продолжить» приходят в Live Activity с кнопками, а когда лимит кончился — отсчёт до сброса. Без лишних цифр." = "Answers to agents and “Continue” come as a Live Activity with buttons, and when a limit is spent, a countdown to the reset. No extra numbers.";
 "Ответы не совпадают с вопросами." = "The answers don't match the questions.";
 "Отклонено подключение устройства, которое не сканировало QR-код." = "Refused a device that didn’t scan the QR code.";
 "Отклонить" = "Decline";
@@ -654,7 +661,9 @@
 "Отменено." = "Canceled.";
 "Отменить" = "Cancel";
 "Отмеченные разговоры Codex Cooldown продолжит сам, как только лимит сбросится." = "Cooldown continues checked Codex conversations by itself as soon as the limit resets.";
+"Отправить" = "Send";
 "Отправка не подтверждена" = "Send not confirmed";
+"Отправлено в Codex." = "Sent to Codex.";
 "Отправлено в «%@»." = "Sent to “%@”.";
 "Отправлено в открытый чат Claude." = "Sent to the open Claude chat.";
 "Отправлено на %@." = "Sent to %@.";
@@ -707,7 +716,6 @@
 "Пока ни одного iPhone" = "No iPhone yet";
 "Пока ничего не произошло. Здесь появятся сбросы лимитов, продолженные и законченные задачи." = "Nothing has happened yet. Limit resets, continued and finished tasks will show up here.";
 "Показать" = "Show";
-"Показать на экране блокировки" = "Show on Lock Screen";
 "Показать примеры карточек" = "Show sample cards";
 "Показывать" = "Show";
 "Показывать, когда агент работает" = "Show when an agent is working";
@@ -721,7 +729,6 @@
 "Посмотреть" = "View";
 "Посмотрите эти задачи в Codex: повторно Cooldown их не отправит." = "Check these tasks in Codex: Cooldown won't send them again.";
 "Потрачено" = "Used";
-"Появляется с" = "Appears at";
 "Правила безопасности" = "Safety rules";
 "Правый клик по значку" = "Right-click the icon";
 "При 5% придёт второе уведомление. На нуле Codex останавливается, а задача переходит в «Ждёт сброса лимита». Ваш Mac можно оставить в покое." = "At 5% a second notification arrives. At zero Codex stops and the task moves to “Waiting for the limit reset”. You can leave your Mac alone.";
@@ -773,6 +780,7 @@
 "Продолжить «%@»?" = "Continue “%@”?";
 "Продолжить все (%@)" = "Continue all (%@)";
 "Продолжить все сейчас" = "Continue all now";
+"Продолжить после сброса" = "Continue after reset";
 "Продолжить сейчас" = "Continue now";
 "Продумать структуру таблицы учёта" = "Design the accounting table structure";
 "Проект съедает много недели" = "A project eats a lot of the week";
@@ -782,6 +790,7 @@
 "Прошлое продолжение не подтвердилось. Откройте диалог и проверьте его — автоматически туда ничего не отправится, пока вы сами не продолжите работу." = "The previous continuation wasn't confirmed. Open the conversation and check it — nothing will be sent there automatically until you continue the work yourself.";
 "Пульт Cooldown в кармане" = "The Cooldown remote in your pocket";
 "Пульт для Codex и Claude на вашем Mac: лимиты, карточки с кнопками, задачи и Live Activity." = "A remote for Codex and Claude on your Mac: limits, cards with buttons, tasks and a Live Activity.";
+"Пустой ответ не отправлен." = "An empty reply wasn’t sent.";
 "Работа не закончена, но новых шагов нет. Возможно, стоит заглянуть." = "The work isn't finished, but there are no new steps. Maybe worth a look.";
 "Работает" = "Works";
 "Работал %@ мин." = "Worked for %@ min.";
@@ -846,6 +855,7 @@
 "Соединение с приложением разорвано" = "The connection to the app was lost";
 "Сокет Codex доступен другим пользователям или не принадлежит вам." = "The Codex socket is accessible to other users or isn't yours.";
 "Сообщать, когда лимит восстановился" = "Tell me when the limit resets";
+"Сообщение агенту" = "Message to the agent";
 "Состояние диалога изменилось, смотрю заново." = "The conversation's state changed, looking again.";
 "Состояние неизвестно" = "State unknown";
 "Сохранено: %@" = "Saved: %@";
@@ -886,7 +896,6 @@
 "Тяжелее обычного: обычно к этому моменту %@, сейчас %@." = "Heavier than usual: usually %@ by this point, now %@.";
 "У последней задачи нет номера." = "The latest task has no ID.";
 "Убрать" = "Remove";
-"Убрать Live Activity" = "Remove Live Activity";
 "Убрать из списка" = "Remove from list";
 "Уведомления" = "Notifications";
 "Уведомления и Live Activity с лимитами будут приходить сюда." = "Notifications and a Live Activity with your limits will arrive here.";
@@ -920,7 +929,6 @@
 "Чаты Claude — продолжение одним нажатием" = "Claude chats — continue with one click";
 "Чаты без проекта" = "Chats without a project";
 "Чаты для продолжения" = "Chats to continue";
-"Чаты ждут сброса лимита" = "Chats are waiting for the limit to reset";
 "Чаты, Cowork и вкладка Code в Claude Desktop считаются в лимитах вашего аккаунта claude.ai. Cooldown прочитает их оттуда, как страница «Использование» в настройках Claude." = "Chats, Cowork and the Code tab in Claude Desktop count toward your claude.ai account's limits. Cooldown will read them from there, like the Usage page in Claude's settings.";
 "Чем меньше остаётся, тем короче линия и тем теплее её цвет: зелёный, жёлтый, оранжевый. Когда останется 20%, придёт уведомление." = "The less is left, the shorter the line and the warmer its color: green, yellow, orange. At 20% left a notification arrives.";
 "Через %@." = "In %@.";
@@ -971,6 +979,7 @@
 "доступ в сеть" = "network access";
 "ждать сброса: «%@»" = "wait for the reset: “%@”";
 "ждут вашего решения: %@" = "waiting for your decision: %@";
+"ждут продолжения: %@" = "waiting to continue: %@";
 "ждёт вас" = "waiting for you";
 "ждёт сброса" = "waiting for reset";
 "за 30 дней" = "in the last 30 days";
@@ -1005,7 +1014,6 @@
 "не удалось" = "failed";
 "неделя" = "week";
 "неделя: %@%%" = "week: %@%%";
-"неделя: осталось %@%%" = "week: %@%% left";
 "нет ответа" = "no response";
 "ни разу" = "never";
 "обновлено %@ назад" = "updated %@ ago";
@@ -1014,6 +1022,8 @@
 "осталось" = "left";
 "осталось %@" = "%@ left";
 "ответ «%@»" = "answer “%@”";
+"ответ в Codex" = "reply in Codex";
+"ответ в «%@»" = "reply in “%@”";
 "ответ не JSON" = "the response isn't JSON";
 "открывался %@" = "opened %@";
 "отслеживать «%@»" = "watch “%@”";
@@ -1039,6 +1049,7 @@
 "сегодня в %@" = "today at %@";
 "сейчас не расходуется" = "not being spent now";
 "сеть: %@" = "network: %@";
+"снова в %@" = "back at %@";
 "ср" = "Wed";
 "стоило бы по API" = "would have cost at API prices";
 "стоит посмотреть: %@" = "worth a look: %@";

@@ -138,6 +138,33 @@ final class AutoResume: @unchecked Sendable {
     }
 
     /// Something happened in this conversation (a turn ended, a hook fired): look soon.
+    /// Sends the person's own message into a Codex conversation ("Ответить" on the phone), only
+    /// while Codex is not working in it. Not counted as an auto-continue.
+    func reply(_ raw: String, text: String) async throws {
+        let id = raw.lowercased()
+        try await offMain {
+            try CodexApp.checkVersion()
+            let connection = CodexIPCConnection(timeout: 8)
+            defer { connection.close() }
+            try connection.open()
+            let owner = try connection.discoverOwner(id)
+            let state = try connection.snapshot(id, owner: owner)
+            if ResumeRules.decide(state, thread: id).taskState == "running" {
+                throw ResumeError.refused(L("Codex ещё работает в этом чате. Ответьте, когда он закончит."))
+            }
+            let params: [String: Any] = [
+                "conversationId": id,
+                "turnStart": ["request": ["threadId": id, "clientUserMessageId": UUID().uuidString.lowercased(),
+                                          "input": [["type": "text", "text": text, "text_elements": [Any]()]]]],
+            ]
+            AgentActivity.trace("reply \(id): sending the person's message")
+            let reply = try connection.request("thread-follower-start-turn", params: params, version: 2, target: owner, wait: 30)
+            guard (JSON.dig(reply, "result", "result", "turn", "id") as? String)?.isEmpty == false else {
+                throw ResumeError.refused(L("Codex не принял сообщение."))
+            }
+        }
+    }
+
     func poke(_ id: String, after delay: TimeInterval = 2) {
         let id = id.lowercased()
         if !enabledIds().contains(id) { return }

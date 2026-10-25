@@ -19,7 +19,8 @@ public struct LinkPush: Codable, Equatable, Sendable {
 public struct LiveAlert: Codable, Equatable, Sendable {
     public var title: String
     public var body: String
-    public init(title: String, body: String) { self.title = title; self.body = body }
+    public var sound: String?            // a sound in the iPhone app's bundle, or "default"
+    public init(title: String, body: String, sound: String? = nil) { self.title = title; self.body = body; self.sound = sound }
 }
 
 /// One WebSocket frame. Which fields are set depends on `t` (docs/LINK.md, "WebSocket frames").
@@ -255,6 +256,7 @@ public struct LinkDeviceRow: Codable, Equatable, Identifiable, Sendable {
     public var online: Bool
     public var seen: Int64
     public var push: Bool
+    public var live: Bool?               // can show a Live Activity started from the Mac
 }
 
 // MARK: Connection

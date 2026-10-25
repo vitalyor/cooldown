@@ -110,6 +110,11 @@ enum ClaudeSender {
     /// Brings Claude forward, opens `chat` (if given and not open yet), checks it is open,
     /// puts the text into its input and presses Return.
     static func continueChat(_ chat: ClaudeChat? = nil) async throws {
+        try await send(text, to: chat)
+    }
+
+    /// The same for any message: "Ответить" from the phone. Only ever on the person's press.
+    static func send(_ message: String, to chat: ClaudeChat?) async throws {
         guard hasPermission else {
             requestPermission()
             throw SendError.noPermission
@@ -151,7 +156,7 @@ enum ClaudeSender {
 
         guard NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier else { throw SendError.notFront }
         if let chat, !chat.matches(currentChat(in: Self.window(of: app) ?? window)) { throw SendError.chatNotOpened(chat.title) }
-        type(text, to: app.processIdentifier)
+        type(message, to: app.processIdentifier)
         try await Task.sleep(for: .milliseconds(300))
         guard NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier else { throw SendError.notFront }
         press(keyCode: 36, to: app.processIdentifier) // Return sends in Claude

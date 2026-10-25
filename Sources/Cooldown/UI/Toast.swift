@@ -19,12 +19,15 @@ enum ToastAction: Equatable {
     case openReleasePage
     case openFeed
     case remindBeforeReset(ProviderID, Date)
+    /// The chat the limit stopped: continue it after the reset (Codex by itself, Claude with a card).
+    case continueAfterReset(AgentActivity.Opener)
     case openFile(URL)
 
     var title: String {
         switch self {
         case .openFeed: return L("Посмотреть")
         case .remindBeforeReset: return L("Напомнить за 10 мин")
+        case .continueAfterReset: return L("Продолжить после сброса")
         case .openFile: return L("Открыть отчёт")
         case .openSchedule: return L("Отложить задачу")
         case .installUpdate: return L("Перезапустить")
@@ -100,6 +103,14 @@ struct ToastContent: Equatable {
 enum ToastCatalog {
     static func limitLow(_ provider: ProviderID, remaining: Double, reset: Date) -> ToastContent {
         let critical = remaining <= 5
+        // Almost out while a chat is at work: offer to continue it after the reset, so it doesn't
+        // just stop halfway.
+        if critical, let (opener, title) = AgentActivity.shared.unwatchedWorking(provider) {
+            return ToastContent(key: "low-\(provider.rawValue)", kind: .warning, provider: provider,
+                                title: L("%@ скоро упрётся в лимит", "\(provider.displayName)"),
+                                body: L("Осталось %@. «%@» остановится на полпути — сброс в %@.", "\(Format.percent(remaining))", "\(title)", "\(Format.time(reset))"),
+                                actions: [.continueAfterReset(opener)], life: .sticky)
+        }
         return ToastContent(key: "low-\(provider.rawValue)", kind: critical ? .warning : .attention, provider: provider,
                             title: L("%@: осталось %@", "\(provider.displayName)", "\(Format.percent(remaining))"),
                             body: critical ? L("Лимит на 5 часов почти кончился. Сброс в %@.", "\(Format.time(reset))")
@@ -163,8 +174,9 @@ enum ToastCatalog {
     }
 
     /// A chat stopped because the limit ran out. Same key as limitOut: it takes that card's place.
-    static func limitStopped(_ provider: ProviderID, name: String, reset: Date?) -> ToastContent {
+    static func limitStopped(_ provider: ProviderID, name: String, reset: Date?, opener: AgentActivity.Opener = .none) -> ToastContent {
         var actions: [ToastAction] = []
+        if AgentActivity.canContinueAfterReset(opener) { actions.append(.continueAfterReset(opener)) }
         if let reset, ResetReminder.possible(before: reset) { actions.append(.remindBeforeReset(provider, reset)) }
         if provider == .codex { actions.append(.openSchedule) }
         let when = reset.map { L("Снова можно работать в %@ — через %@.", "\(Format.clock($0))", "\(Format.duration(max(60, $0.timeIntervalSinceNow)))") }
@@ -440,6 +452,8 @@ final class ToastController: ObservableObject {
             StatusController.shared?.open(to: .feed)
         case .remindBeforeReset(let provider, let reset):
             ResetReminder.set(provider, reset: reset)
+        case .continueAfterReset(let opener):
+            Task { await AgentActivity.continueAfterReset(opener) }
         case .openFile(let url):
             NSWorkspace.shared.open(url)
         case .installUpdate:

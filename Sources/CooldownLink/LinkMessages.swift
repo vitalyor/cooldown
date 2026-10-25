@@ -59,8 +59,10 @@ public struct LinkAction: Codable, Equatable, Identifiable, Sendable {
     public var style: Style
     /// Needs Face ID when pressed from the lock screen (answers to agent requests).
     public var auth: Bool
-    public init(id: String, title: String, style: Style = .normal, auth: Bool = false) {
-        self.id = id; self.title = title; self.style = style; self.auth = auth
+    /// Asks for a line of text first ("Ответить"): it goes to the agent's chat.
+    public var input: Bool?
+    public init(id: String, title: String, style: Style = .normal, auth: Bool = false, input: Bool? = nil) {
+        self.id = id; self.title = title; self.style = style; self.auth = auth; self.input = input
     }
 }
 
@@ -184,17 +186,12 @@ public enum LinkJSON {
     }()
 }
 
-/// What a Live Activity shows. Plain on purpose: iOS can't decrypt Live Activity pushes on the
-/// device, so this carries numbers only. Times are seconds since 1970 as plain numbers, because
-/// ActivityKit decodes pushed dates in its own default format.
+/// What the Live Activity shows: only what matters now, never a wall of numbers. Up to two
+/// things that wait for a press, each with its buttons, and a countdown when a limit is spent.
+/// Plain on purpose: iOS can't decrypt Live Activity pushes, so titles are general ("Codex is
+/// waiting for your decision"), never chat names or commands. Times are seconds since 1970 as
+/// plain numbers, because ActivityKit decodes pushed dates in its own default format.
 public struct LiveState: Codable, Hashable, Sendable {
-    public struct Limit: Codable, Hashable, Sendable {
-        public var session: Double
-        public var week: Double
-        public var reset: Double?        // seconds since 1970
-        public init(session: Double, week: Double, reset: Double?) { self.session = session; self.week = week; self.reset = reset }
-    }
-    /// A button on the Lock Screen. Pressing it runs on the Mac like the same button on the card.
     public struct Button: Codable, Hashable, Sendable {
         public var id: String
         public var title: String
@@ -205,11 +202,10 @@ public struct LiveState: Codable, Hashable, Sendable {
             self.id = id; self.title = title; self.primary = primary; self.destructive = destructive; self.auth = auth
         }
     }
-    /// The newest card that asks for a press. Its title is general on purpose ("Codex is waiting
-    /// for your decision"): this travels unsealed, so no chat names or commands go in it.
-    public struct Card: Codable, Hashable, Sendable {
+    /// One thing that waits for a press.
+    public struct Item: Codable, Hashable, Sendable {
         public var id: String            // the card's opaque collapse id
-        public var kind: String
+        public var kind: String          // attention, reset, warning, …
         public var provider: String?
         public var title: String
         public var buttons: [Button]
@@ -217,15 +213,19 @@ public struct LiveState: Codable, Hashable, Sendable {
             self.id = id; self.kind = kind; self.provider = provider; self.title = title; self.buttons = buttons
         }
     }
-    public var codex: Limit?
-    public var claude: Limit?
-    public var working: [String]         // providers with an agent at work
-    public var waiting: Int              // chats waiting for a reset
-    public var ready: Int                // chats that can be continued now
-    public var card: Card?
-    public var updated: Double
-    public init(codex: Limit?, claude: Limit?, working: [String], waiting: Int, ready: Int, card: Card? = nil, updated: Double = 0) {
-        self.codex = codex; self.claude = claude; self.working = working; self.waiting = waiting; self.ready = ready
-        self.card = card; self.updated = updated
+    /// A spent limit: when work can go on.
+    public struct Countdown: Codable, Hashable, Sendable {
+        public var provider: String
+        public var until: Double         // seconds since 1970
+        public var waiting: Int          // chats or tasks waiting for it
+        public init(provider: String, until: Double, waiting: Int) { self.provider = provider; self.until = until; self.waiting = waiting }
     }
+    public var items: [Item]             // at most two, most urgent first
+    public var more: Int                 // further items not shown
+    public var countdowns: [Countdown]   // soonest first
+    public var updated: Double
+    public init(items: [Item], more: Int = 0, countdowns: [Countdown] = [], updated: Double = 0) {
+        self.items = items; self.more = more; self.countdowns = countdowns; self.updated = updated
+    }
+    public var isEmpty: Bool { items.isEmpty && countdowns.isEmpty }
 }
