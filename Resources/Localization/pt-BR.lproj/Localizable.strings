@@ -371,6 +371,7 @@
 "За последние 30 дней сессий Claude Code на этом Mac не было." = "Não houve sessões do Claude Code neste Mac nos últimos 30 dias.";
 "За последние семь дней работы Codex и Claude Code не было." = "Nos últimos sete dias não houve trabalho no Codex nem no Claude Code.";
 "За сутки дошло %@ из %@" = "Últimas 24 horas: chegaram %@ de %@";
+"За сутки пришло %@, обычно за %@ с" = "Últimas 24 horas: chegaram %@, geralmente em %@ s";
 "За этот период данных о лимитах нет." = "Não há dados de limite para este período.";
 "Завершено" = "Concluída";
 "Загружаю %@…" = "Baixando %@…";
