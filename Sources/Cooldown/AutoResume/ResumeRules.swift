@@ -75,9 +75,11 @@ enum ResumeRules {
 
     /// The app's folder picker left behind by an older, interrupted turn of the same conversation
     /// is not waiting for anyone. It is only ignored, never answered or removed.
+    private static let leftoverTool: [String?] = ["codex_app", "setup_codex_context_picker"]
+
     static func isLeftover(_ request: [String: Any], thread: String, turns: [[String: Any]], latest: String?) -> Bool {
         guard request["method"] as? String == "item/tool/call", let params = request["params"] as? [String: Any],
-              params["namespace"] as? String == "codex_app", params["tool"] as? String == "setup_codex_context_picker",
+              [params["namespace"] as? String, params["tool"] as? String] == leftoverTool,
               (params["threadId"] as? String)?.lowercased() == thread.lowercased(),
               let turn = JSON.nonEmptyString(params["turnId"]), let latest, turn != latest else { return false }
         return turns.contains { turnId($0) == turn && $0["status"] as? String == "interrupted" }
@@ -97,7 +99,7 @@ enum ResumeRules {
         let saved = JSON.bool(state["ephemeral"]) == false
             || (state["ephemeral"] == nil && JSON.nonEmptyString(state["rolloutPath"]) != nil)
         guard saved else { return verdict(.stop, "unsupported", L("Диалог не сохраняется, такой продолжить нельзя.")) }
-        guard state["resumeState"] as? String == "resumed" else {
+        if (state["resumeState"] as? String) != "resumed" {
             return verdict(.wait, "connecting", L("Codex ещё загружает диалог."))
         }
         let (all, latest) = turns(state)
@@ -105,25 +107,26 @@ enum ResumeRules {
         if case .turn(let turn) = latest { latestTurn = turn }
         let latestId = latestTurn.flatMap(turnId)
 
-        guard let requests = state["requests"] as? [Any] else {
+        // No list at all is not the same as an empty one: then nobody can say nothing is waiting.
+        let listed = state["requests"] as? [Any]
+        if listed == nil {
             return verdict(.stop, "unknown", L("Codex не сообщил, ждёт ли диалог ответа."))
         }
-        let waiting = requests.filter { raw in
+        let waiting = (listed ?? []).filter { raw in
             guard let request = raw as? [String: Any] else { return true }
             return !isLeftover(request, thread: thread, turns: all, latest: latestId)
         }
         if !waiting.isEmpty {
             return verdict(.stop, "needs_attention", L("Codex ждёт вашего ответа в диалоге."))
         }
-        if JSON.truthy(state["threadGoalResumeConfirmation"]) {
+        if says(state, "threadGoalResumeConfirmation") {
             return verdict(.stop, "needs_attention", L("Codex просит подтвердить продолжение цели."))
         }
-        let goal = state["threadGoal"]
-        let goalActive = (goal as? [String: Any])?["status"] as? String == "active"
-        if !JSON.isNull(goal) && !goalActive {
+        let goal = goalState(state["threadGoal"])
+        if goal == .inactive {
             return verdict(.stop, "needs_attention", L("Цель диалога не активна — решите, что с ней делать."))
         }
-        if JSON.truthy(state["queuedFollowUps"]) {
+        if says(state, "queuedFollowUps") {
             return verdict(.stop, "needs_attention", L("В очереди есть ваше сообщение — Codex отправит его сам."))
         }
         guard let runtime = state["threadRuntimeStatus"] as? [String: Any], let kind = runtime["type"] as? String else {
@@ -131,7 +134,7 @@ enum ResumeRules {
         }
         switch kind {
         case "active":
-            if JSON.truthy(runtime["activeFlags"]) {
+            if says(runtime, "activeFlags") {
                 return verdict(.stop, "needs_attention", L("Codex ждёт чего-то от вас."))
             }
             return verdict(.wait, "running", L("Codex работает над задачей."))
@@ -148,11 +151,12 @@ enum ResumeRules {
         guard let turn = latestTurn, let id = latestId else {
             return verdict(.stop, "unknown", L("У последней задачи нет номера."))
         }
-        switch turn["status"] as? String {
+        let status = turn["status"] as? String ?? ""
+        switch status {
         case "inProgress":
             return verdict(.wait, "running", L("Codex работает над задачей."))
         case "completed":
-            if goalActive { return verdict(.wait, "running", L("Codex продолжает работу над целью.")) }
+            if goal == .active { return verdict(.wait, "running", L("Codex продолжает работу над целью.")) }
             return verdict(.stop, "idle", L("Задача завершена."))
         case "interrupted":
             return verdict(.stop, "interrupted", L("Задачу прервали."))
@@ -165,6 +169,17 @@ enum ResumeRules {
             return verdict(.stop, "unknown", L("Незнакомое состояние последней задачи."))
         }
     }
+
+    private enum Goal { case none, active, inactive }
+
+    /// No goal, an active one, or one in any other condition (paused, done, of an unknown form).
+    private static func goalState(_ raw: Any?) -> Goal {
+        if JSON.isNull(raw) { return .none }
+        return (raw as? [String: Any])?["status"] as? String == "active" ? .active : .inactive
+    }
+
+    /// Whether a field holds something (a flag set, a non-empty list).
+    private static func says(_ object: [String: Any], _ key: String) -> Bool { JSON.truthy(object[key]) }
 
     /// The parts of the state that decide what a continuation would do. If any of them changes
     /// between deciding to send and sending, the decision no longer holds.
@@ -191,7 +206,8 @@ enum ResumeRules {
         guard let turns = thread["turns"] as? [Any] else { return ("unknown", L("Не удалось прочитать историю диалога.")) }
         guard let last = turns.last else { return ("empty", L("В диалоге ещё нет задач.")) }
         guard let turn = last as? [String: Any], turnId(turn) != nil else { return ("unknown", L("Не видно, какая задача в диалоге последняя.")) }
-        switch turn["status"] as? String {
+        let status = turn["status"] as? String ?? ""
+        switch status {
         case "completed": return ("idle", L("Задача завершена."))
         case "interrupted": return ("interrupted", L("Задачу прервали."))
         case "inProgress": return ("running", L("По сохранённой истории задача ещё выполняется."))
@@ -242,9 +258,12 @@ enum ResumeRules {
         if !JSON.isNull(bucket["individualLimit"]) {
             return .blocked(L("На аккаунте действует отдельный лимит — нужно ваше решение."))
         }
-        let reached = bucket["rateLimitReachedType"]
-        if !JSON.isNull(reached) && reached as? String != "rate_limit_reached" {
-            return .blocked(L("Codex сообщил незнакомый вид ограничения."))
+        // Only the ordinary window limit may be waited out; any other kind needs the person.
+        let flaggedAsReached: Bool
+        switch bucket["rateLimitReachedType"] {
+        case nil, is NSNull: flaggedAsReached = false
+        case let kind as String where kind == "rate_limit_reached": flaggedAsReached = true
+        default: return .blocked(L("Codex сообщил незнакомый вид ограничения."))
         }
         guard let primary = bucket["primary"], !JSON.isNull(primary) else {
             return .blocked(L("Codex не сообщил окно лимита."))
@@ -263,7 +282,7 @@ enum ResumeRules {
         if let reset = full.map(\.resets).max() {
             return .notYet(max(reset.addingTimeInterval(5), now.addingTimeInterval(60)))
         }
-        if windows.contains(where: { $0.resets <= now }) || !JSON.isNull(reached) {
+        if flaggedAsReached || windows.contains(where: { $0.resets <= now }) {
             return .stale(now.addingTimeInterval(60))
         }
         return .available

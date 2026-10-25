@@ -34,18 +34,23 @@ final class AutoResume: @unchecked Sendable {
     func start() {
         guard !started else { return }
         started = true
-        let center = NSWorkspace.shared.notificationCenter
-        center.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: nil) { _ in
+        listenToWorkspace()
+        queue.async { self.boot() }
+    }
+
+    /// The Mac waking up and the Codex app starting or quitting are moments to look again.
+    private func listenToWorkspace() {
+        let workspaceEvents = NSWorkspace.shared.notificationCenter
+        workspaceEvents.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: nil) { _ in
             AutoResume.shared.pokeAll(after: 10)
         }
         for (name, delay) in [(NSWorkspace.didLaunchApplicationNotification, 6.0), (NSWorkspace.didTerminateApplicationNotification, 2.0)] {
-            center.addObserver(forName: name, object: nil, queue: nil) { note in
+            workspaceEvents.addObserver(forName: name, object: nil, queue: nil) { note in
                 let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
                 // A launched app needs a few seconds to open its socket.
                 if app?.bundleIdentifier == CodexApp.bundleId { AutoResume.shared.pokeAll(after: delay) }
             }
         }
-        queue.async { self.boot() }
     }
 
     func watches() async -> [ResumeWatch] {
@@ -53,7 +58,7 @@ final class AutoResume: @unchecked Sendable {
     }
 
     func conversations() async throws -> [CodexConversation] {
-        try await background {
+        try await offMain {
             if let list = CodexThreadIndex.conversations() { return list }
             let official = try CodexOfficial()
             defer { official.close() }
@@ -66,13 +71,13 @@ final class AutoResume: @unchecked Sendable {
     }
 
     func check(_ id: String) async throws -> ResumeCheck {
-        try await background { try Self.inspect(id) }
+        try await offMain { try Self.examine(id).check }
     }
 
     func start(_ raw: String, maxResumes: Int) async throws {
-        try await background {
+        try await offMain {
             let (check, latest) = try Self.examine(raw)
-            guard check.canMonitor else { throw ResumeError.refused(check.reason) }
+            try Self.requireWatchable(check)
             let id = check.threadId
             let limit = min(10, max(1, maxResumes))
             try self.store.update { data in
@@ -122,21 +127,26 @@ final class AutoResume: @unchecked Sendable {
         }
     }
 
-    func isWatched(_ id: String) -> Bool {
-        let id = id.lowercased()
-        return current().contains { $0.threadId == id && $0.enabled }
+    func isWatched(_ id: String) -> Bool { enabledIds().contains(id.lowercased()) }
+
+    private func enabledIds() -> Set<String> { Set(current().lazy.filter(\.enabled).map(\.threadId)) }
+
+    /// Only running work and work stopped by the limit can be put under a watch.
+    private static func requireWatchable(_ check: ResumeCheck) throws {
+        if check.canMonitor { return }
+        throw ResumeError.refused(check.reason)
     }
 
     /// Something happened in this conversation (a turn ended, a hook fired): look soon.
     func poke(_ id: String, after delay: TimeInterval = 2) {
         let id = id.lowercased()
-        guard isWatched(id) else { return }
+        if !enabledIds().contains(id) { return }
         queue.async { self.schedule(id, after: delay, replace: false) }
     }
 
     /// Something happened that concerns every watch (limits reset, Mac woke, Codex started or quit).
     func pokeAll(after delay: TimeInterval = 2) {
-        let ids = current().filter(\.enabled).map(\.threadId)
+        let ids = enabledIds()
         queue.async { for id in ids { self.schedule(id, after: delay, replace: false) } }
     }
 
@@ -156,20 +166,21 @@ final class AutoResume: @unchecked Sendable {
             (ResumeCheck(threadId: id, title: title, taskState: state, canMonitor: ResumeStatus.canMonitor(state),
                          reason: reason, model: model), latest)
         }
-        if try isArchived(id) { return result("archived", L("Диалог в архиве — его не продолжить."), nil) }
+        if try inArchive(id) { return result("archived", L("Диалог в архиве — его не продолжить."), nil) }
 
         if CodexApp.url != nil, CodexApp.isRunning, (try? CodexApp.checkVersion()) != nil {
             let connection = CodexIPCConnection(timeout: 8)
             defer { connection.close() }
             do {
                 try connection.open()
-                let state = try connection.snapshot(id)
-                let verdict = ResumeRules.decide(state, thread: id)
-                title = JSON.nonEmptyString(state["title"]) ?? title
+                let owner = try connection.discoverOwner(id)
+                let live = try connection.snapshot(id, owner: owner)
+                let verdict = ResumeRules.decide(live, thread: id)
+                title = JSON.nonEmptyString(live["title"]) ?? title
                 model = verdict.model ?? model
                 if verdict.taskState != "connecting" {
                     var latest: String?
-                    if case .turn(let turn) = ResumeRules.turns(state).latest { latest = ResumeRules.turnId(turn) }
+                    if case .turn(let turn) = ResumeRules.turns(live).latest { latest = ResumeRules.turnId(turn) }
                     return result(verdict.taskState, verdict.reason, latest)
                 }
             } catch let error as CodexIPCError where error.isTemporary {
@@ -186,8 +197,12 @@ final class AutoResume: @unchecked Sendable {
         return result(judged.state, judged.reason, ResumeRules.latestSavedTurn(thread))
     }
 
-    private static func isArchived(_ id: String) throws -> Bool {
-        if let archived = CodexThreadIndex.isArchived(id: id) { return archived }
+    /// Codex's own index first; the official list only when the index cannot say.
+    private static func inArchive(_ id: String) throws -> Bool {
+        switch CodexThreadIndex.isArchived(id: id) {
+        case .some(let known): return known
+        case .none: break
+        }
         let official = try CodexOfficial()
         defer { official.close() }
         return try official.listThreads(archived: true).contains { ($0["id"] as? String)?.lowercased() == id }
@@ -341,7 +356,7 @@ final class AutoResume: @unchecked Sendable {
         if let last = lastOpened[id], Date().timeIntervalSince(last) < 300 { return waiting }
         lastOpened[id] = Date()
         do {
-            if try Self.isArchived(id) {
+            if try Self.inArchive(id) {
                 return Outcome(status: "stopped", reason: L("Диалог в архиве — его не продолжить."), disable: true, next: nil)
             }
             let official = try CodexOfficial()
@@ -517,7 +532,7 @@ final class AutoResume: @unchecked Sendable {
             }
             return unknownOutcome(id, error.localizedDescription)
         }
-        let newTurn = (((reply["result"] as? [String: Any])?["result"] as? [String: Any])?["turn"] as? [String: Any])?["id"] as? String
+        let newTurn = JSON.dig(reply, "result", "result", "turn", "id") as? String
         guard let newTurn, !newTurn.isEmpty else { return unknownOutcome(id, "no turn id") }
         try? store.update { data in
             for index in data.sends.indices where data.sends[index].messageId == messageId {
@@ -577,7 +592,7 @@ final class AutoResume: @unchecked Sendable {
         }
     }
 
-    private func background<T>(_ work: @escaping () throws -> T) async throws -> T {
+    private func offMain<T>(_ work: @escaping () throws -> T) async throws -> T {
         try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async { continuation.resume(with: Result { try work() }) }
         }

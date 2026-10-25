@@ -69,19 +69,19 @@ enum ResumeError: LocalizedError {
 
 enum ResumeStatus {
     static func taskStateTitle(_ state: String) -> String {
-        switch state {
-        case "running": return L("Задача выполняется")
-        case "quota_limited": return L("Остановлена лимитом")
-        case "needs_attention": return L("Ждёт вашего решения")
-        case "idle": return L("Задача завершена")
-        case "empty": return L("В диалоге ещё нет задач")
-        case "interrupted": return L("Задача прервана")
-        case "other_failure": return L("Задача остановилась с ошибкой")
-        case "unsupported": return L("Этот диалог не поддерживается")
-        case "archived": return L("Диалог в архиве")
-        case "connecting": return L("Диалог загружается")
-        default: return L("Состояние неизвестно")
-        }
+        let titles = [
+            "running": L("Задача выполняется"),
+            "quota_limited": L("Остановлена лимитом"),
+            "needs_attention": L("Ждёт вашего решения"),
+            "idle": L("Задача завершена"),
+            "empty": L("В диалоге ещё нет задач"),
+            "interrupted": L("Задача прервана"),
+            "other_failure": L("Задача остановилась с ошибкой"),
+            "unsupported": L("Этот диалог не поддерживается"),
+            "archived": L("Диалог в архиве"),
+            "connecting": L("Диалог загружается"),
+        ]
+        return titles[state] ?? L("Состояние неизвестно")
     }
 
     /// Only work that is running or stopped by the limit is worth watching.
