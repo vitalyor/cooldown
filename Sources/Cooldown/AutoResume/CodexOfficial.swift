@@ -30,7 +30,7 @@ final class CodexOfficial {
         _ = fcntl(input.fileHandleForWriting.fileDescriptor, F_SETNOSIGPIPE, 1)
         try process.run()
         _ = try call("initialize", ["clientInfo": ["name": "cooldown", "version": "1.0"]], setup: true)
-        try send(["method": "initialized"])
+        try post(["method": "initialized"])
     }
 
     deinit { close() }
@@ -58,7 +58,7 @@ final class CodexOfficial {
             var params: [String: Any] = ["limit": 100, "archived": archived, "sortKey": "updated_at", "modelProviders": [String](),
                                          "sourceKinds": ["cli", "vscode", "exec", "appServer", "subAgent", "subAgentReview",
                                                          "subAgentCompact", "subAgentThreadSpawn", "subAgentOther", "unknown"]]
-            if let cursor { params["cursor"] = cursor }
+            cursor.map { params["cursor"] = $0 }
             let result = try call("thread/list", params)
             rows += (result["data"] as? [Any] ?? []).compactMap { $0 as? [String: Any] }
             cursor = JSON.nonEmptyString(result["nextCursor"])
@@ -75,7 +75,7 @@ final class CodexOfficial {
         nextId += 1
         var message: [String: Any] = ["id": id, "method": method]
         if let params { message["params"] = params }
-        try send(message)
+        try post(message)
         while true {
             let line = try readLine()
             guard let object = (try? JSONSerialization.jsonObject(with: line)) as? [String: Any],
@@ -88,7 +88,7 @@ final class CodexOfficial {
         }
     }
 
-    private func send(_ message: [String: Any]) throws {
+    private func post(_ message: [String: Any]) throws {
         var data = try JSONSerialization.data(withJSONObject: message)
         data.append(0x0A)
         try input.fileHandleForWriting.write(contentsOf: data)
@@ -99,7 +99,7 @@ final class CodexOfficial {
         while true {
             if let newline = buffer.firstIndex(of: 0x0A) {
                 let line = buffer.subdata(in: buffer.startIndex..<newline)
-                buffer.removeSubrange(buffer.startIndex...newline)
+                buffer = Data(buffer[buffer.index(after: newline)...])
                 return line
             }
             let left = deadline.timeIntervalSinceNow

@@ -15,13 +15,21 @@ enum JSON {
         return CFGetTypeID(number) == CFBooleanGetTypeID()
     }
 
-    static func bool(_ value: Any?) -> Bool? { isBool(value) ? (value as? NSNumber)?.boolValue : nil }
+    static func bool(_ value: Any?) -> Bool? {
+        guard isBool(value), let flag = value as? NSNumber else { return nil }
+        return flag.boolValue
+    }
 
     /// A real number (booleans are not numbers here).
     static func number(_ value: Any?) -> Double? {
-        guard let number = value as? NSNumber, !isBool(number) else { return nil }
-        let double = number.doubleValue
-        return double.isFinite ? double : nil
+        if isBool(value) { return nil }
+        guard let real = (value as? NSNumber)?.doubleValue, real.isFinite else { return nil }
+        return real
+    }
+
+    /// The value at a path of object keys, or nil as soon as a step is missing or not an object.
+    static func dig(_ value: Any?, _ path: String...) -> Any? {
+        path.reduce(value) { node, key in (node as? [String: Any])?[key] }
     }
 
     /// Whether a value says "yes, there is something": null, false, 0, "" and nothing are no, and
@@ -196,7 +204,7 @@ final class CodexIPCConnection {
         _ = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK)
         descriptor = fd
         let reply = try request("initialize", params: ["clientType": "cooldown"], version: 0)
-        guard let id = JSON.nonEmptyString((reply["result"] as? [String: Any])?["clientId"]) else {
+        guard let id = JSON.nonEmptyString(JSON.dig(reply, "result", "clientId")) else {
             close()
             throw CodexIPCError.app(L("Codex не принял подключение."))
         }
@@ -221,8 +229,11 @@ final class CodexIPCConnection {
         if reply["resultType"] as? String == "success", let owner = JSON.nonEmptyString(reply["handledByClientId"]) {
             return owner
         }
-        if reply["error"] as? String == "no-client-found" { throw CodexIPCError.threadUnavailable }
-        throw CodexIPCError.app(L("Codex не сказал, где открыт диалог: %@", "\(reply["error"] as? String ?? "?")"))
+        let problem = reply["error"] as? String ?? "?"
+        switch problem {
+        case "no-client-found": throw CodexIPCError.threadUnavailable   // not loaded right now
+        default: throw CodexIPCError.app(L("Codex не сказал, где открыт диалог: %@", "\(problem)"))
+        }
     }
 
     /// Following a conversation makes its window send the state (a snapshot, then patches).
@@ -313,7 +324,7 @@ final class CodexIPCConnection {
         let limit = wait ?? timeout
         var message: [String: Any] = ["type": "request", "requestId": id, "sourceClientId": clientId, "method": method,
                                       "params": params, "version": version, "timeoutMs": Int(limit * 1000)]
-        if let target { message["targetClientId"] = target }
+        target.map { message["targetClientId"] = $0 }
         try write(message)
         let deadline = Date().addingTimeInterval(limit)
         while responses[id] == nil { try read(deadline: deadline) }
@@ -370,8 +381,8 @@ final class CodexIPCConnection {
         guard descriptor >= 0 else { throw CodexIPCError.unavailable }
         let body = try JSONSerialization.data(withJSONObject: message)
         guard !body.isEmpty, body.count <= Self.maxFrame else { throw CodexIPCError.app(L("Слишком большое сообщение.")) }
-        var length = UInt32(body.count).littleEndian
-        var frame = Data(bytes: &length, count: 4)
+        // The length goes first, as four little-endian bytes.
+        var frame = withUnsafeBytes(of: UInt32(body.count).littleEndian) { Data($0) }
         frame.append(body)
         let deadline = Date().addingTimeInterval(timeout)
         var offset = 0

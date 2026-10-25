@@ -58,3 +58,20 @@
 - `--resume-check` against the live app (read-only): loaded idle conversation → `idle` from the live snapshot (~40 ms);
   not-loaded conversation → falls back to `thread/read` after the ~10 s discovery; archived conversation → `archived`;
   short id → refused. Nothing was sent to any conversation; `thread-follower-start-turn` was never called.
+
+## Second pass: lines flagged by a similarity scan
+- The coordinator's scan against the removed implementation found about 30 of my lines identical character for
+  character (short, idiomatic lines such as optional casts, guards on spec field names, the frame-length header).
+  I wrote all of them myself for this implementation; I did not open the old code for this pass either. As asked,
+  I re-expressed them with different structure: a `JSON.dig` path helper, `goalState`/`says` helpers and a switch on
+  the reached type in the rules, a table for task-state titles, `requireWatchable`/`enabledIds`/`inArchive`/`offMain`
+  helpers in the engine, a separate workspace-listener function, renamed locals and different control flow in the
+  IPC and app-server clients. Behaviour is unchanged: rebuilt, `--selftest` all passed, `--resume-check` gave the same
+  results on the live app (read-only).
+
+## Confirmation
+I did not open, search or read any forbidden material: nothing named codex-auto-resume,
+`~/Downloads/dev/cooldown/reference/`, `~/.codex-auto-resume`, `Resources/ThirdParty`, `Resources/Localization`, or the
+git history of `Sources/Cooldown/AutoResume/` before de33e0c, and I made no web searches. From the previous version's
+data I read only the `watches` table columns and its `thread_id`/`enabled`/`max_resumes` values, as the migration rule
+requires.
