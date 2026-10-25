@@ -158,6 +158,7 @@
 "Cooldown %@ загружена" = "Cooldown %@ scaricato";
 "Cooldown был закрыт во время выполнения." = "Cooldown è stato chiuso durante l’esecuzione.";
 "Cooldown для iPhone" = "Cooldown per iPhone";
+"Cooldown ждёт нажатия" = "Cooldown aspetta un tocco";
 "Cooldown запустит задачу в Codex, как только у него будет лимит." = "Cooldown avvierà l’attività in Codex appena avrà limite.";
 "Cooldown запустится сам после перезагрузки Mac." = "Cooldown si avvierà da solo dopo il riavvio del Mac.";
 "Cooldown на Mac" = "Cooldown sul Mac";
@@ -325,6 +326,7 @@
 "Доступна версия Cooldown %@" = "Cooldown %@ è disponibile";
 "Если Codex задал вопрос или ждёт разрешения, Cooldown не жмёт за вас. Появляется оранжевая точка в строке меню и уведомление: откройте задачу и решите сами." = "Se Codex fa una domanda o attende un permesso, Cooldown non decide al posto tuo. Nella barra dei menu compare un punto arancione con una notifica: apri l’attività e decidi tu.";
 "Если в вашем темпе окно закончится до времени сброса." = "Se al tuo ritmo la finestra finisce prima dell’ora di ripristino.";
+"Если это видно на iPhone, уведомления работают." = "Se lo vedi sull’iPhone, le notifiche funzionano.";
 "Есть новая сборка Cooldown" = "C’è una nuova build di Cooldown";
 "Ещё один iPhone" = "Un altro iPhone";
 "Ещё…" = "Altro…";
@@ -426,6 +428,7 @@
 "Команда устарела и не выполнена." = "Il comando era troppo vecchio e non è stato eseguito.";
 "Кончится" = "Finisce";
 "Легче обычного: обычно к этому моменту %@, сейчас %@." = "Meno del solito: di solito %@ a questo punto, ora %@.";
+"Лимит %@ восстановился" = "Il limite di %@ è tornato";
 "Лимит %@ восстановлен" = "Limite di %@ ripristinato";
 "Лимит %@ исчерпан" = "Il limite di %@ è esaurito";
 "Лимит Claude восстановился" = "Il limite di Claude è stato ripristinato";
@@ -743,6 +746,7 @@
 "Проверить снова" = "Controlla di nuovo";
 "Проверить, что всё работает" = "Controlla che tutto funzioni";
 "Проверка всех связей" = "Controllo di tutti i collegamenti";
+"Проверка связи" = "Prova di connessione";
 "Проверьте, что codex вошёл в аккаунт (codex login) и есть сеть." = "Controlla che codex abbia effettuato l’accesso (codex login) e che ci sia rete.";
 "Проверять лимиты, пока окно открыто" = "Controlla i limiti mentre la finestra è aperta";
 "Проверяю диалог ещё раз." = "Ricontrollo la conversazione.";

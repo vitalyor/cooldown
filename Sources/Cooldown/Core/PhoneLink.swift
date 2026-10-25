@@ -264,6 +264,26 @@ final class PhoneLink: ObservableObject {
                         title: content.title, body: body, actions: actions, created: Date(), expires: expires)
     }
 
+    /// Two sample cards with buttons, straight to the phones (not shown on the Mac): a request
+    /// and a limit that came back. Pressing them goes the whole way and does nothing.
+    func sendSamples() {
+        let samples = [
+            LinkCard(key: "linkdemo-request", kind: "attention", provider: "codex", title: L("Codex хочет выполнить команду"),
+                     body: L("Пример · ничего не отправлено") + "\nswift test --filter ParserTests", // l10n:skip
+                     actions: [LinkAction(id: "choice:allow", title: L("Разрешить"), style: .primary, auth: true),
+                               LinkAction(id: "choice:decline", title: L("Отклонить"), style: .destructive)]),
+            LinkCard(key: "linkdemo-reset", kind: "reset", provider: "claude", title: L("Лимит Claude восстановился"),
+                     body: L("Пример · ничего не отправлено"),
+                     actions: [LinkAction(id: "continue", title: L("Продолжить"), style: .primary)]),
+        ]
+        for card in samples {
+            let content = ToastContent(key: card.key, kind: .info, provider: nil, title: card.title, body: card.body)
+            cards[card.key] = (content, card, true)
+            send(.card(card), ttl: 3600, push: LinkPush(collapse: card.collapseID, sound: true, level: "active"))
+        }
+        scheduleState()
+    }
+
     // MARK: State
 
     private func observe() {
@@ -325,7 +345,8 @@ final class PhoneLink: ObservableObject {
         let open = cards.values.map(\.card).filter { ($0.expires ?? .distantFuture) > now }.sorted { $0.created > $1.created }
         let mac = LinkMac(name: Host.current().localizedName ?? "Mac", version: GitHubUpdater.current,
                           locked: ToastController.screenLocked, language: AppLanguage.code)
-        return LinkState(limits: limits, agents: agents, watches: watches, cards: open, mac: mac, at: now)
+        let live = liveState(limits: limits, agents: agents, watches: watches, cards: open)
+        return LinkState(limits: limits, agents: agents, watches: watches, cards: open, mac: mac, live: live, at: now)
     }
 
     func publishState(now force: Bool = false) {
@@ -344,42 +365,74 @@ final class PhoneLink: ObservableObject {
 
     // MARK: Live Activity
 
-    private func live(_ state: LinkState) {
-        guard Settings.phoneLive, let client else { return }
+    /// What the Live Activity should show now, or nil when none is wanted: a limit near its end,
+    /// chats waiting for a reset, or a card that asks for a press (its buttons go on the Lock Screen).
+    func liveState(limits: [LinkLimit], agents: [LinkAgent], watches: [LinkWatch], cards open: [LinkCard]) -> LiveState? {
+        guard Settings.phoneLive else { return nil }
         func limit(_ p: String) -> LiveState.Limit? {
-            guard let l = state.limits.first(where: { $0.provider == p }) else { return nil }
+            guard let l = limits.first(where: { $0.provider == p }) else { return nil }
             return .init(session: (l.session ?? 0).rounded(), week: (l.week ?? 0).rounded(), reset: l.sessionReset?.timeIntervalSince1970)
         }
         let codex = limit("codex"), claude = limit("claude")
-        let working = state.agents.filter(\.working).map(\.provider)
+        let working = agents.filter(\.working).map(\.provider)
         // Waiting means waiting for a limit now: Codex tasks stopped by it, Claude chats while its limit is spent.
         let claudeSpent = AgentActivity.spent(.claude) != nil
-        let waiting = state.watches.filter { $0.provider == "codex" ? ["quota_limited", "waiting_reset"].contains($0.state) : claudeSpent }.count
-        let ready = state.cards.filter { $0.kind == "reset" && !$0.actions.isEmpty }.count
-        let threshold = Double(Settings.phoneLiveThreshold)
-        let high = [codex, claude].compactMap { $0?.session }.contains { $0 >= threshold }
-        let wanted = high || waiting > 0 || ready > 0
-        let live = LiveState(codex: codex, claude: claude, working: working, waiting: waiting, ready: ready)
+        let waiting = watches.filter { $0.provider == "codex" ? ["quota_limited", "waiting_reset"].contains($0.state) : claudeSpent }.count
+        let ready = open.filter { $0.kind == "reset" && !$0.actions.isEmpty }.count
+        let high = [codex, claude].compactMap { $0?.session }.contains { $0 >= Double(Settings.phoneLiveThreshold) }
+        let card = open.first { !$0.actions.isEmpty }.map(Self.liveCard)
+        guard high || waiting > 0 || ready > 0 || card != nil else { return nil }
+        return LiveState(codex: codex, claude: claude, working: working, waiting: waiting, ready: ready, card: card)
+    }
 
-        if wanted && !liveOn {
-            liveOn = true
-            lastLive = live
-            lastLiveSent = Date()
-            client.send(.live("start", live, alert: LiveAlert(title: L("Cooldown"), body: Self.liveReason(high: high, waiting: waiting, ready: ready)),
-                              stale: Date().addingTimeInterval(1800), urgent: true))
-        } else if wanted, var previous = lastLive {
+    /// A card for the Lock Screen: a general title by kind, never the chat's name or the command.
+    static func liveCard(_ card: LinkCard) -> LiveState.Card {
+        let name = card.provider == "codex" ? "Codex" : card.provider == "claude" ? "Claude" : "Cooldown"
+        let title: String
+        switch card.kind {
+        case "attention": title = L("%@ ждёт вашего решения", "\(name)")
+        case "reset": title = L("Лимит %@ восстановился", "\(name)")
+        case "warning": title = L("Лимит %@ исчерпан", "\(name)")
+        default: title = card.provider == nil ? L("Cooldown ждёт нажатия") : L("%@ ждёт вашего решения", "\(name)")
+        }
+        let buttons = card.actions.prefix(3).map { a in
+            LiveState.Button(id: a.id, title: String(a.title.prefix(24)), primary: a.style == .primary,
+                             destructive: a.style == .destructive, auth: a.auth)
+        }
+        return LiveState.Card(id: card.collapseID, kind: card.kind, provider: card.provider, title: title, buttons: Array(buttons))
+    }
+
+    private func live(_ state: LinkState) {
+        guard let client else { return }
+        if var live = state.live {
+            live.updated = Date().timeIntervalSince1970
+            if !liveOn {
+                liveOn = true
+                lastLive = live
+                lastLiveSent = Date()
+                let reason = live.card?.title ?? Self.liveReason(high: true, waiting: live.waiting, ready: live.ready)
+                client.send(.live("start", live, alert: LiveAlert(title: "Cooldown", body: reason),
+                                  stale: Date().addingTimeInterval(1800), urgent: true))
+                return
+            }
+            // Just started (the Live Activity is running from before): send what it should show now.
+            var previous = lastLive ?? LiveState(codex: nil, claude: nil, working: [], waiting: -1, ready: -1)
             previous.updated = live.updated
             guard previous != live else { return }
             // Big moments at once; small ticks at most once a minute.
             let urgent = previous.ready != live.ready || previous.working != live.working || previous.waiting != live.waiting
+                || previous.card != live.card
             guard urgent || Date().timeIntervalSince(lastLiveSent) > 60 else { return }
             lastLive = live
             lastLiveSent = Date()
-            client.send(.live("update", live, stale: Date().addingTimeInterval(1800), urgent: urgent))
-        } else if !wanted && liveOn {
+            // A new card that asks for a press also makes a sound and lights the screen.
+            let alert = live.card != nil && previous.card?.id != live.card?.id ? LiveAlert(title: "Cooldown", body: live.card!.title) : nil
+            client.send(.live("update", live, alert: alert, stale: Date().addingTimeInterval(1800), urgent: urgent))
+        } else if liveOn {
             liveOn = false
+            let last = lastLive ?? LiveState(codex: nil, claude: nil, working: [], waiting: 0, ready: 0)
             lastLive = nil
-            client.send(.live("end", live, dismiss: Date().addingTimeInterval(15 * 60)))
+            client.send(.live("end", last, dismiss: Date().addingTimeInterval(15 * 60)))
         }
     }
 
@@ -490,6 +543,10 @@ final class PhoneLink: ObservableObject {
 
     private func act(_ cmd: LinkCommand, from phone: String) async -> LinkResult {
         var key = cmd.args["key"] ?? "", actionID = cmd.args["action"] ?? ""
+        // From a Live Activity button: the card by its opaque id.
+        if key.hasPrefix("#"), let found = cards.first(where: { $0.value.card.collapseID == String(key.dropFirst()) }) {
+            key = found.key
+        }
         // From the Live Activity: the newest card that continues a chat whose limit came back.
         if key == "@ready" {
             let ready = cards.values.filter { $0.content.kind == .reset }.sorted { $0.card.created > $1.card.created }
@@ -504,6 +561,12 @@ final class PhoneLink: ObservableObject {
             return LinkResult(cmd: cmd.id, code: "stale", text: L("Уже не актуально: карточку закрыли или ответили на Mac."))
         }
         let content = item.content
+        if key.hasPrefix("linkdemo") {
+            // A sample card: the press made it all the way here, and nothing is done.
+            cards.removeValue(forKey: key)
+            send(.resolve(key, by: phone), ttl: 3600, push: LinkPush(remove: [item.card.collapseID], silent: true))
+            return LinkResult(cmd: cmd.id, code: "ok", text: L("Пример · ничего не отправлено"))
+        }
         if actionID.hasPrefix("choice:") {
             let choiceID = String(actionID.dropFirst("choice:".count))
             guard let requestKey = content.requestKey, RequestCenter.shared.isPending(requestKey),

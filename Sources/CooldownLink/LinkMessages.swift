@@ -97,9 +97,11 @@ public struct LinkState: Codable, Equatable, Sendable {
     public var watches: [LinkWatch]
     public var cards: [LinkCard]         // cards still open on the Mac
     public var mac: LinkMac
+    /// What the Live Activity shows, worked out on the Mac so phone and Mac agree; nil when none is wanted.
+    public var live: LiveState?
     public var at: Date
-    public init(limits: [LinkLimit], agents: [LinkAgent], watches: [LinkWatch], cards: [LinkCard], mac: LinkMac, at: Date = Date()) {
-        self.limits = limits; self.agents = agents; self.watches = watches; self.cards = cards; self.mac = mac; self.at = at
+    public init(limits: [LinkLimit], agents: [LinkAgent], watches: [LinkWatch], cards: [LinkCard], mac: LinkMac, live: LiveState? = nil, at: Date = Date()) {
+        self.limits = limits; self.agents = agents; self.watches = watches; self.cards = cards; self.mac = mac; self.live = live; self.at = at
     }
 }
 
@@ -192,13 +194,38 @@ public struct LiveState: Codable, Hashable, Sendable {
         public var reset: Double?        // seconds since 1970
         public init(session: Double, week: Double, reset: Double?) { self.session = session; self.week = week; self.reset = reset }
     }
+    /// A button on the Lock Screen. Pressing it runs on the Mac like the same button on the card.
+    public struct Button: Codable, Hashable, Sendable {
+        public var id: String
+        public var title: String
+        public var primary: Bool
+        public var destructive: Bool
+        public var auth: Bool            // needs the phone unlocked (answers to agents)
+        public init(id: String, title: String, primary: Bool = false, destructive: Bool = false, auth: Bool = false) {
+            self.id = id; self.title = title; self.primary = primary; self.destructive = destructive; self.auth = auth
+        }
+    }
+    /// The newest card that asks for a press. Its title is general on purpose ("Codex is waiting
+    /// for your decision"): this travels unsealed, so no chat names or commands go in it.
+    public struct Card: Codable, Hashable, Sendable {
+        public var id: String            // the card's opaque collapse id
+        public var kind: String
+        public var provider: String?
+        public var title: String
+        public var buttons: [Button]
+        public init(id: String, kind: String, provider: String?, title: String, buttons: [Button]) {
+            self.id = id; self.kind = kind; self.provider = provider; self.title = title; self.buttons = buttons
+        }
+    }
     public var codex: Limit?
     public var claude: Limit?
     public var working: [String]         // providers with an agent at work
     public var waiting: Int              // chats waiting for a reset
     public var ready: Int                // chats that can be continued now
+    public var card: Card?
     public var updated: Double
-    public init(codex: Limit?, claude: Limit?, working: [String], waiting: Int, ready: Int, updated: Double = Date().timeIntervalSince1970) {
-        self.codex = codex; self.claude = claude; self.working = working; self.waiting = waiting; self.ready = ready; self.updated = updated
+    public init(codex: Limit?, claude: Limit?, working: [String], waiting: Int, ready: Int, card: Card? = nil, updated: Double = 0) {
+        self.codex = codex; self.claude = claude; self.working = working; self.waiting = waiting; self.ready = ready
+        self.card = card; self.updated = updated
     }
 }

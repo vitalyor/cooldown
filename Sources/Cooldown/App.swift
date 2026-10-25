@@ -169,6 +169,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MainActor.assumeIsolated {
             AppModel.shared.start()
             PhoneLink.shared.start()
+            // Diagnostics: sample cards with buttons on paired phones.
+            if CommandLine.arguments.contains("--link-samples") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 8) { PhoneLink.shared.sendSamples() }
+            }
             // Diagnostics: a harmless card that should reach paired phones as a notification.
             if CommandLine.arguments.contains("--link-test-card") {
                 UserDefaults.standard.set(true, forKey: SettingsKey.phoneAlways)
