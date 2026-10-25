@@ -46,10 +46,16 @@ A Cooldown hook only appends one line to
   and the chat list (at most every 2 and 5 minutes). These are the site's internal endpoints, not an
   official API; automated access is restricted by Anthropic's terms — turn it on deliberately.
 
+- To your iPhone — only if you turned on Cooldown for iPhone and paired a phone: cards, chat names,
+  answers and the delivery log are encrypted on the Mac and opened only on your phone; the relay
+  (`cooldown.nolim.cloud` by default) passes them on without reading them. For the Live Activity it
+  sees general lines ("Claude is working"), button labels and reset times. Details: [LINK.md](LINK.md).
+
 Cooldown does not use Claude Code's sign-in (the token in the Keychain): Anthropic allows it only in
 its own apps.
 
 ## Stores
 
 Everything in `~/Library/Application Support/Cooldown/`: limit and token history (45 days), daily
-totals, events, chosen chats, diagnostic records (`activity.log`, up to 256 KB).
+totals, events, chosen chats, diagnostic records (`activity.log`, up to 2 MB in two files; with an iPhone
+paired, also `phone-delivery.log` — times and ids only, no text).
