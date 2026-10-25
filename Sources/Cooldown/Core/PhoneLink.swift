@@ -453,7 +453,8 @@ final class PhoneLink: ObservableObject {
             let card = LinkCard(key: "resumed-\(Int(Date().timeIntervalSince1970))", kind: "reset", provider: "codex",
                                 title: L("Cooldown продолжил задач: %@", "\(titles.count)"), body: titles.joined(separator: "\n"), actions: [])
             let push = self.away ? LinkPush(collapse: card.collapseID, sound: false, level: "passive") : nil
-            self.send(.card(card), ttl: 6 * 3600, push: push)
+            let ids = self.send(.card(card), ttl: 6 * 3600, push: push)
+            AgentActivity.trace("phone: card \(card.key) (\(titles.count) resumed) → \(push == nil ? "app only" : "push passive") env=\(ids.joined(separator: ","))")
         }
     }
 
