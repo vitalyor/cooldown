@@ -289,6 +289,28 @@ final class PhoneLink: ObservableObject {
         }
     }
 
+    // MARK: Sleep
+
+    private func goingToSleep() async {
+        let working = ProviderID.allCases.flatMap { AgentActivity.shared.working($0) }
+        let waiting = AppModel.shared.watches.filter { $0.enabled && ["quota_limited", "waiting_reset"].contains($0.status) }.count
+            + (AgentActivity.spent(.claude) != nil ? ClaudeChatList.shared.entries.count : 0)
+        AgentActivity.trace("phone: Mac going to sleep — working \(working.count), waiting \(waiting)")
+        guard paired, !working.isEmpty || waiting > 0, let session, let account else { return }
+        let what = working.first.map { L("%@ работал над «%@».", $0.provider.displayName, $0.title) }
+            ?? L("Ждут сброса лимита: %@.", "\(waiting)")
+        let card = LinkCard(key: "mac-sleep", kind: "warning", provider: working.first?.provider.rawValue,
+                            title: L("Mac уходит в сон"),
+                            body: what + " " + L("Пока он спит, ничего не продолжится и Cooldown ничего не пришлёт."), actions: [])
+        // Straight over HTTPS and waited for: the socket may not get to send before the Mac sleeps.
+        for peer in account.peers {
+            guard let frame = try? session.envelope(.card(card), to: peer.id, ttl: 6 * 3600,
+                                                    push: LinkPush(collapse: card.collapseID, sound: true, level: "time-sensitive")) else { continue }
+            _ = try? await LinkHTTP.call(account.relay, "POST", "v1/send", token: account.token, body: frame)
+        }
+        AgentActivity.trace("phone: told the phone the Mac is going to sleep")
+    }
+
     // MARK: Rehearsal
 
     /// A full run on the phone, as if an agent worked while you were away: the Live Activity shows
@@ -543,6 +565,11 @@ final class PhoneLink: ObservableObject {
         // `Проверить доставку` from outside the app (support, scripts): same as the button.
         center.publisher(for: Notification.Name("com.vitalyor.cooldown.check-delivery")).sink { [weak self] _ in
             Task { @MainActor in self?.checkDelivery() }
+        }.store(in: &subscriptions)
+        // The Mac is about to sleep while agents work or tasks wait: nothing will go on until it
+        // wakes, and from the phone that looks just like "all quiet". Say so before it goes.
+        NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.willSleepNotification).sink { [weak self] _ in
+            Task { @MainActor in await self?.goingToSleep() }
         }.store(in: &subscriptions)
         center.publisher(for: Notification.Name("com.vitalyor.cooldown.rehearse")).sink { [weak self] _ in
             Task { @MainActor in self?.rehearse() }

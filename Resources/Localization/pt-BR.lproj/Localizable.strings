@@ -41,6 +41,7 @@
 "%@ просит подтверждения" = "%@ pede confirmação";
 "%@ работает" = "%@ está trabalhando";
 "%@ работает: %@" = "%@ trabalhando: %@";
+"%@ работал над «%@»." = "%@ estava trabalhando em “%@”.";
 "%@ с работой в Claude" = "%@ com trabalho no Claude";
 "%@ с работой за год" = "%@ com trabalho no ano";
 "%@ скоро упрётся в лимит" = "%@ vai atingir o limite em breve";
@@ -191,6 +192,7 @@
 "Mac не в сети. Выполнится, когда он проснётся." = "O Mac está offline. Será feito quando ele acordar.";
 "Mac не на связи — то, что ждёт сброса лимита, не продолжится, пока он не вернётся" = "O Mac está offline — o que aguarda o reinício do limite não vai continuar até ele voltar";
 "Mac пока не ответил. Ответ придёт уведомлением." = "O Mac ainda não respondeu. A resposta chegará como notificação.";
+"Mac уходит в сон" = "O Mac vai entrar em repouso";
 "claude code desktop usage аккаунт строка статуса хуки окно" = "claude code desktop usage uso conta linha de status hooks janela";
 "claude.ai ответил с кодом %@." = "O claude.ai respondeu com o código %@.";
 "claude.ai прислал лимиты в незнакомом виде (%@)." = "O claude.ai retornou os limites em um formato desconhecido (%@).";
@@ -351,6 +353,7 @@
 "Ждут продолжения" = "Aguardando para continuar";
 "Ждут продолжения: " = "Aguardando retomada: ";
 "Ждут продолжения: %@. Cooldown откроет их по очереди и отправит «%@»." = "Aguardando retomada: %@. O Cooldown vai abri-los um após o outro e enviar “%@”.";
+"Ждут сброса лимита: %@." = "Aguardando a redefinição do limite: %@.";
 "Ждём сброса" = "Aguardando a restauração";
 "Ждём сброса лимита Claude в %@." = "Aguardando a restauração do limite do Claude às %@.";
 "Ждём сброса лимита Claude." = "Aguardando a restauração do limite do Claude.";
@@ -722,6 +725,7 @@
 "Пока ждали лимит, в диалоге поменялись настройки или состояние. Не продолжаю." = "Enquanto aguardava o limite, as configurações ou o estado da conversa mudaram. Não vou continuar.";
 "Пока ни одного iPhone" = "Nenhum iPhone ainda";
 "Пока ничего не произошло. Здесь появятся сбросы лимитов, продолженные и законченные задачи." = "Nada aconteceu ainda. Aqui vão aparecer restaurações de limite e tarefas retomadas e concluídas.";
+"Пока он спит, ничего не продолжится и Cooldown ничего не пришлёт." = "Enquanto ele dorme, nada continua e o Cooldown não envia nada.";
 "Пока пусто" = "Nada ainda";
 "Показать" = "Mostrar";
 "Показать все (%@)" = "Mostrar tudo (%@)";
