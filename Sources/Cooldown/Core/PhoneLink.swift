@@ -258,6 +258,8 @@ final class PhoneLink: ObservableObject {
     @discardableResult
     private func send(_ box: LinkBox, to phones: [String]? = nil, ttl: TimeInterval = 600, keep: String? = nil, push: LinkPush?) -> [String] {
         guard let session, let client, let account else { return [] }
+        var push = push
+        if push != nil { push?.badge = cards.values.filter { !$0.card.actions.filter { $0.input != true }.isEmpty }.count }
         var ids: [String] = []
         for peer in account.peers where phones == nil || phones!.contains(peer.id) {
             var b = box
