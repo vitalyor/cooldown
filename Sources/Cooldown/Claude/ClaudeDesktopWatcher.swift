@@ -12,7 +12,18 @@ import ApplicationServices
 final class ClaudeDesktopWatcher {
     static let shared = ClaudeDesktopWatcher()
 
-    private struct Writing { var chat: ClaudeChat; var since: Date; var sawStart: Bool; var missed = 0 }
+    private struct Writing {
+        var chat: ClaudeChat
+        var since: Date
+        var sawStart: Bool
+        var missed = 0
+        /// When the stop button went away. Between tool calls and while a long command runs it
+        /// disappears for a few seconds; only a quiet that lasts is the end of the answer.
+        var quiet: Date?
+    }
+
+    /// How long the stop button must stay away before the answer counts as finished.
+    private static let quietToFinish: TimeInterval = 25
 
     private var timer: Timer?
     private var writing: [String: Writing] = [:]
@@ -162,10 +173,20 @@ final class ClaudeDesktopWatcher {
                     writing[key] = Writing(chat: look.chat, since: now, sawStart: !firstLook)
                     activity.started(.claude, key: key, title: look.chat.title, source: .window, at: now)
                 } else {
+                    if writing[key]?.quiet != nil { AgentActivity.trace("busy again \(key)") }
+                    writing[key]?.quiet = nil
                     activity.touch(.claude, key: key)
                 }
-            } else if let was = writing.removeValue(forKey: key) {
-                announceFinished(key: key, was: was, chat: look.chat, seenNow: look.answer, at: now)
+            } else if let was = writing[key] {
+                if let quiet = was.quiet {
+                    if now.timeIntervalSince(quiet) >= Self.quietToFinish {
+                        writing.removeValue(forKey: key)
+                        announceFinished(key: key, was: was, chat: look.chat, seenNow: look.answer, at: quiet)
+                    }
+                } else {
+                    writing[key]?.quiet = now
+                    AgentActivity.trace("quiet \(key)")
+                }
             }
         }
         // A chat missing from one look is usually the window redrawing (as it does when an answer

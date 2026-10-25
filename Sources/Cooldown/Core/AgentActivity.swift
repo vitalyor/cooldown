@@ -181,11 +181,71 @@ final class AgentActivity: ObservableObject {
         // Short turns are not news; a turn of unknown length is announced.
         if let length, length < Settings.finishedMinSeconds { announced[id] = (date, source); Self.trace("  skip: short"); return }
         announced[id] = (date, source)
-        guard Settings.notifyFinished, !AppModel.shared.demoActive else { Self.trace("  skip: off/demo"); return }
-        Self.trace("  announce")
         let name = !title.isEmpty ? title : (session?.title.isEmpty == false ? session!.title : L("%@: задача", "\(provider.displayName)"))
         if name == "Guardian review" { return }
         let text = message.replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespaces)
+        // A turn cut short by the limit is not "finished": say that the limit stopped it.
+        if Self.looksLikeLimit(text) || Self.spent(provider) != nil {
+            Self.trace("  stopped by the limit")
+            stoppedByLimit(provider, name: name, opener: opener)
+            return
+        }
+        if let used = AppModel.shared.store(provider).snapshot?.session, !used.isExpired(at: date), used.usedPercent >= 90 {
+            // Close to the limit: the numbers may not show it was hit yet. Look again shortly.
+            Self.trace("  near the limit, checking again")
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(6))
+                await AppModel.shared.store(provider).refreshLimits(force: true)
+                if Self.spent(provider) != nil {
+                    Self.trace("  stopped by the limit (after re-check)")
+                    self.stoppedByLimit(provider, name: name, opener: opener)
+                } else {
+                    self.announceFinished(provider, id: id, name: name, text: text, length: length, session: session, date: date,
+                                          opener: opener, tokens: tokens, project: project, model: model)
+                }
+            }
+            return
+        }
+        announceFinished(provider, id: id, name: name, text: text, length: length, session: session, date: date,
+                         opener: opener, tokens: tokens, project: project, model: model)
+    }
+
+    /// When the 5-hour window of `provider` is spent right now: its reset time, otherwise nil.
+    static func spent(_ provider: ProviderID, now: Date = Date()) -> Date? {
+        guard let s = AppModel.shared.store(provider).snapshot, let w = s.session, !w.isExpired(at: now) else { return nil }
+        return w.remainingPercent < 0.5 || s.limitReached ? w.resetsAt : nil
+    }
+
+    /// The agent's last words are its limit notice ("You've hit your usage limit…").
+    nonisolated static func looksLikeLimit(_ text: String) -> Bool {
+        guard !text.isEmpty, text.count < 400 else { return false }
+        let pattern = #"(?i)(usage limit|hit your (usage )?limit|reached your (usage )?limit|limit reached|limit will reset|out of (extra )?usage|rate.?limit|достигли лимита|лимит (исчерпан|использования)|исчерпали лимит)"#
+        return text.range(of: pattern, options: .regularExpression) != nil
+    }
+
+    /// The turn stopped because the limit ran out: one card that says so, in place of the plain
+    /// "limit spent" card, with when work can go on.
+    private func stoppedByLimit(_ provider: ProviderID, name: String, opener: Opener) {
+        guard !AppModel.shared.demoActive else { return }
+        let reset = Self.spent(provider) ?? AppModel.shared.store(provider).snapshot?.session?.resetsAt
+        if let reset {
+            // checkThresholds must not post its own "limit spent" card for this window as well.
+            Settings.notifiedKeys += ["out-\(provider.rawValue)-\(Int(reset.timeIntervalSince1970))"]
+            Settings.setPendingReset(provider, reset)
+        }
+        if provider == .claude, ClaudeSender.pendingChat == nil { ClaudeSender.rememberChatForReset() }
+        let content = ToastCatalog.limitStopped(provider, name: name, reset: reset)
+        EventLog.shared.add(CooldownEvent(kind: .budget, provider: provider, title: content.title, body: content.body,
+                                          threadId: Self.thread(opener)))
+        guard !QuietHours.active else { return }
+        Notifier.shared.post(id: "stopped-\(provider.rawValue)-\(Int(Date().timeIntervalSince1970))",
+                             title: content.title, body: content.body, toast: content, record: false)
+    }
+
+    private func announceFinished(_ provider: ProviderID, id: String, name: String, text: String, length: TimeInterval?,
+                                  session: Session?, date: Date, opener: Opener, tokens: Int?, project: String?, model: String?) {
+        guard Settings.notifyFinished, !AppModel.shared.demoActive else { Self.trace("  skip: off/demo"); return }
+        Self.trace("  announce")
         let minutes = length.map { Int(($0 / 60).rounded()) }
         // What the turn cost: its length, tokens and the share of the 5-hour limit it took.
         var limitShare: Double?
@@ -227,8 +287,12 @@ final class AgentActivity: ObservableObject {
         let session = sessions.removeValue(forKey: id)
         changed()
         Self.trace("failed \(provider.rawValue) \(key) \(reason)")
-        guard Settings.notifyFinished, !AppModel.shared.demoActive else { return }
         let name = !title.isEmpty ? title : (session?.title ?? provider.displayName)
+        if Self.looksLikeLimit(reason) || Self.spent(provider) != nil {
+            stoppedByLimit(provider, name: name, opener: opener)
+            return
+        }
+        guard Settings.notifyFinished, !AppModel.shared.demoActive else { return }
         let body = reason.isEmpty ? L("Ход прервался ошибкой — загляните в сессию.") : String(reason.prefix(200))
         EventLog.shared.add(CooldownEvent(kind: .failure, provider: provider, title: L("%@ остановился с ошибкой: «%@»", "\(provider.displayName)", "\(name)"), body: body))
         Notifier.shared.post(id: "failed-\(id)-\(Int(Date().timeIntervalSince1970))",

@@ -12,6 +12,8 @@ import json, os, re, sys
 
 CYR = re.compile('[А-Яа-яЁё]')
 ROOT = os.path.join(os.path.dirname(__file__), '..', 'Sources', 'Cooldown')
+# The iPhone app shares the Mac app's strings.
+ROOTS = [ROOT, os.path.join(os.path.dirname(__file__), '..', 'iOS')]
 
 
 def parse_string(src, i):
@@ -123,7 +125,8 @@ class Wrapper:
 
 
 def files():
-    for folder, _, names in os.walk(ROOT):
+    for root in ROOTS:
+      for folder, _, names in os.walk(root):
         for name in sorted(names):
             if name.endswith('.swift') and name != 'Localization.swift':
                 yield os.path.join(folder, name)
@@ -134,7 +137,7 @@ def main():
     catalog = {}
     for path in files():
         src = open(path, encoding='utf-8').read()
-        rel = os.path.relpath(path, ROOT)
+        rel = os.path.relpath(path, os.path.join(ROOT, '..', '..'))
         if 'l10n:file-skip' in src:
             # Already wrapped by hand: just collect its keys.
             for m in re.finditer(r'L\("((?:[^"\\\n]|\\.)*)"', src):

@@ -424,7 +424,7 @@ final class PhoneLink: ObservableObject {
             remember(cmd.id)
             Task {
                 let result = await run(cmd, from: phone)
-                reply(result, to: phone)
+                reply(result, to: phone, quiet: cmd.op == .chats || cmd.op == .refresh)
             }
         case .resolve:
             // Closed on the phone: closed here too.
@@ -444,8 +444,12 @@ final class PhoneLink: ObservableObject {
         UserDefaults.standard.set(done.mapValues(\.timeIntervalSince1970), forKey: "phoneLinkDone")
     }
 
-    private func reply(_ result: LinkResult, to phone: String) {
-        send(.result(result), to: [phone], ttl: 3600, push: nil)
+    /// The answer to a press goes back as a quiet notification, so a press from the lock screen
+    /// gets its outcome even with the app closed. Lists and refreshes need none.
+    private func reply(_ result: LinkResult, to phone: String, quiet: Bool = false) {
+        let push = quiet || result.text.isEmpty ? nil
+            : LinkPush(collapse: LinkCard.collapseID("result-" + result.cmd), sound: !result.ok, level: result.ok ? "passive" : "active")
+        send(.result(result), to: [phone], ttl: 3600, push: push)
     }
 
     private func phoneName(_ id: String) -> String { account?.peers.first { $0.id == id }?.name ?? "iPhone" }
@@ -478,7 +482,17 @@ final class PhoneLink: ObservableObject {
     }
 
     private func act(_ cmd: LinkCommand, from phone: String) async -> LinkResult {
-        let key = cmd.args["key"] ?? "", actionID = cmd.args["action"] ?? ""
+        var key = cmd.args["key"] ?? "", actionID = cmd.args["action"] ?? ""
+        // From the Live Activity: the newest card that continues a chat whose limit came back.
+        if key == "@ready" {
+            let ready = cards.values.filter { $0.content.kind == .reset }.sorted { $0.card.created > $1.card.created }
+                .first { $0.card.actions.contains { $0.id.hasPrefix("continue") } }
+            guard let ready else {
+                return LinkResult(cmd: cmd.id, code: "stale", text: L("Нечего продолжать: карточка уже закрыта."))
+            }
+            key = ready.content.key
+            actionID = ready.card.actions.first { $0.id.hasPrefix("continue") }?.id ?? ""
+        }
         guard let item = cards[key] else {
             return LinkResult(cmd: cmd.id, code: "stale", text: L("Уже не актуально: карточку закрыли или ответили на Mac."))
         }

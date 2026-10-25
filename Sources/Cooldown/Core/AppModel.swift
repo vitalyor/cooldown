@@ -102,6 +102,9 @@ final class ProviderStore: ObservableObject {
     /// every reply), taken as is: no need to start Codex to ask.
     func apply(_ fresh: LimitSnapshot) {
         guard !inDemo, snapshot.map({ fresh.fetchedAt > $0.fetchedAt }) ?? true else { return }
+        var fresh = fresh
+        if fresh.resetCredits == nil { fresh.resetCredits = snapshot?.resetCredits }
+        if fresh.plan == nil { fresh.plan = snapshot?.plan }
         snapshot = fresh
         limitError = nil
         history.add(samples: [fresh.session, fresh.weekly].compactMap { $0 }.map {
@@ -358,7 +361,11 @@ final class AppModel: ObservableObject {
     private func checkThresholds(_ fresh: LimitSnapshot) {
         guard !isRenderMode, let session = fresh.session, !session.isExpired(at: Date()) else { return }
         let name = fresh.provider.displayName
-        if session.usedPercent >= 90 { Settings.setPendingReset(fresh.provider, session.resetsAt) }
+        if session.usedPercent >= 90 {
+            var reset = session.resetsAt
+            if let known = Settings.pendingReset(fresh.provider), abs(known.timeIntervalSince(reset)) < 1800 { reset = max(known, reset) }
+            Settings.setPendingReset(fresh.provider, reset)
+        }
         // Claude ran out: remember the chat in use, so "Продолжить" goes back to that one.
         if fresh.provider == .claude, session.usedPercent >= 99, ClaudeSender.pendingChat == nil {
             ClaudeSender.rememberChatForReset()
@@ -367,7 +374,7 @@ final class AppModel: ObservableObject {
         // Spent: say when work can go on, at the Mac too — that is the useful part.
         if session.remainingPercent < 0.5 || fresh.limitReached == true {
             let key = "out-\(fresh.provider.rawValue)-\(Int(session.resetsAt.timeIntervalSince1970))"
-            if !Settings.notifiedKeys.contains(key) {
+            if !Self.notified("out-\(fresh.provider.rawValue)-", reset: session.resetsAt, tail: "") {
                 Settings.notifiedKeys += [key]
                 Notifier.shared.post(id: key, title: L("Лимит %@ исчерпан", "\(name)"), body: L("Снова можно работать в %@.", "\(Format.clock(session.resetsAt))"),
                                      toast: ToastCatalog.limitOut(fresh.provider, reset: session.resetsAt))
@@ -382,7 +389,7 @@ final class AppModel: ObservableObject {
         let window = "\(fresh.provider.rawValue)-\(Int(session.resetsAt.timeIntervalSince1970))"
         let key = "\(window)-\(Int(lowest))"
         var notified = Settings.notifiedKeys
-        guard !notified.contains(key) else { return }
+        guard !Self.notified("\(fresh.provider.rawValue)-", reset: session.resetsAt, tail: "-\(Int(lowest))") else { return }
         notified += crossed.map { "\(window)-\(Int($0))" }
         Settings.notifiedKeys = notified
         Notifier.shared.post(id: key, title: L("%@: осталось %@", "\(name)", "\(Format.percent(remaining))"),
@@ -390,10 +397,39 @@ final class AppModel: ObservableObject {
                              toast: ToastCatalog.limitLow(fresh.provider, remaining: remaining, reset: session.resetsAt))
     }
 
+    private var confirmAsked: [ProviderID: Date] = [:]
+
+    /// A reading taken after the reset shows the new window: little used, or a reset hours away.
+    private func resetConfirmed(_ provider: ProviderID, after pending: Date) -> Bool {
+        guard let s = store(provider).snapshot, s.fetchedAt > pending, let w = s.session else { return false }
+        return w.usedPercent < 99 && !s.limitReached || w.resetsAt > pending.addingTimeInterval(3600)
+    }
+
+    /// Was a card for this window already shown? Keys carry the reset time, which wobbles between
+    /// readings, so a key within half an hour of it counts as the same window.
+    static func notified(_ prefix: String, reset: Date, tail: String) -> Bool {
+        let target = Int(reset.timeIntervalSince1970)
+        return Settings.notifiedKeys.contains { key in
+            guard key.hasPrefix(prefix), key.hasSuffix(tail) else { return false }
+            let middle = key.dropFirst(prefix.count).dropLast(tail.count)
+            guard let t = Int(middle) else { return false }
+            return abs(t - target) < 1800
+        }
+    }
+
     func checkResets() {
         guard !demoActive else { return }
         for provider in ProviderID.allCases {
-            guard let pending = Settings.pendingReset(provider), Date() >= pending else { continue }
+            // A minute past the time, and only once a fresh reading shows the window really started
+            // over: the reset time is rounded and the server's own clock may be a little behind.
+            guard let pending = Settings.pendingReset(provider), Date() >= pending.addingTimeInterval(60) else { continue }
+            if !resetConfirmed(provider, after: pending) && Date() < pending.addingTimeInterval(15 * 60) {
+                if Date().timeIntervalSince(confirmAsked[provider] ?? .distantPast) > 55 {
+                    confirmAsked[provider] = Date()
+                    Task { await self.store(provider).refreshLimits(force: true) }
+                }
+                continue
+            }
             Settings.setPendingReset(provider, nil)
             // Watched Codex tasks re-read the limits right away (they also wake at the reset by themselves).
             if provider == .codex { AutoResume.shared.pokeAll(after: 15) }

@@ -162,6 +162,21 @@ enum ToastCatalog {
                      actions: [.openPanel], life: .sticky)
     }
 
+    /// A chat stopped because the limit ran out. Same key as limitOut: it takes that card's place.
+    static func limitStopped(_ provider: ProviderID, name: String, reset: Date?) -> ToastContent {
+        var actions: [ToastAction] = []
+        if let reset, ResetReminder.possible(before: reset) { actions.append(.remindBeforeReset(provider, reset)) }
+        if provider == .codex { actions.append(.openSchedule) }
+        let when = reset.map { L("Снова можно работать в %@ — через %@.", "\(Format.clock($0))", "\(Format.duration(max(60, $0.timeIntervalSinceNow)))") }
+            ?? L("Снова можно работать после сброса лимита.")
+        let next = provider == .claude ? L("После сброса придёт карточка «Продолжить».")
+                                       : (AppModel.shared.watches.contains(where: \.enabled) ? L("Отслеживаемые задачи Cooldown продолжит сам.") : "")
+        return ToastContent(key: "out-\(provider.rawValue)", kind: .warning, provider: provider,
+                            title: L("%@ упёрся в лимит", "\(provider.displayName)"),
+                            body: L("«%@» остановлен: лимит на 5 часов исчерпан. %@", "\(name)", "\(when)") + (next.isEmpty ? "" : " " + next),
+                            actions: actions.isEmpty ? [.openPanel] : actions, life: .sticky)
+    }
+
     static func failure(_ title: String, _ body: String, provider: ProviderID? = nil) -> ToastContent {
         ToastContent(key: "fail-\(title)", kind: .warning, provider: provider, title: title, body: body, life: .sticky)
     }
