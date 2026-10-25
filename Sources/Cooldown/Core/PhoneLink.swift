@@ -408,7 +408,9 @@ final class PhoneLink: ObservableObject {
     /// A card was shown on the Mac (or would be): the phone gets it too, with the buttons that make
     /// sense there.
     func forward(_ content: ToastContent) {
-        guard paired, !content.key.hasPrefix("demo"), content.key != "req-example", !DemoController.shared.active else { return }
+        // The Mac's own notes about the phone are not for the phone.
+        guard paired, !content.key.hasPrefix("demo"), content.key != "req-example", content.key != "phone-offline",
+              !DemoController.shared.active else { return }
         if let old = cards[content.key], old.content == content { return }
         // Tasks Cooldown continued after a reset: one note for all of them, not one each.
         if content.kind == .reset, content.key.hasPrefix("task-") {
