@@ -42,6 +42,7 @@
 "%@ работает" = "%@ está trabalhando";
 "%@ работает: %@" = "%@ trabalhando: %@";
 "%@ работал над «%@»." = "%@ estava trabalhando em “%@”.";
+"%@ с" = "%@ s";
 "%@ с работой в Claude" = "%@ com trabalho no Claude";
 "%@ с работой за год" = "%@ com trabalho no ano";
 "%@ скоро упрётся в лимит" = "%@ vai atingir o limite em breve";
@@ -66,8 +67,10 @@
 "%@: сегодня ушло %@ недели" = "%@: hoje foram gastos %@ da semana";
 "%@: снова можно в %@" = "%@: volta às %@";
 ", без моделей с неизвестной ценой" = ", sem os modelos de preço desconhecido";
+", дольше всего — %@" = ", no máximo %@";
 ", запросы видны" = ", solicitações visíveis";
 ", неподтверждённых отправок: %@" = ", envios não confirmados: %@";
+", обычно за %@" = ", geralmente em %@";
 ", при таком темпе хватит до %@" = ", neste ritmo dura até as %@";
 ", сброс в %@" = ", restauração às %@";
 ", сегодня %@" = ", hoje %@";
@@ -367,6 +370,7 @@
 "За минуту по шагам на выдуманных данных: лимит кончается, задача ждёт и продолжается. Ваши данные потом вернутся." = "Um minuto, passo a passo, com dados inventados: o limite acaba, uma tarefa espera e continua. Depois seus dados voltam.";
 "За последние 30 дней сессий Claude Code на этом Mac не было." = "Não houve sessões do Claude Code neste Mac nos últimos 30 dias.";
 "За последние семь дней работы Codex и Claude Code не было." = "Nos últimos sete dias não houve trabalho no Codex nem no Claude Code.";
+"За сутки дошло %@ из %@" = "Últimas 24 horas: chegaram %@ de %@";
 "За этот период данных о лимитах нет." = "Não há dados de limite para este período.";
 "Завершено" = "Concluída";
 "Загружаю %@…" = "Baixando %@…";

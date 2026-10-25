@@ -1077,6 +1077,9 @@ private struct PhonePane: View {
                             .font(.callout).foregroundStyle(.secondary)
                     }
                 }
+                if let summary = link.historySummary {
+                    Text(summary).font(.callout).foregroundStyle(.secondary)
+                }
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(L("Проверить доставку"))

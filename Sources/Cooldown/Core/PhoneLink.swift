@@ -23,6 +23,42 @@ final class PhoneLink: ObservableObject {
     /// The last notification the phone confirmed (or that never got confirmed), and the check.
     struct Delivery: Equatable { var ok: Bool; var seconds: Double?; var at: Date }
     @Published private(set) var lastDelivery: Delivery?
+    /// Recent results, for "how reliable is it": a day's worth, kept across restarts.
+    @Published private(set) var history: [Delivery] = PhoneLink.loadHistory() {
+        didSet {
+            let day = Date().addingTimeInterval(-86400)
+            if history.contains(where: { $0.at < day }) { history.removeAll { $0.at < day } }
+            let rows = history.map { [$0.ok ? 1 : 0, $0.seconds ?? -1, $0.at.timeIntervalSince1970] }
+            UserDefaults.standard.set(rows, forKey: "phoneDeliveryHistory")
+        }
+    }
+
+    private static func loadHistory() -> [Delivery] {
+        let rows = UserDefaults.standard.array(forKey: "phoneDeliveryHistory") as? [[Double]] ?? []
+        let day = Date().addingTimeInterval(-86400)
+        return rows.compactMap { r in
+            guard r.count == 3 else { return nil }
+            return Delivery(ok: r[0] == 1, seconds: r[1] < 0 ? nil : r[1], at: Date(timeIntervalSince1970: r[2]))
+        }.filter { $0.at > day }
+    }
+
+    /// "За сутки: 12 из 12 дошли, обычно за 0,4 с, дольше всего — 5,5 мин".
+    var historySummary: String? {
+        guard !history.isEmpty else { return nil }
+        let ok = history.filter(\.ok)
+        let times = ok.compactMap(\.seconds).sorted()
+        var text = L("За сутки дошло %@ из %@", "\(ok.count)", "\(history.count)")
+        if !times.isEmpty {
+            text += L(", обычно за %@", Self.span(times[times.count / 2]))
+            if let worst = times.last, worst > 10 { text += L(", дольше всего — %@", Self.span(worst)) }
+        }
+        return text
+    }
+
+    static func span(_ seconds: Double) -> String {
+        seconds < 60 ? L("%@ с", seconds.formatted(.number.precision(.fractionLength(1))))
+                     : L("%@ мин", (seconds / 60).formatted(.number.precision(.fractionLength(1))))
+    }
     @Published private(set) var checking = false
     @Published private(set) var checkResult: (ok: Bool, text: String)?
     private var checkIDs: Set<String> = []
@@ -352,6 +388,7 @@ final class PhoneLink: ObservableObject {
     private func delivered(_ frame: LinkFrame, ok: Bool) {
         let seconds = frame.ms.map { Double($0) / 1000 }
         lastDelivery = Delivery(ok: ok, seconds: seconds, at: Date())
+        history.append(Delivery(ok: ok, seconds: seconds, at: Date()))
         AgentActivity.trace(ok ? "phone: push confirmed in \(frame.ms ?? 0) ms" : "phone: push \(frame.id ?? "") never confirmed")
         guard let id = frame.id, checkIDs.contains(id) else { return }
         if ok, let seconds {
