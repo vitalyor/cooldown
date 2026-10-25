@@ -39,6 +39,7 @@
 "%@ продолжится автоматически после сброса лимита." = "%@ reprendra automatiquement après la réinitialisation de la limite.";
 "%@ просит заполнить данные" = "%@ demande des informations";
 "%@ просит подтверждения" = "%@ demande une confirmation";
+"%@ работает" = "%@ travaille";
 "%@ работает: %@" = "%@ travaille : %@";
 "%@ с работой в Claude" = "%@ avec du travail dans Claude";
 "%@ с работой за год" = "%@ avec du travail cette année";
@@ -180,6 +181,7 @@
 "Home Assistant недоступен: %@" = "Home Assistant est injoignable : %@";
 "Home Assistant ответил кодом %@." = "Home Assistant a répondu avec le code %@.";
 "Live Activity с лимитами" = "Activité en direct avec les limites";
+"Live Activity: пока агент работает — сколько он уже работает; ответы агентам и «Продолжить» — с кнопками; когда лимит кончился — отсчёт до сброса. Без лишних цифр." = "Activité en direct : pendant qu’un agent travaille, depuis combien de temps ; réponses aux agents et « Reprendre » avec des boutons ; quand une limite est épuisée, un compte à rebours jusqu’à la réinitialisation. Sans chiffres superflus.";
 "Mac выполняет…" = "Le Mac s’en occupe…";
 "Mac давно не выходил на связь" = "Le Mac ne s’est pas manifesté depuis un moment";
 "Mac заблокирован" = "Le Mac est verrouillé";
@@ -196,6 +198,8 @@
 "codex путь хуки автопродолжение" = "codex chemin hooks reprise automatique";
 "csv таблица экспорт пересобрать демо iphone home assistant" = "csv tableau export reconstruire démo iphone home assistant";
 "iPhone не подключён к Mac." = "Cet iPhone n’est connecté à aucun Mac.";
+"iPhone не подтвердил уведомление за минуту. Проверьте, что уведомления Cooldown на iPhone включены и у телефона есть интернет." = "L’iPhone n’a pas confirmé la notification en une minute. Vérifiez que les notifications de Cooldown sont activées et que le téléphone est connecté.";
+"iPhone не подтвердил уведомление. Проверьте, что уведомления Cooldown на iPhone включены и у телефона есть интернет." = "L’iPhone n’a pas confirmé la notification. Vérifiez que les notifications de Cooldown sont activées et que le téléphone est connecté.";
 "iPhone через Home Assistant" = "iPhone via Home Assistant";
 "settings.json Claude Code имеет неожиданный формат, Cooldown его не трогает." = "Le settings.json de Claude Code a un format inattendu ; Cooldown ne le modifie pas.";
 "«%@» больше не ждёт сброса." = "« %@ » n’attend plus la réinitialisation.";
@@ -326,10 +330,12 @@
 "Долгосрочный токен" = "Jeton longue durée";
 "Доля работы каждой модели и сколько та же работа стоила бы по API." = "Part du travail de chaque modèle et ce que le même travail aurait coûté aux prix de l’API.";
 "Домашняя папка" = "Dossier personnel";
+"Доставка" = "Livraison";
 "Достигнут лимит расходов аккаунта — нужно ваше решение." = "La limite de dépenses du compte est atteinte — votre décision est nécessaire.";
 "Доступна %@, установлена %@" = "%@ disponible, %@ installée";
 "Доступна версия %@" = "Version %@ disponible";
 "Доступна версия Cooldown %@" = "Cooldown %@ est disponible";
+"Дошло до iPhone за %@ с." = "Arrivée sur l’iPhone en %@ s.";
 "Если Codex задал вопрос или ждёт разрешения, Cooldown не жмёт за вас. Появляется оранжевая точка в строке меню и уведомление: откройте задачу и решите сами." = "Si Codex pose une question ou attend une autorisation, Cooldown ne décide pas à votre place. Un point orange apparaît dans la barre des menus avec une notification : ouvrez la tâche et décidez vous-même.";
 "Если в вашем темпе окно закончится до времени сброса." = "Si, à votre rythme, la fenêtre s’épuise avant l’heure de réinitialisation.";
 "Если это видно на iPhone, уведомления работают." = "Si vous voyez ceci sur l’iPhone, les notifications fonctionnent.";
@@ -425,7 +431,7 @@
 "Карточки с запросами агентов в тишину тоже не показываются: запрос подождёт и будет в ленте." = "Les cartes de demande des agents ne s’affichent pas non plus pendant les heures calmes : la demande attend et reste dans le fil.";
 "Карточки с кнопками, лимиты, задачи и Live Activity на телефоне. Нажатое там выполняет этот Mac." = "Des cartes avec boutons, les limites, les tâches et une activité en direct sur le téléphone. Ce que vous y appuyez, ce Mac l’exécute.";
 "Карточки, баннеры и звуки" = "Cartes, bannières et sons";
-"Карточки, названия чатов и ответы шифруются на Mac и открываются только на вашем iPhone. Сервер Cooldown передаёт их, не читая; для Live Activity он видит только проценты лимитов и время сброса." = "Les cartes, les noms des chats et les réponses sont chiffrés sur le Mac et ouverts uniquement sur votre iPhone. Le serveur Cooldown les transmet sans les lire ; pour l’activité en direct, il ne voit que les pourcentages des limites et les heures de réinitialisation.";
+"Карточки, названия чатов и ответы шифруются на Mac и открываются только на вашем iPhone. Сервер Cooldown передаёт их, не читая; для Live Activity он видит только общие строки вроде «Claude работает» и время сброса." = "Les cartes, noms de discussions et réponses sont chiffrés sur le Mac et ne s’ouvrent que sur votre iPhone. Le serveur Cooldown les transmet sans les lire ; pour l’activité en direct, il ne voit que des lignes générales comme « Claude travaille » et les heures de réinitialisation.";
 "Кнопки на экране блокировки" = "Boutons sur l’écran verrouillé";
 "Когда лимит восстановится, придёт карточка «Продолжить» (для нескольких чатов — одна, «Продолжить все»). Нажмёте — Cooldown сам найдёт каждый чат, даже если вы ушли в другой, проверит его и отправит сообщение." = "Quand la limite se réinitialise, une carte « Reprendre » arrive (une seule, « Tout reprendre », pour plusieurs chats). Appuyez dessus et Cooldown trouvera chaque chat — même si vous êtes passé à un autre —, le vérifiera et enverra le message.";
 "Когда лимит восстановится, придёт карточка «Продолжить». Нажмёте её, и Cooldown найдёт нужный чат и отправит туда сообщение ниже. Без вашего нажатия ничего не отправляется." = "Quand la limite se réinitialise, une carte « Reprendre » arrive. Appuyez dessus, et Cooldown trouvera le bon chat et y enverra le message ci-dessous. Rien n’est envoyé sans votre clic.";
@@ -623,7 +629,6 @@
 "Ответить" = "Répondre";
 "Ответить в чате" = "Répondre dans le chat";
 "Ответить там" = "Répondre là-bas";
-"Ответы агентам и «Продолжить» приходят в Live Activity с кнопками, а когда лимит кончился — отсчёт до сброса. Без лишних цифр." = "Les réponses aux agents et « Continuer » arrivent dans une activité en direct avec des boutons, et quand une limite est épuisée, un compte à rebours jusqu’à la réinitialisation. Sans chiffres superflus.";
 "Ответы не совпадают с вопросами." = "Les réponses ne correspondent pas aux questions.";
 "Отклонено подключение устройства, которое не сканировало QR-код." = "Un appareil qui n’a pas scanné le QR code a été refusé.";
 "Отклонить" = "Refuser";
@@ -724,6 +729,8 @@
 "После сброса лимита придёт карточка «Продолжить» для «%@»." = "Après la réinitialisation de la limite, une carte « Continuer » arrivera pour « %@ ».";
 "После сброса придёт карточка «Продолжить»." = "Après la réinitialisation, une carte « Continuer » arrivera.";
 "Последнее событие %@" = "Dernier évènement %@";
+"Последнее уведомление iPhone не подтвердил · %@" = "L’iPhone n’a pas confirmé la dernière notification · %@";
+"Последнее уведомление дошло за %@ с · %@" = "Dernière notification arrivée en %@ s · %@";
 "Посмотреть" = "Voir";
 "Посмотрите эти задачи в Codex: повторно Cooldown их не отправит." = "Vérifiez ces tâches dans Codex : Cooldown ne les renverra pas.";
 "Потрачено" = "Consommé";
@@ -742,11 +749,13 @@
 "Принято." = "Bien reçu.";
 "Приходит уведомление с кнопкой «Продолжить». По нажатию Cooldown отправил бы сообщение в открытый чат Claude. В демо ничего не отправляется, но кнопку можно нажать." = "Une notification avec un bouton « Reprendre » arrive. Sur clic, Cooldown enverrait un message dans le chat Claude ouvert. Dans la démo rien n’est envoyé, mais vous pouvez appuyer sur le bouton.";
 "Пришлите этот отчёт разработчику." = "Envoyez ce rapport au développeur.";
+"Пришлёт на iPhone уведомление и покажет, за сколько оно дошло. Каждое уведомление iPhone подтверждает; неподтверждённое сервер отправит ещё раз." = "Envoie une notification à l’iPhone et indique combien de temps elle a mis. L’iPhone confirme chaque notification ; le serveur renvoie celles qui ne le sont pas.";
 "Проверена и готова. Установка займёт пару секунд; настройки и история сохранятся." = "Vérifié et prêt. L’installation prend quelques secondes ; les réglages et l’historique sont conservés.";
 "Проверено: %@" = "Vérifié : %@";
 "Проверено: %@ готова к установке." = "Vérifiée : %@ est prête à être installée.";
 "Проверить" = "Vérifier";
 "Проверить всё" = "Tout vérifier";
+"Проверить доставку" = "Vérifier la livraison";
 "Проверить на iPhone" = "Tester sur l’iPhone";
 "Проверить снова" = "Vérifier de nouveau";
 "Проверить, что всё работает" = "Vérifier que tout fonctionne";
@@ -898,6 +907,7 @@
 "Убрать из списка" = "Retirer de la liste";
 "Уведомления" = "Notifications";
 "Уведомления и Live Activity с лимитами будут приходить сюда." = "Les notifications et une Activité en direct avec vos limites arriveront ici.";
+"Уведомления с этого Mac доходят до iPhone." = "Les notifications de ce Mac arrivent sur l’iPhone.";
 "Уведомления, когда вы не за Mac" = "Notifications quand vous n’êtes pas devant le Mac";
 "Уведомлять, даже когда я за Mac" = "Me notifier même quand je suis au Mac";
 "Уже не актуально." = "Plus d’actualité.";
@@ -1040,6 +1050,7 @@
 "продолжить «%@»" = "reprendre « %@ »";
 "пт" = "ven.";
 "работает" = "travaille";
+"работает · чатов: %@" = "travaille · discussions : %@";
 "раз|раза|раз" = "fois|fois";
 "сброс %@" = "réinitialisation %@";
 "сброс|сброса|сбросов" = "réinitialisation|réinitialisations";

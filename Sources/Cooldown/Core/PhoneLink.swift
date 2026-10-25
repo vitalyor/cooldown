@@ -20,6 +20,13 @@ final class PhoneLink: ObservableObject {
     @Published private(set) var busy = false
     @Published var message: String?
 
+    /// The last notification the phone confirmed (or that never got confirmed), and the check.
+    struct Delivery: Equatable { var ok: Bool; var seconds: Double?; var at: Date }
+    @Published private(set) var lastDelivery: Delivery?
+    @Published private(set) var checking = false
+    @Published private(set) var checkResult: (ok: Bool, text: String)?
+    private var checkIDs: Set<String> = []
+
     private let vault = LinkVault()
     private var client: LinkClient?
     private var session: LinkSession?
@@ -40,6 +47,9 @@ final class PhoneLink: ObservableObject {
     }
     private var lastLive: LiveState?
     private var countdownEnd: Task<Void, Never>?
+    /// An agent's stretch of work: since when, and when it was last seen working. Short pauses
+    /// between turns do not end it, so the Live Activity does not flicker.
+    private var streaks: [String: (since: Date, last: Date, count: Int)] = [:]
     private var endSent = false
 
     var paired: Bool { !(account?.peers.isEmpty ?? true) }
@@ -199,13 +209,54 @@ final class PhoneLink: ObservableObject {
 
     // MARK: Sending
 
-    private func send(_ box: LinkBox, to phones: [String]? = nil, ttl: TimeInterval = 600, keep: String? = nil, push: LinkPush?) {
-        guard let session, let client, let account else { return }
+    /// Seals a box for each phone (or the ones named) and sends it. Returns the envelope ids.
+    @discardableResult
+    private func send(_ box: LinkBox, to phones: [String]? = nil, ttl: TimeInterval = 600, keep: String? = nil, push: LinkPush?) -> [String] {
+        guard let session, let client, let account else { return [] }
+        var ids: [String] = []
         for peer in account.peers where phones == nil || phones!.contains(peer.id) {
             var b = box
             if phones == nil && account.peers.count > 1 { b.id = LinkID.make() } // one id per envelope
             guard let frame = try? session.envelope(b, to: peer.id, ttl: ttl, keep: keep, push: push) else { continue }
             client.send(frame)
+            if let id = frame.id { ids.append(id) }
+        }
+        return ids
+    }
+
+    // MARK: Delivery check
+
+    /// Sends a notification to the phone and waits for it to say it arrived.
+    func checkDelivery() {
+        guard paired, !checking else { return }
+        checking = true
+        checkResult = nil
+        let card = LinkCard(key: "linkcheck-\(Int(Date().timeIntervalSince1970))", kind: "info", provider: nil,
+                            title: L("Проверка связи"), body: L("Уведомления с этого Mac доходят до iPhone."), actions: [])
+        checkIDs = Set(send(.card(card), ttl: 300, push: LinkPush(collapse: card.collapseID, sound: true, level: "active")))
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(60))
+            guard let self, self.checking else { return }
+            self.finishCheck(ok: false, L("iPhone не подтвердил уведомление за минуту. Проверьте, что уведомления Cooldown на iPhone включены и у телефона есть интернет."))
+        }
+    }
+
+    private func finishCheck(ok: Bool, _ text: String) {
+        checking = false
+        checkIDs = []
+        checkResult = (ok, text)
+    }
+
+    /// The relay says a notification reached the phone, or that it never did.
+    private func delivered(_ frame: LinkFrame, ok: Bool) {
+        let seconds = frame.ms.map { Double($0) / 1000 }
+        lastDelivery = Delivery(ok: ok, seconds: seconds, at: Date())
+        AgentActivity.trace(ok ? "phone: push confirmed in \(frame.ms ?? 0) ms" : "phone: push \(frame.id ?? "") never confirmed")
+        guard let id = frame.id, checkIDs.contains(id) else { return }
+        if ok, let seconds {
+            finishCheck(ok: true, L("Дошло до iPhone за %@ с.", seconds.formatted(.number.precision(.fractionLength(1)))))
+        } else {
+            finishCheck(ok: false, L("iPhone не подтвердил уведомление. Проверьте, что уведомления Cooldown на iPhone включены и у телефона есть интернет."))
         }
     }
 
@@ -217,9 +268,9 @@ final class PhoneLink: ObservableObject {
 
     /// How a card reaches the phone. The phone interrupts only when something is wanted from you
     /// or something changed that you would act on; the rest is there in the app, quietly.
-    enum Delivery: Equatable { case live, alert(sound: Bool, level: String), none }
+    enum Route: Equatable { case live, alert(sound: Bool, level: String), none }
 
-    func delivery(_ content: ToastContent, card: LinkCard, away: Bool) -> Delivery {
+    func delivery(_ content: ToastContent, card: LinkCard, away: Bool) -> Route {
         let key = content.key
         // Things to press: on the Lock Screen in the Live Activity, not as one more notification.
         if !card.actions.filter({ $0.input != true }).isEmpty, Settings.phoneLive, phoneHasLive { return .live }
@@ -251,6 +302,10 @@ final class PhoneLink: ObservableObject {
         if content.kind == .reset, content.key.hasPrefix("task-") {
             noteResumed(content.title)
             return
+        }
+        // The agent stopped: its "working" leaves the Live Activity now, not after the pause allowance.
+        if let p = content.provider?.rawValue, content.kind == .finished || content.key.hasPrefix("out-") {
+            streaks[p] = nil
         }
         let card = Self.card(content)
         let how = delivery(content, card: card, away: away)
@@ -369,8 +424,8 @@ final class PhoneLink: ObservableObject {
             ClaudeChatList.shared.objectWillChange.map { _ in () }.eraseToAnyPublisher(),
         ]
         Publishers.MergeMany(changes).sink { [weak self] in self?.scheduleState() }.store(in: &subscriptions)
-        // A minute's tick keeps "stale" and the Live Activity honest when nothing else changes.
-        Timer.publish(every: 60, on: .main, in: .common).autoconnect().sink { [weak self] _ in self?.scheduleState() }
+        // A half-minute tick keeps "stale" and the Live Activity honest when nothing else changes.
+        Timer.publish(every: 30, on: .main, in: .common).autoconnect().sink { [weak self] _ in self?.scheduleState() }
             .store(in: &subscriptions)
         let center = DistributedNotificationCenter.default()
         center.publisher(for: Notification.Name("com.apple.screenIsUnlocked")).sink { [weak self] _ in
@@ -428,6 +483,7 @@ final class PhoneLink: ObservableObject {
 
     func publishState(now force: Bool = false) {
         guard paired else { return }
+        catchUp()
         var state = currentState()
         // Only real changes go out; the time alone is not news.
         if !force, var last = lastState {
@@ -439,6 +495,18 @@ final class PhoneLink: ObservableObject {
         lastState = state
         send(.state(state), ttl: 86400, keep: "state", push: nil)
         live(state)
+    }
+
+    /// News that came while you were still at the Mac and is still open when you leave: the phone
+    /// gets it then, instead of never.
+    private func catchUp() {
+        guard away else { return }
+        let now = Date()
+        for (key, item) in cards where !item.pushed && now.timeIntervalSince(item.card.created) < 600 {
+            guard case .alert(let sound, let level) = delivery(item.content, card: item.card, away: true) else { continue }
+            cards[key] = (item.content, item.card, true)
+            send(.card(item.card), ttl: 2 * 3600, push: LinkPush(collapse: item.card.collapseID, sound: sound, level: level))
+        }
     }
 
     // MARK: Live Activity
@@ -467,8 +535,28 @@ final class PhoneLink: ObservableObject {
             countdowns.append(.init(provider: p.rawValue, until: reset.timeIntervalSince1970, waiting: waiting))
         }
         countdowns.sort { $0.until < $1.until }
-        let live = LiveState(items: Array(items), more: max(0, pressable.count - 2), countdowns: countdowns)
+        // An older iPhone app would show an empty Live Activity for work alone.
+        let live = LiveState(items: Array(items), more: max(0, pressable.count - 2), countdowns: countdowns,
+                             working: devices.contains { $0.confirms ?? false } ? work(agents) : nil)
         return live.isEmpty ? nil : live
+    }
+
+    /// Who is working right now, for the Live Activity: one stretch per agent, pauses up to 45
+    /// seconds between turns included (a finished turn's card ends it at once, see forward).
+    func work(_ agents: [LinkAgent], now: Date = Date()) -> [LiveState.Work]? {
+        for agent in agents {
+            guard agent.working, let since = agent.since, let p = ProviderID(rawValue: agent.provider) else { continue }
+            let count = max(1, AgentActivity.shared.working(p).count)
+            if let old = streaks[agent.provider], now.timeIntervalSince(old.last) < 45 {
+                streaks[agent.provider] = (old.since, now, count)
+            } else {
+                streaks[agent.provider] = (since, now, count)
+            }
+        }
+        streaks = streaks.filter { now.timeIntervalSince($0.value.last) < 45 }
+        let work = streaks.map { LiveState.Work(provider: $0.key, since: $0.value.since.timeIntervalSince1970, count: $0.value.count) }
+            .sorted { $0.since < $1.since }
+        return work.isEmpty ? nil : work
     }
 
     /// A card for the Lock Screen: a general title, never the chat's name or the command.
@@ -492,6 +580,10 @@ final class PhoneLink: ObservableObject {
                              destructive: a.style == .destructive, auth: a.auth)
         }
         return LiveState.Item(id: card.collapseID, kind: card.kind, provider: card.provider, title: title, buttons: Array(buttons))
+    }
+
+    static func providerName(_ id: String?) -> String {
+        id == "codex" ? "Codex" : id == "claude" ? "Claude" : "Cooldown"
     }
 
     private static func sound(for item: LiveState.Item?) -> String {
@@ -536,10 +628,14 @@ final class PhoneLink: ObservableObject {
         let fresh = !liveOn || newItem != nil || newCountdown != nil
         var alert: LiveAlert?
         if fresh && away {
-            let body = newItem?.title ?? newCountdown.map { c in
+            if let body = newItem?.title ?? newCountdown.map({ c in
                 L("%@: снова можно в %@", "\(c.provider == "codex" ? "Codex" : "Claude")", "\(Format.clock(Date(timeIntervalSince1970: c.until)))")
-            } ?? live.items.first?.title ?? ""
-            alert = LiveAlert(title: "Cooldown", body: body, sound: QuietHours.active && newItem?.kind != "attention" ? nil : Self.sound(for: newItem))
+            }) {
+                alert = LiveAlert(title: "Cooldown", body: body, sound: QuietHours.active && newItem?.kind != "attention" ? nil : Self.sound(for: newItem))
+            } else if let w = live.working?.first {
+                // Only "at work": shown without a sound, it is not news by itself.
+                alert = LiveAlert(title: "Cooldown", body: L("%@ работает", Self.providerName(w.provider)))
+            }
         }
         liveOn = true
         lastLive = live
@@ -558,6 +654,10 @@ final class PhoneLink: ObservableObject {
             Task { await refreshDevices() }
         case "paired":
             paired(frame)
+        case "delivered":
+            delivered(frame, ok: true)
+        case "undelivered":
+            delivered(frame, ok: false)
         case "presence":
             if frame.online == true { lastState = nil; publishState(now: true) }
             Task { await refreshDevices() }

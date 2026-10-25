@@ -239,6 +239,9 @@ final class ToastController: ObservableObject {
 
     func show(_ content: ToastContent) {
         AgentActivity.trace("card \(content.key) front=\(Self.isFront(content.appBundleIDs))")
+        // The phone decides for itself whether you are here: it gets every card at once, even one
+        // the Mac holds back below because the agent's app is in front.
+        PhoneLink.shared.forward(content)
         // Working in Codex or Claude right now? Wait a moment: if the person stays there, they have
         // seen it for themselves and the card is dropped; if they leave, it shows then.
         if Self.isFront(content.appBundleIDs) && !Settings.cardsWhenFront {

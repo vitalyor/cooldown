@@ -1,3 +1,4 @@
+import CooldownLink
 import Foundation
 
 /// Cooldown's own checks of the rules that must never break: run with `Cooldown --selftest`
@@ -88,6 +89,13 @@ enum SelfTest {
         list.cardClosed("claude-chat-x")
         expect(!list.cardsWaiting, "a closed Continue card is not offered again")
         list.cardsWaiting = wasWaiting
+        let link = PhoneLink.shared
+        let t0 = Date().addingTimeInterval(-600)
+        let first = link.work([LinkAgent(provider: "codex", working: true, since: t0)], now: Date())
+        let pause = link.work([LinkAgent(provider: "codex", working: true, since: Date())], now: Date().addingTimeInterval(20))
+        expect(first?.first?.since == t0.timeIntervalSince1970 && pause?.first?.since == t0.timeIntervalSince1970,
+               "a short pause between turns keeps one stretch of work")
+        expect(link.work([], now: Date().addingTimeInterval(120)) == nil, "work that stopped leaves the Live Activity")
         return failures
     }
 }

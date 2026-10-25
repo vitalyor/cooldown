@@ -220,12 +220,20 @@ public struct LiveState: Codable, Hashable, Sendable {
         public var waiting: Int          // chats or tasks waiting for it
         public init(provider: String, until: Double, waiting: Int) { self.provider = provider; self.until = until; self.waiting = waiting }
     }
+    /// An agent at work right now: since when (one stretch, short pauses included) and in how many chats.
+    public struct Work: Codable, Hashable, Sendable {
+        public var provider: String
+        public var since: Double         // seconds since 1970
+        public var count: Int
+        public init(provider: String, since: Double, count: Int) { self.provider = provider; self.since = since; self.count = count }
+    }
     public var items: [Item]             // at most two, most urgent first
     public var more: Int                 // further items not shown
     public var countdowns: [Countdown]   // soonest first
+    public var working: [Work]?          // optional: older phones simply do not show it
     public var updated: Double
-    public init(items: [Item], more: Int = 0, countdowns: [Countdown] = [], updated: Double = 0) {
-        self.items = items; self.more = more; self.countdowns = countdowns; self.updated = updated
+    public init(items: [Item], more: Int = 0, countdowns: [Countdown] = [], working: [Work]? = nil, updated: Double = 0) {
+        self.items = items; self.more = more; self.countdowns = countdowns; self.working = working; self.updated = updated
     }
-    public var isEmpty: Bool { items.isEmpty && countdowns.isEmpty }
+    public var isEmpty: Bool { items.isEmpty && countdowns.isEmpty && (working ?? []).isEmpty }
 }

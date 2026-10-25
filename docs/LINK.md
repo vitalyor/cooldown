@@ -71,6 +71,8 @@ Every frame is JSON with a type `t`:
 - `presence` `{device, online, seen}`: from the relay.
 - `paired` `{device, name, hello}`: from the relay to the Mac.
 - `unpaired` `{device}`: from the relay.
+- `delivered` `{id, device, ms}`: from the relay to the Mac, when a phone confirmed a notification.
+- `undelivered` `{id, device}`: from the relay to the Mac, when a phone never confirmed one.
 - `error` `{id, code, text}`: from the relay.
 
 ### Envelope
@@ -125,12 +127,15 @@ Commands (`op`):
 ```json
 {"items":[{"id":"<collapse id>","kind":"attention","provider":"codex","title":"Codex ждёт вашего решения",
   "buttons":[{"id":"choice:allow","title":"Разрешить","primary":true,"auth":true}]}],
- "more":1,"countdowns":[{"provider":"claude","until":1761400000,"waiting":1}],"updated":1761390000}
+ "more":1,"countdowns":[{"provider":"claude","until":1761400000,"waiting":1}],
+ "working":[{"provider":"codex","since":1761389000,"count":2}],"updated":1761390000}
 ```
 
 - `items`: up to two cards with buttons, most urgent first (attention, then reset, then warning).
   Titles are general: never the chat name or the command.
 - `more`: how many other cards wait.
+- `working`: agents at work and since when; pauses up to 45 seconds between turns count as one
+  stretch, and a finished turn ends it at once. Sent only to phones whose app shows it.
 - `countdowns`: spent limits and when they come back. When one runs out the Mac sends the state
   again, so the countdown goes away instead of standing at 0:00.
 
@@ -147,6 +152,25 @@ minutes, and a new activity token replaces the old ones.
 - A Claude limit comes back while you're away: the "Continue" card goes to the phone right away; the
   Mac shows it when you're back, unless the phone already answered it.
 - The Mac is offline for 15 minutes while work waits for a reset: the relay sends one notification.
+
+## Confirmed delivery
+
+Apple does not say whether a push arrived, so the phone does:
+
+1. The phone's notification extension opens the card and calls `POST /v1/got` with the envelope id.
+2. The relay tells the Mac (`delivered`, with how long it took) and stops tracking it.
+3. Not confirmed after 45 seconds: the relay sends the same push again. After 3 minutes, once more
+   without a sound. After 15 minutes the Mac hears `undelivered`.
+4. When a phone confirms one push, others still waiting for it go again at once: Apple keeps only
+   the newest push for a phone that was offline.
+
+Only phones whose app confirms are tracked (the relay learns it from their first `POST /v1/got`), so
+an older app is never sent the same thing twice. Settings → iPhone → Delivery shows the last result
+and has a button that sends a test notification and measures it.
+
+Cards also reach the phone when the Mac holds them back (the agent's app is in front), and news
+that came while you were at the Mac is pushed when you leave, if it is still open and under ten
+minutes old.
 
 ## Rules on the Mac
 

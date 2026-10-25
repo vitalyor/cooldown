@@ -42,6 +42,7 @@ public struct LinkFrame: Codable, Equatable, Sendable {
     public var code: String?
     public var text: String?
     public var ids: [String]?
+    public var ms: Int64?          // "delivered": how long the push took to be confirmed
     // Live Activity
     public var event: String?
     public var state: LiveState?
@@ -257,6 +258,7 @@ public struct LinkDeviceRow: Codable, Equatable, Identifiable, Sendable {
     public var seen: Int64
     public var push: Bool
     public var live: Bool?               // can show a Live Activity started from the Mac
+    public var confirms: Bool?           // a newer app: confirms each notification, shows agents at work
 }
 
 // MARK: Connection

@@ -1031,7 +1031,7 @@ private struct PhonePane: View {
             }
             if let message = link.message { Footnote(text: message) }
         } footer: {
-            Footnote(text: L("Карточки, названия чатов и ответы шифруются на Mac и открываются только на вашем iPhone. Сервер Cooldown передаёт их, не читая; для Live Activity он видит только проценты лимитов и время сброса."))
+            Footnote(text: L("Карточки, названия чатов и ответы шифруются на Mac и открываются только на вашем iPhone. Сервер Cooldown передаёт их, не читая; для Live Activity он видит только общие строки вроде «Claude работает» и время сброса."))
         }
         if link.account != nil {
             Section(L("Устройства")) {
@@ -1063,8 +1063,34 @@ private struct PhonePane: View {
                              detail: L("Обычно телефон молчит, пока вы за Mac, и включается, когда Mac заблокирован или вас нет у него пару минут."),
                              isOn: $always)
                 OptionToggle(title: L("Кнопки на экране блокировки"),
-                             detail: L("Ответы агентам и «Продолжить» приходят в Live Activity с кнопками, а когда лимит кончился — отсчёт до сброса. Без лишних цифр."),
+                             detail: L("Live Activity: пока агент работает — сколько он уже работает; ответы агентам и «Продолжить» — с кнопками; когда лимит кончился — отсчёт до сброса. Без лишних цифр."),
                              isOn: $live)
+            }
+            Section(L("Доставка")) {
+                if let last = link.lastDelivery {
+                    HStack(spacing: 6) {
+                        Image(systemName: last.ok ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                            .foregroundStyle(last.ok ? .green : .orange)
+                        Text(last.ok
+                             ? L("Последнее уведомление дошло за %@ с · %@", (last.seconds ?? 0).formatted(.number.precision(.fractionLength(1))), Format.relative(last.at))
+                             : L("Последнее уведомление iPhone не подтвердил · %@", Format.relative(last.at)))
+                            .font(.callout).foregroundStyle(.secondary)
+                    }
+                }
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L("Проверить доставку"))
+                        Text(L("Пришлёт на iPhone уведомление и покажет, за сколько оно дошло. Каждое уведомление iPhone подтверждает; неподтверждённое сервер отправит ещё раз."))
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if link.checking { ProgressView().controlSize(.small) }
+                    Button(L("Проверить")) { link.checkDelivery() }.disabled(link.checking || link.devices.isEmpty)
+                }
+                if let result = link.checkResult {
+                    Label(result.text, systemImage: result.ok ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                        .font(.callout).foregroundStyle(result.ok ? .green : .orange)
+                }
             }
         }
     }
