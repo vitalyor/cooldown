@@ -12,8 +12,11 @@ public struct LinkPush: Codable, Equatable, Sendable {
     public var remove: [String]?
     public var silent: Bool?
     public var badge: Int?         // things waiting for a press, shown on the app icon
-    public init(collapse: String? = nil, sound: Bool? = nil, level: String? = nil, remove: [String]? = nil, silent: Bool? = nil, badge: Int? = nil) {
-        self.collapse = collapse; self.sound = sound; self.level = level; self.remove = remove; self.silent = silent; self.badge = badge
+    public var urgent: Bool?       // priority 10 even for a quiet (passive) one
+    public init(collapse: String? = nil, sound: Bool? = nil, level: String? = nil, remove: [String]? = nil, silent: Bool? = nil,
+                badge: Int? = nil, urgent: Bool? = nil) {
+        self.collapse = collapse; self.sound = sound; self.level = level; self.remove = remove; self.silent = silent
+        self.badge = badge; self.urgent = urgent
     }
 }
 

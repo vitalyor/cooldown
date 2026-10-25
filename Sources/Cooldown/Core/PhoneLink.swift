@@ -347,6 +347,31 @@ final class PhoneLink: ObservableObject {
         AgentActivity.trace("phone: told the phone the Mac is going to sleep")
     }
 
+    // MARK: Quiet probes
+
+    /// For measuring delivery over a long time (a night on mobile data, say): every N minutes a
+    /// silent notification goes to the phone, and is taken off it again once confirmed. Off unless
+    /// `phoneProbeMinutes` is set; the results land in the log and the day's summary.
+    private var probeIDs: [String: Date] = [:]
+    private var lastProbe = Date.distantPast
+
+    private func probeIfDue() {
+        let minutes = UserDefaults.standard.double(forKey: "phoneProbeMinutes")
+        guard minutes > 0, paired, status == .online, Date().timeIntervalSince(lastProbe) > minutes * 60 else { return }
+        lastProbe = Date()
+        let card = LinkCard(key: "probe", kind: "info", provider: nil, title: L("Проверка связи"),
+                            body: L("Тихая проверка доставки. Уберётся сама."), actions: [])
+        let ids = send(.card(card), ttl: 1800, push: LinkPush(collapse: card.collapseID, sound: false, level: "passive", urgent: true))
+        for id in ids { probeIDs[id] = Date() }
+        AgentActivity.trace("phone: probe sent env=\(ids.joined(separator: ","))")
+    }
+
+    private func probeAnswered(_ id: String, ok: Bool) {
+        guard probeIDs.removeValue(forKey: id) != nil else { return }
+        // Off the phone again: it was only a measurement.
+        send(.resolve("probe", by: "mac"), ttl: 1800, push: LinkPush(remove: [LinkCard.collapseID("probe")], silent: true))
+    }
+
     // MARK: Rehearsal
 
     /// A full run on the phone, as if an agent worked while you were away: the Live Activity shows
@@ -389,7 +414,9 @@ final class PhoneLink: ObservableObject {
         let seconds = frame.ms.map { Double($0) / 1000 }
         lastDelivery = Delivery(ok: ok, seconds: seconds, at: Date())
         history.append(Delivery(ok: ok, seconds: seconds, at: Date()))
-        AgentActivity.trace(ok ? "phone: push confirmed in \(frame.ms ?? 0) ms" : "phone: push \(frame.id ?? "") never confirmed")
+        AgentActivity.trace(ok ? "phone: push confirmed in \(frame.ms ?? 0) ms\(probeIDs[frame.id ?? ""] != nil ? " (probe)" : "")"
+                               : "phone: push \(frame.id ?? "") never confirmed")
+        if let id = frame.id { probeAnswered(id, ok: ok) }
         guard let id = frame.id, checkIDs.contains(id) else { return }
         if ok, let seconds {
             finishCheck(ok: true, L("Дошло до iPhone за %@ с.", seconds.formatted(.number.precision(.fractionLength(1)))))
@@ -408,6 +435,7 @@ final class PhoneLink: ObservableObject {
     /// Activity starts — not at the next half-minute tick.
     private func checkPresence() {
         checkOffline()
+        probeIfDue()
         let now = away
         guard now != wasAway else { return }
         if wasAway != nil { AgentActivity.trace("phone: \(now ? "away" : "back at the Mac") — \(awayReason)") }

@@ -906,6 +906,7 @@
 "Так приходит «готово», когда агент закончил, а вас нет у Mac. Live Activity при этом закрывается." = "This is how “done” arrives when an agent finishes while you’re away from the Mac. The Live Activity closes at the same time.";
 "Такой ответ здесь не поддерживается." = "This answer isn't supported here.";
 "Тип" = "Type";
+"Тихая проверка доставки. Уберётся сама." = "A quiet delivery check. It removes itself.";
 "Тихие часы" = "Quiet hours";
 "Тишина" = "Quiet";
 "Токен" = "Token";
