@@ -374,10 +374,35 @@ public final class LinkClient {
         }
     }
 
+    /// A connection can die without a word (a NAT forgets it, Wi-Fi changes under a sleeping Mac):
+    /// sending into it fails quietly. A ping every 30 s finds out within a minute and reconnects.
+    private var heartbeat: Task<Void, Never>?
+
+    private func beat(on t: URLSessionWebSocketTask, generation mine: Int) {
+        heartbeat?.cancel()
+        heartbeat = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(30))
+                guard let self, !Task.isCancelled, mine == self.generation, self.task === t else { return }
+                let answered = await withCheckedContinuation { (done: CheckedContinuation<Bool, Never>) in
+                    let once = Once()
+                    t.sendPing { error in once.run { done.resume(returning: error == nil) } }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 15) { once.run { done.resume(returning: false) } }
+                }
+                guard mine == self.generation, self.task === t else { return }
+                if !answered {
+                    self.dropped("no answer to ping")
+                    return
+                }
+            }
+        }
+    }
+
     private func handle(_ frame: LinkFrame, on t: URLSessionWebSocketTask) {
         if frame.t == "ready" {
             attempt = 0
             status = .online
+            beat(on: t, generation: generation)
             let waiting = outbox
             outbox = []
             for f in waiting { write(f, on: t) }
@@ -420,5 +445,18 @@ public final class LinkClient {
         }
         m.start(queue: .global(qos: .utility))
         monitor = m
+    }
+}
+
+/// Runs its closure the first time only (a ping answered or timed out, whichever comes first).
+final class Once: @unchecked Sendable {
+    private let lock = NSLock()
+    private var done = false
+    func run(_ body: () -> Void) {
+        lock.lock()
+        let first = !done
+        done = true
+        lock.unlock()
+        if first { body() }
     }
 }
