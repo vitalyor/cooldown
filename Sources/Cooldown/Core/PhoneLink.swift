@@ -78,7 +78,7 @@ final class PhoneLink: ObservableObject {
         session = LinkSession(saved)
         client?.stop()
         let c = LinkClient(relay: saved.relay, token: saved.token)
-        c.onStatus = { [weak self] status in self?.status = status }
+        c.onStatus = { [weak self] status in self?.statusChanged(status) }
         c.onFrame = { [weak self] frame in self?.handle(frame) }
         client = c
         c.start()
@@ -121,6 +121,47 @@ final class PhoneLink: ObservableObject {
         cards = [:]
         liveOn = false
         status = .off
+    }
+
+    private var offlineSince: Date?
+    private var offlineWarned = false
+
+    /// The connection to the relay, logged, and said out loud when it stays down: while it is,
+    /// nothing reaches the phone.
+    private func statusChanged(_ new: LinkClient.Status) {
+        let old = status
+        status = new
+        switch new {
+        case .online:
+            if let since = offlineSince, Date().timeIntervalSince(since) > 30 {
+                AgentActivity.trace("phone: relay back after \(Int(Date().timeIntervalSince(since))) s")
+            }
+            if offlineWarned {
+                ToastController.shared.dismiss(key: "phone-offline")
+                EventLog.shared.add(CooldownEvent(kind: .info, provider: nil, title: L("Связь с iPhone восстановлена"), body: ""))
+            }
+            offlineSince = nil
+            offlineWarned = false
+        case .offline(let reason):
+            if case .offline = old {} else { AgentActivity.trace("phone: relay unreachable — \(reason)") }
+            if offlineSince == nil { offlineSince = Date() }
+            checkOffline()
+        default:
+            break
+        }
+    }
+
+    private func checkOffline() {
+        guard case .offline(let reason) = status else { return }
+        if !offlineWarned, paired, let since = offlineSince, Date().timeIntervalSince(since) > 600 {
+                offlineWarned = true
+                AgentActivity.trace("phone: relay down for 10 min, warned")
+                ToastController.shared.show(ToastContent(key: "phone-offline", kind: .warning, provider: nil,
+                    title: L("iPhone не получает уведомления"),
+                    body: L("Уже 10 минут нет связи с сервером Cooldown (%@). Пока её нет, карточки и Live Activity до телефона не дойдут.", reason),
+                    actions: [.openPanel], life: .sticky))
+                EventLog.shared.add(CooldownEvent(kind: .info, provider: nil, title: L("iPhone не получает уведомления"), body: reason))
+        }
     }
 
     // MARK: Pairing
@@ -305,6 +346,7 @@ final class PhoneLink: ObservableObject {
     /// Checked every few seconds: the moment you leave, what is open goes to the phone and the Live
     /// Activity starts — not at the next half-minute tick.
     private func checkPresence() {
+        checkOffline()
         let now = away
         guard now != wasAway else { return }
         if wasAway != nil { AgentActivity.trace("phone: \(now ? "away" : "back at the Mac") — \(awayReason)") }

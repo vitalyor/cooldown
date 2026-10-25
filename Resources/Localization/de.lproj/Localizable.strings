@@ -200,6 +200,7 @@
 "iPhone не подключён к Mac." = "Dieses iPhone ist mit keinem Mac verbunden.";
 "iPhone не подтвердил уведомление за минуту. Проверьте, что уведомления Cooldown на iPhone включены и у телефона есть интернет." = "Das iPhone hat die Mitteilung nicht innerhalb einer Minute bestätigt. Prüfe, ob Mitteilungen für Cooldown an sind und das iPhone online ist.";
 "iPhone не подтвердил уведомление. Проверьте, что уведомления Cooldown на iPhone включены и у телефона есть интернет." = "Das iPhone hat die Mitteilung nicht bestätigt. Prüfe, ob Mitteilungen für Cooldown an sind und das iPhone online ist.";
+"iPhone не получает уведомления" = "Das iPhone bekommt keine Mitteilungen";
 "iPhone через Home Assistant" = "iPhone über Home Assistant";
 "settings.json Claude Code имеет неожиданный формат, Cooldown его не трогает." = "Die settings.json von Claude Code hat ein unerwartetes Format; Cooldown lässt sie unverändert.";
 "«%@» больше не ждёт сброса." = "„%@“ wartet nicht mehr auf den Reset.";
@@ -832,6 +833,7 @@
 "Свой ответ в чате" = "Eigene Antwort im Chat";
 "Свой ответ там" = "Eigene Antwort dort";
 "Связь" = "Verbindung";
+"Связь с iPhone восстановлена" = "Verbindung zum iPhone wieder da";
 "Связь с окнами Codex" = "Verbindung zu den Codex-Fenstern";
 "Сегодня" = "Heute";
 "Сейчас" = "Jetzt";
@@ -914,10 +916,12 @@
 "Убрать" = "Entfernen";
 "Убрать из списка" = "Aus der Liste entfernen";
 "Уведомления" = "Mitteilungen";
+"Уведомления Cooldown выключены — iPhone не сможет сообщить, что агент закончил или ждёт ответа. Включить" = "Mitteilungen von Cooldown sind aus – das iPhone kann dir nicht sagen, wenn ein Agent fertig ist oder auf eine Antwort wartet. Einschalten";
 "Уведомления и Live Activity с лимитами будут приходить сюда." = "Mitteilungen und eine Live-Aktivität mit deinen Limits kommen hierher.";
 "Уведомления с этого Mac доходят до iPhone." = "Mitteilungen von diesem Mac kommen auf dem iPhone an.";
 "Уведомления, когда вы не за Mac" = "Mitteilungen, wenn du nicht am Mac bist";
 "Уведомлять, даже когда я за Mac" = "Auch benachrichtigen, wenn ich am Mac bin";
+"Уже 10 минут нет связи с сервером Cooldown (%@). Пока её нет, карточки и Live Activity до телефона не дойдут." = "Seit 10 Minuten keine Verbindung zum Cooldown-Server (%@). Bis sie zurück ist, erreichen Karten und Live-Aktivität das iPhone nicht.";
 "Уже не актуально." = "Nicht mehr aktuell.";
 "Уже не актуально: агент больше не ждёт ответа." = "Nicht mehr aktuell: Der Agent wartet nicht mehr auf eine Antwort.";
 "Уже не актуально: карточку закрыли или ответили на Mac." = "Nicht mehr aktuell: Die Karte wurde auf dem Mac geschlossen oder beantwortet.";
