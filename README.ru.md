@@ -144,10 +144,11 @@ Cooldown ничего не отправляет на свои серверы —
 
 ## Благодарности
 
-- [Codex Auto Resume](https://github.com/progressrdx/codex-auto-resume) by progressrdx (MIT) —
-  автопродолжение Codex в Cooldown — перенос на Swift его протокола и правил безопасности; лицензия
-  едет вместе с приложением (`Resources/ThirdParty`).
+- [Codex Auto Resume](https://github.com/progressrdx/codex-auto-resume) by progressrdx показал, что
+  продолжать Codex после сброса лимита можно безопасно. С версии 1.3 автопродолжение в Cooldown —
+  собственная реализация, написанная по описанию, без кода этого проекта
+  ([docs/clean-room](docs/clean-room)).
 
 ## Лицензия
 
-[MIT](LICENSE). Codex Auto Resume, который встраивается в сборку, распространяется по своей лицензии MIT.
+[MIT](LICENSE).

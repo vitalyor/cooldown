@@ -144,10 +144,11 @@ resource use low. Ideas behind the features: [IDEAS.md](IDEAS.md).
 
 ## Thanks
 
-- [Codex Auto Resume](https://github.com/progressrdx/codex-auto-resume) by progressrdx (MIT) —
-  Cooldown's auto-continue for Codex is a Swift port of its protocol and safety rules; its license
-  ships with the app (`Resources/ThirdParty`).
+- [Codex Auto Resume](https://github.com/progressrdx/codex-auto-resume) by progressrdx showed that
+  continuing Codex after a limit reset can be done safely. Since version 1.3 Cooldown's auto-continue is
+  its own implementation, written from a specification without that project's code
+  ([docs/clean-room](docs/clean-room)).
 
 ## License
 
-[MIT](LICENSE). Codex Auto Resume, bundled into the build, is distributed under its own MIT license.
+[MIT](LICENSE).

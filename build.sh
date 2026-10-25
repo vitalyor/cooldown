@@ -44,8 +44,6 @@ if [ -n "${COOLDOWN_VERSION:-}" ]; then
   /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(git rev-list --count HEAD 2>/dev/null || echo 1)" "$APP/Contents/Info.plist"
 fi
 cp Resources/Scriptable/Cooldown.js "$APP/Contents/Resources/Cooldown.js"
-# Auto-continue for Codex is a Swift port of codex-auto-resume (MIT); its notice travels with the app.
-cp Resources/ThirdParty/codex-auto-resume-LICENSE.txt "$APP/Contents/Resources/codex-auto-resume-LICENSE.txt"
 # Translations: Russian is the source text; every other language has a Localizable.strings.
 for folder in Resources/Localization/*.lproj; do
   [ -d "$folder" ] && cp -R "$folder" "$APP/Contents/Resources/"
