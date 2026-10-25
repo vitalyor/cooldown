@@ -6,3 +6,9 @@ diag*.txt
 *.mobileprovision
 *.pem
 .DS_Store
+
+# Link: keys and server data never go into git
+*.p8
+private/
+Relay/data/
+Relay/relay

@@ -168,6 +168,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Notifier.shared.setup()
         MainActor.assumeIsolated {
             AppModel.shared.start()
+            PhoneLink.shared.start()
+            // Diagnostics: turn the iPhone link on and write a pairing link to the given file.
+            if let i = CommandLine.arguments.firstIndex(of: "--link-invite"), i + 1 < CommandLine.arguments.count {
+                let path = CommandLine.arguments[i + 1]
+                Task { @MainActor in
+                    let link = PhoneLink.shared
+                    if link.account == nil { await link.enable() }
+                    await link.makeInvite()
+                    try? (link.invite?.url.absoluteString ?? (link.message ?? "failed")).write(toFile: path, atomically: true, encoding: .utf8)
+                }
+            }
             let snapshot = prepareSnapshot()
             controller = StatusController(model: AppModel.shared)
             HotKey.register()

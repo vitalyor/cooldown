@@ -237,6 +237,7 @@ final class ToastController: ObservableObject {
     }
 
     func dismiss(key: String) {
+        PhoneLink.shared.resolve(key)
         waiting.removeAll { $0.key == key }
         if let card = cards.first(where: { $0.content.key == key }) { remove(card) }
     }
@@ -264,6 +265,7 @@ final class ToastController: ObservableObject {
     }
 
     func reveal(_ content: ToastContent, force: Bool = false) {
+        PhoneLink.shared.forward(content)
         if let card = cards.first(where: { $0.content.key == content.key }) {
             card.content = content
             card.model.content = content
@@ -302,7 +304,11 @@ final class ToastController: ObservableObject {
                                  }
                                  RequestCenter.shared.answer(key, choice)
                              },
-                             close: { [weak self, weak card] in if let card { self?.remove(card) } },
+                             close: { [weak self, weak card] in
+                                 guard let card else { return }
+                                 PhoneLink.shared.resolve(card.content.key)
+                                 self?.remove(card)
+                             },
                              hover: { [weak card] inside in card?.model.paused = inside })
         let hosting = NSHostingView(rootView: view)
         hosting.sizingOptions = [.intrinsicContentSize]
@@ -410,6 +416,7 @@ final class ToastController: ObservableObject {
     func dismissAll() { cards.forEach(remove) }
 
     private func perform(_ action: ToastAction, from card: Card) {
+        PhoneLink.shared.resolve(card.content.key)
         remove(card)
         switch action {
         case .openPanel:

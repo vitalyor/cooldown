@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import CooldownLink
 import SwiftUI
 import UniformTypeIdentifiers
 import UserNotifications
@@ -58,7 +59,7 @@ final class SettingsNavigation: ObservableObject {
 }
 
 enum SettingsPane: String, CaseIterable, Identifiable {
-    case general, menubar, notifications, quiet, codex, claude, updates, data, diagnostics, about
+    case general, menubar, notifications, iphone, quiet, codex, claude, updates, data, diagnostics, about
 
     var id: String { rawValue }
 
@@ -67,6 +68,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .general: return L("Основные")
         case .menubar: return L("Строка меню")
         case .notifications: return L("Уведомления")
+        case .iphone: return "iPhone"
         case .quiet: return L("Тишина")
         case .codex: return "Codex"
         case .claude: return "Claude"
@@ -82,6 +84,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .general: return L("Что уже работает, запуск и частота проверок")
         case .menubar: return L("Как выглядит значок и что он показывает")
         case .notifications: return L("Карточки, баннеры и звуки")
+        case .iphone: return L("Пульт Cooldown в кармане")
         case .quiet: return L("Фокусировка и тихие часы")
         case .codex: return L("Программа, хуки и автопродолжение")
         case .claude: return L("Источники лимитов, Claude Desktop и Claude Code")
@@ -97,6 +100,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .general: return "gearshape.fill"
         case .menubar: return "menubar.rectangle"
         case .notifications: return "bell.badge.fill"
+        case .iphone: return "iphone"
         case .quiet: return "moon.fill"
         case .codex: return "chevron.left.forwardslash.chevron.right"
         case .claude: return "sparkle"
@@ -112,6 +116,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .general: return Color(white: 0.55)
         case .menubar: return Color(red: 0.22, green: 0.5, blue: 0.98)
         case .notifications: return Color(red: 0.98, green: 0.27, blue: 0.3)
+        case .iphone: return Color(red: 0.15, green: 0.15, blue: 0.17)
         case .quiet: return Color(red: 0.36, green: 0.33, blue: 0.9)
         case .codex: return Color(red: 0.25, green: 0.36, blue: 0.92)
         case .claude: return Color(red: 0.86, green: 0.47, blue: 0.32)
@@ -128,6 +133,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .general: return L("готовность разрешения автозапуск вход горячая клавиша частота проверка лимитов")
         case .menubar: return L("значок проценты линии свечение активность")
         case .notifications: return L("карточки баннеры звуки лимит сброс задачи запросы разрешения итоги проекты")
+        case .iphone: return L("телефон пульт qr код подключить live activity уведомления кнопки")
         case .quiet: return L("фокус не беспокоить сон ночь тихие часы")
         case .codex: return L("codex путь хуки автопродолжение")
         case .claude: return L("claude code desktop usage аккаунт строка статуса хуки окно")
@@ -214,6 +220,7 @@ private struct PaneView: View {
             case .general: GeneralPane()
             case .menubar: MenuBarPane()
             case .notifications: NotificationsPane()
+            case .iphone: PhonePane()
             case .quiet: QuietPane()
             case .codex: CodexPane()
             case .claude: ClaudePane()
@@ -995,5 +1002,121 @@ private struct HomeAssistantRow: View {
             await HomeAssistant.shared.test()
             busy = false
         }
+    }
+}
+
+// MARK: iPhone
+
+private struct PhonePane: View {
+    @ObservedObject private var link = PhoneLink.shared
+    @AppStorage(SettingsKey.phoneLink) private var enabled = false
+    @AppStorage(SettingsKey.phoneAlways) private var always = false
+    @AppStorage(SettingsKey.phoneLive) private var live = true
+    @AppStorage(SettingsKey.phoneLiveThreshold) private var threshold = 80
+
+    var body: some View {
+        Section {
+            Toggle(isOn: Binding(get: { enabled && link.account != nil || link.busy }, set: { on in
+                Task { if on { await link.enable() } else { await link.disable() } }
+            })) {
+                Text(L("Cooldown для iPhone"))
+                Text(L("Карточки с кнопками, лимиты, задачи и Live Activity на телефоне. Нажатое там выполняет этот Mac."))
+            }
+            .toggleStyle(.switch)
+            .disabled(link.busy)
+            if link.account != nil {
+                HStack(spacing: 6) {
+                    Circle().fill(statusColor).frame(width: 7, height: 7)
+                    Text(statusText).font(.callout).foregroundStyle(.secondary)
+                }
+            }
+            if let message = link.message { Footnote(text: message) }
+        } footer: {
+            Footnote(text: L("Карточки, названия чатов и ответы шифруются на Mac и открываются только на вашем iPhone. Сервер Cooldown передаёт их, не читая; для Live Activity он видит только проценты лимитов и время сброса."))
+        }
+        if link.account != nil {
+            Section(L("Устройства")) {
+                ForEach(link.devices) { device in
+                    HStack {
+                        Image(systemName: "iphone").foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(device.name)
+                            Text(device.online ? L("На связи") : L("Был на связи %@", "\(Format.relative(Date(timeIntervalSince1970: TimeInterval(device.seen))))"))
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button(L("Отключить")) { Task { await link.unpair(device.id) } }
+                    }
+                }
+                if let invite = link.invite {
+                    InviteView(invite: invite, expires: link.inviteExpires ?? Date())
+                } else {
+                    HStack {
+                        Text(link.devices.isEmpty ? L("Пока ни одного iPhone") : L("Ещё один iPhone"))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button(L("Добавить iPhone")) { Task { await link.makeInvite() } }.disabled(link.busy)
+                    }
+                }
+            }
+            Section(L("Что приходит на iPhone")) {
+                OptionToggle(title: L("Уведомлять, даже когда я за Mac"),
+                             detail: L("Обычно карточки приходят на телефон, когда Mac заблокирован или вас нет у него пару минут."),
+                             isOn: $always)
+                OptionToggle(title: L("Live Activity"),
+                             detail: L("Лимиты и отсчёт до сброса на экране блокировки и в Dynamic Island, с кнопкой «Продолжить»."),
+                             isOn: $live)
+                if live {
+                    Picker(L("Появляется с"), selection: $threshold) {
+                        ForEach([50, 70, 80, 90], id: \.self) { Text("\($0)%").tag($0) }
+                    }
+                }
+            }
+        }
+    }
+
+    private var statusColor: Color {
+        switch link.status {
+        case .online: return .green
+        case .connecting: return .orange
+        default: return .secondary
+        }
+    }
+
+    private var statusText: String {
+        switch link.status {
+        case .online: return L("Подключено к серверу Cooldown")
+        case .connecting: return L("Подключаюсь…")
+        case .offline: return L("Нет связи с сервером — повторю сам")
+        case .off: return L("Выключено")
+        }
+    }
+}
+
+private struct InviteView: View {
+    let invite: PairingInvite
+    let expires: Date
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 16) {
+            if let image = PhoneLink.qr(invite.url) {
+                Image(nsImage: image).interpolation(.none).resizable().frame(width: 168, height: 168)
+                    .padding(8).background(.white, in: RoundedRectangle(cornerRadius: 12))
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                Text(L("Отсканируйте камерой iPhone")).font(.headline)
+                Footnote(text: L("Откройте Cooldown на iPhone или просто наведите камеру на код. Код одноразовый и действует 5 минут."))
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    let left = max(0, expires.timeIntervalSince(context.date))
+                    Text(left > 0 ? L("Осталось %@", "\(Int(left) / 60):\(String(format: "%02d", Int(left) % 60))") : L("Код истёк"))
+                        .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                }
+                HStack {
+                    Button(L("Новый код")) { Task { await PhoneLink.shared.makeInvite() } }
+                    Button(L("Отмена")) { PhoneLink.shared.cancelInvite() }
+                }
+            }
+        }
+        .padding(.vertical, 6)
     }
 }

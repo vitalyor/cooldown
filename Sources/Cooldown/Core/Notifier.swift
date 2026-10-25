@@ -31,7 +31,13 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
                                                       provider: toast?.provider, title: title, body: body,
                                                       threadId: toast?.threadId))
                 }
-                if !demo { HomeAssistant.shared.forward(title: title, body: body) }
+                if !demo {
+                    HomeAssistant.shared.forward(title: title, body: body)
+                    PhoneLink.shared.forward(toast ?? ToastContent(key: id, kind: opensClaude ? .reset : .info, provider: opensClaude ? .claude : nil,
+                                                                   title: title, body: body,
+                                                                   actions: opensClaude ? [.continueClaude(demo: false)] : [],
+                                                                   life: opensClaude ? .sticky : .auto(8)))
+                }
             }
             // Quiet hours: it is in the feed; the morning summary will mention it.
             if !demo, MainActor.assumeIsolated({ QuietHours.active }) { return }
