@@ -56,17 +56,29 @@ fi
 if [ -z "${COOLDOWN_RELEASE:-}" ]; then
   echo "$(cd "$(dirname "$APP")" && pwd)/$(basename "$APP")" > "$APP/Contents/Resources/build-source.txt"
 fi
-# A stable local identity keeps macOS permissions (Accessibility, notifications) across builds.
-# Created once by scripts/make_signing_identity.sh; ad-hoc signing is the fallback.
+# Signing, in order of preference:
+# 1. The developer's Developer ID certificate (Apple-issued; releases are also notarized).
+#    The hardened runtime is what notarization requires. COOLDOWN_SIGN=local forces 2.
+# 2. A stable local identity, so macOS keeps its permissions across builds
+#    (created once by scripts/make_signing_identity.sh).
+# 3. Ad-hoc.
+DEV_ID=""
+if [ "${COOLDOWN_SIGN:-}" != "local" ]; then
+  DEV_ID=$(security find-identity -v -p codesigning 2>/dev/null | awk -F'"' '/Developer ID Application: .*\(PB68QTT4YR\)/ {print $2; exit}')
+fi
 KC="$HOME/Library/Keychains/cooldown-signing.keychain-db"
 IDENTITY=""
-if [ -f "$KC" ]; then
+if [ -z "$DEV_ID" ] && [ -f "$KC" ]; then
   # Its password is random, made by make_signing_identity.sh and kept in the login keychain.
   KC_PASS=$(security find-generic-password -s "Cooldown signing keychain" -w 2>/dev/null || true)
   [ -n "$KC_PASS" ] && security unlock-keychain -p "$KC_PASS" "$KC" 2>/dev/null || true
   IDENTITY=$(security find-identity -p codesigning "$KC" 2>/dev/null | awk '/Cooldown Local Signing/ {print $2; exit}')
 fi
-if [ -n "$IDENTITY" ]; then
+if [ -n "$DEV_ID" ]; then
+  # Releases get a secure timestamp from Apple (notarization needs it); everyday builds skip the round trip.
+  if [ -n "${COOLDOWN_RELEASE:-}" ]; then STAMP="--timestamp"; else STAMP="--timestamp=none"; fi
+  codesign --force --options runtime $STAMP --sign "$DEV_ID" "$APP"
+elif [ -n "$IDENTITY" ]; then
   codesign --force --sign "$IDENTITY" --keychain "$KC" --timestamp=none "$APP"
 else
   codesign --force --sign - --timestamp=none "$APP"

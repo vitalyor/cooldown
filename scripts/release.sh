@@ -20,15 +20,40 @@ if [ -n "$(git status --porcelain)" ]; then
   git push -q
 fi
 
+# COOLDOWN_SIGN=local publishes a build signed like 1.2.x (the bridge release that teaches the
+# updater to accept Developer ID builds); otherwise the Developer ID certificate is used.
 COOLDOWN_VERSION="$VERSION" COOLDOWN_RELEASE=1 ./build.sh
 # The rules that must never break are checked on the very build being published.
 build/Cooldown.app/Contents/MacOS/Cooldown --selftest || { echo "Self-test failed: not publishing."; exit 1; }
 
 OUT="build/release"
 rm -rf "$OUT" && mkdir -p "$OUT/dmg"
+
+# Builds signed with the Developer ID certificate are notarized by Apple, and the tickets are
+# stapled to the app and the .dmg, so they open without a warning even offline. Credentials come
+# from the keychain profile made once with `xcrun notarytool store-credentials cooldown-notary`.
+DEV_ID=$(codesign -dvv build/Cooldown.app 2>&1 | sed -n 's/^Authority=\(Developer ID Application: .*\)$/\1/p' | head -1)
+PROFILE="${COOLDOWN_NOTARY_PROFILE:-cooldown-notary}"
+notarize() {
+  echo "Notarizing $(basename "$1")…"
+  RESULT=$(xcrun notarytool submit "$1" --keychain-profile "$PROFILE" --wait --output-format json)
+  echo "$RESULT" | grep -q '"status" *: *"Accepted"' || { echo "Notarization failed: $RESULT"; exit 1; }
+}
+if [ -n "$DEV_ID" ]; then
+  ditto -c -k --keepParent build/Cooldown.app "$OUT/notarize.zip"
+  notarize "$OUT/notarize.zip"
+  rm "$OUT/notarize.zip"
+  xcrun stapler staple -q build/Cooldown.app
+fi
+
 cp -R build/Cooldown.app "$OUT/dmg/"
 ln -s /Applications "$OUT/dmg/Applications"
 hdiutil create -quiet -volname "Cooldown $VERSION" -srcfolder "$OUT/dmg" -fs HFS+ -format UDZO "$OUT/Cooldown-$VERSION.dmg"
+if [ -n "$DEV_ID" ]; then
+  codesign --sign "$DEV_ID" --timestamp "$OUT/Cooldown-$VERSION.dmg"
+  notarize "$OUT/Cooldown-$VERSION.dmg"
+  xcrun stapler staple -q "$OUT/Cooldown-$VERSION.dmg"
+fi
 ditto -c -k --keepParent build/Cooldown.app "$OUT/Cooldown-$VERSION.zip"
 ( cd "$OUT" && shasum -a 256 "Cooldown-$VERSION.dmg" "Cooldown-$VERSION.zip" > SHA256SUMS.txt )
 

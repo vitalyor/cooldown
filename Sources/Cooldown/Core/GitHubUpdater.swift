@@ -4,7 +4,7 @@ import Security
 
 /// Updates Cooldown from its GitHub releases. Every few hours it looks at the latest release;
 /// a newer one is downloaded (the .zip), checked against the release's SHA256SUMS.txt and against
-/// Cooldown's own signature (it must be signed by the same certificate as the running app), and
+/// Cooldown's own signature (the same certificate as the running app, or the developer's Developer ID), and
 /// then put in place of this app, which restarts on it. Settings and history stay where they are.
 @MainActor
 final class GitHubUpdater: ObservableObject {
@@ -179,18 +179,32 @@ final class GitHubUpdater: ObservableObject {
         }
     }
 
-    /// The new build must satisfy the running app's own designated requirement: same identifier,
-    /// same certificate. A file swapped on the way would fail here.
+    /// The developer's Apple team: releases signed with its Developer ID certificate.
+    static let teamID = "PB68QTT4YR"
+
+    /// The new build must be Cooldown signed either like the running app (same identifier, same
+    /// certificate) or with the developer's Developer ID — the certificate releases moved to from
+    /// a self-made one. A file swapped on the way fails both.
     static func signedLikeMe(_ app: URL) -> Bool {
+        var other: SecStaticCode?
+        guard SecStaticCodeCreateWithPath(app as CFURL, [], &other) == errSecSuccess, let other else { return false }
+        let flags = SecCSFlags(rawValue: kSecCSCheckAllArchitectures | kSecCSCheckNestedCode)
         var me: SecCode?
         var mine: SecStaticCode?
         var requirement: SecRequirement?
-        var other: SecStaticCode?
-        guard SecCodeCopySelf([], &me) == errSecSuccess, let me,
-              SecCodeCopyStaticCode(me, [], &mine) == errSecSuccess, let mine,
-              SecCodeCopyDesignatedRequirement(mine, [], &requirement) == errSecSuccess, let requirement,
-              SecStaticCodeCreateWithPath(app as CFURL, [], &other) == errSecSuccess, let other else { return false }
-        return SecStaticCodeCheckValidity(other, SecCSFlags(rawValue: kSecCSCheckAllArchitectures | kSecCSCheckNestedCode), requirement) == errSecSuccess
+        if SecCodeCopySelf([], &me) == errSecSuccess, let me,
+           SecCodeCopyStaticCode(me, [], &mine) == errSecSuccess, let mine,
+           SecCodeCopyDesignatedRequirement(mine, [], &requirement) == errSecSuccess, let requirement,
+           SecStaticCodeCheckValidity(other, flags, requirement) == errSecSuccess {
+            return true
+        }
+        guard let identifier = Bundle.main.bundleIdentifier else { return false }
+        // Apple's own wording for "Developer ID Application certificate of this team".
+        let text = "identifier \"\(identifier)\" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists " // l10n:skip
+            + "and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate leaf[subject.OU] = \"\(teamID)\"" // l10n:skip
+        var developerID: SecRequirement?
+        guard SecRequirementCreateWithString(text as CFString, [], &developerID) == errSecSuccess, let developerID else { return false }
+        return SecStaticCodeCheckValidity(other, flags, developerID) == errSecSuccess
     }
 
     /// Quits, then (in a small shell step) replaces this app with the new one and opens it.
