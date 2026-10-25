@@ -142,12 +142,6 @@ Cooldown ничего не отправляет на свои серверы —
 [docs/ARCHITECTURE.ru.md](docs/ARCHITECTURE.ru.md) — источники данных, модули, как Cooldown экономит ресурсы.
 Идеи, с которых начинались функции: [IDEAS.ru.md](IDEAS.ru.md).
 
-## Благодарности
-
-- [Codex Auto Resume](https://github.com/progressrdx/codex-auto-resume) by progressrdx показал, что
-  продолжать Codex после сброса лимита можно безопасно. С версии 1.3 автопродолжение в Cooldown —
-  собственная реализация, написанная по описанию, без кода этого проекта.
-
 ## Лицензия
 
 [MIT](LICENSE).
