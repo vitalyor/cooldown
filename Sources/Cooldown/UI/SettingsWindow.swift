@@ -845,9 +845,6 @@ private struct AboutPane: View {
         Section {
             if let repo { Link(destination: repo) { LabeledContent(L("Исходный код"), value: "GitHub") } }
             LabeledContent(L("Лицензия"), value: "MIT")
-            LabeledContent(L("Автопродолжение Codex")) {
-                Link(L("по мотивам codex-auto-resume (MIT)"), destination: URL(string: "https://github.com/progressrdx/codex-auto-resume")!)
-            }
         }
         Section {
             HStack {
