@@ -994,7 +994,7 @@ final class PhoneLink: ObservableObject {
             AgentActivity.trace("phone \(phone): \(cmd.op.rawValue) \(cmd.args.filter { $0.key != "text" && $0.key != "log" })")
             Task {
                 let result = await run(cmd, from: phone)
-                AgentActivity.trace("phone \(phone): \(cmd.op.rawValue) → \(result.code)")
+                AgentActivity.trace("phone \(phone): \(cmd.op.rawValue) → \(result.code)\(result.code == "ok" ? "" : " «\(String(result.text.prefix(160)))»")")
                 // A press that worked needs no notification: the card simply goes away.
                 reply(result, to: phone, quiet: cmd.op == .chats || cmd.op == .refresh || cmd.op == .diag || (cmd.op == .cardAct && result.ok))
                 scheduleState()
