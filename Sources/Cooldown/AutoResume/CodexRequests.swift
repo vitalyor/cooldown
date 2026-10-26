@@ -69,6 +69,7 @@ final class CodexRequestWatcher: @unchecked Sendable {
     }
 
     private func follow(on connection: CodexIPCConnection) throws {
+        var unavailableNoted = Set<String>()
         var followed: [String: Followed] = [:]
         var states: [String: [String: Any]] = [:]
         connection.onBroadcast = { message in
@@ -81,6 +82,7 @@ final class CodexRequestWatcher: @unchecked Sendable {
             case "snapshot":
                 if let state = change["conversationState"] as? [String: Any], state["id"] as? String == thread {
                     states[thread] = state
+                    AgentActivity.trace("codex requests: snapshot \(thread.prefix(8)), \((state["requests"] as? [Any])?.count ?? 0) waiting")
                     entry.lastSnapshot = Date()
                     entry.wantsSnapshot = false
                     self.evaluate(thread, state)
@@ -103,7 +105,9 @@ final class CodexRequestWatcher: @unchecked Sendable {
                 do {
                     let owner = try connection.discoverOwner(id)
                     followed[id] = Followed(owner: owner, wantsSnapshot: true)
+                    AgentActivity.trace("codex requests: following \(id.prefix(8))")
                 } catch CodexIPCError.threadUnavailable {
+                    if unavailableNoted.insert(id).inserted { AgentActivity.trace("codex requests: \(id.prefix(8)) not open in the app") }
                     continue   // not open in the app right now; tried again on the next round
                 }
             }

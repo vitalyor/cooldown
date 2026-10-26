@@ -53,7 +53,7 @@ final class CodexFinishWatcher {
                 // First sight (a new conversation, or Codex moved/continued one into a new file):
                 // read it all; turns older than a few minutes are skipped by their timestamps.
                 offsets[path] = size
-                if primed { read(file, from: 0, to: size) }
+                if primed { read(file, from: 0, to: size) } else { resumeOpenTurn(file, size: size) }
                 continue
             }
             if size > start { read(file, from: start, to: size) }
@@ -100,6 +100,43 @@ final class CodexFinishWatcher {
             }
         }
         return result
+    }
+
+    /// Cooldown started while a turn was running (or waiting for an answer): the turn's start is in
+    /// the file already, so it is picked up from the end of the file. Without it the work would not
+    /// show and a question Codex asks would not be followed.
+    private func resumeOpenTurn(_ file: URL, size: UInt64) {
+        guard let modified = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate,
+              Date().timeIntervalSince(modified) < 30 * 60,
+              let handle = try? FileHandle(forReadingFrom: file) else { return }
+        defer { try? handle.close() }
+        let tail: UInt64 = 512 << 10
+        try? handle.seek(toOffset: size > tail ? size - tail : 0)
+        guard let data = try? handle.readToEnd() else { return }
+        let text = String(decoding: data, as: UTF8.self)
+        guard let started = text.range(of: "\"task_started\"", options: .backwards)?.lowerBound else { return }
+        let ended = ["\"task_complete\"", "\"turn_aborted\"", "\"task_aborted\""]
+            .compactMap { text.range(of: $0, options: .backwards)?.lowerBound }.max()
+        if let ended, ended > started { return }
+        if userThreads[file.path] == nil {
+            let meta = Self.meta(file)
+            userThreads[file.path] = meta.user
+            if let id = meta.id { threadIds[file.path] = id }
+        }
+        guard userThreads[file.path] == true else { return }
+        let threadId = threadIds[file.path] ?? Self.threadId(from: file)
+        let key = threadId ?? file.lastPathComponent
+        let title = threadId.flatMap { titles[$0] ?? AppModel.shared.knownTitle($0) ?? Self.indexTitle($0) } ?? ""
+        // The turn's own start time, so the timer on the phone shows how long it has really run.
+        let lineStart = text[..<started].lastIndex(of: "\n").map { text.index(after: $0) } ?? text.startIndex
+        let line = text[lineStart..<started]
+        var since = modified
+        if let r = line.range(of: "\"timestamp\":\"") {
+            let rest = line[r.upperBound...]
+            if let end = rest.firstIndex(of: "\""), let date = isoDate.date(from: String(rest[..<end])) { since = date }
+        }
+        AgentActivity.trace("codex turn open at start: \(key), since \(since)")
+        AgentActivity.shared.started(.codex, key: key, title: title, source: .files, at: since)
     }
 
     private func read(_ file: URL, from start: UInt64, to end: UInt64) {
