@@ -492,7 +492,8 @@ final class PhoneLink: ObservableObject {
         if liveOn, atMacLongEnough { publishState() }
         if renewDue, status == .online { publishState() }
         let now = away
-        if now { presentSince = nil } else if presentSince == nil { presentSince = Date() }
+        // At the Mac already when Cooldown starts: nothing for the Lock Screen from the first look.
+        if now { presentSince = nil } else if presentSince == nil { presentSince = wasAway == nil ? .distantPast : Date() }
         guard now != wasAway else { return }
         if wasAway != nil { AgentActivity.trace("phone: \(now ? "away" : "back at the Mac") — \(awayReason)") }
         wasAway = now

@@ -1129,5 +1129,8 @@
  "≈%@ лимита": "≈%@ del límite",
  "Ответ не ушёл в Codex": "La respuesta no llegó a Codex",
  "Codex работал без перерыва 15 минут. Ответьте в чате.": "Codex trabajó 15 minutos sin pausa. Responda en el chat.",
- "На мобильном интернете iPhone теряет связь с сервисом уведомлений Apple и получает уведомления пачкой раз в 10 минут. Пока агенты работают, Cooldown шлёт тихий сигнал: на мобильном интернете раз в 2,5 минуты — и уведомления приходят сразу, на Wi‑Fi раз в 10 минут, только чтобы заметить, что вы ушли. На телефоне его не видно.": "Con datos móviles, el iPhone pierde la conexión con el servicio de notificaciones de Apple y las recibe en grupo cada 10 minutos. Mientras los agentes trabajan, Cooldown envía una señal silenciosa: cada 2,5 minutos con datos móviles, para que las notificaciones lleguen al instante, y cada 10 minutos con Wi‑Fi, solo para notar que se ha ido. No se ve en el teléfono."
+ "На мобильном интернете iPhone теряет связь с сервисом уведомлений Apple и получает уведомления пачкой раз в 10 минут. Пока агенты работают, Cooldown шлёт тихий сигнал: на мобильном интернете раз в 2,5 минуты — и уведомления приходят сразу, на Wi‑Fi раз в 10 минут, только чтобы заметить, что вы ушли. На телефоне его не видно.": "Con datos móviles, el iPhone pierde la conexión con el servicio de notificaciones de Apple y las recibe en grupo cada 10 minutos. Mientras los agentes trabajan, Cooldown envía una señal silenciosa: cada 2,5 minutos con datos móviles, para que las notificaciones lleguen al instante, y cada 10 minutos con Wi‑Fi, solo para notar que se ha ido. No se ve en el teléfono.",
+ "Codex не отвечает Cooldown": "Codex no responde a Cooldown",
+ "Перезапустите приложение Codex (⌘Q и откройте снова) — автопродолжение снова увидит диалог.": "Reinicie la app Codex (⌘Q y ábrala de nuevo) para que la continuación automática vuelva a ver la conversación.",
+ "Ваш ответ": "Su respuesta"
 }

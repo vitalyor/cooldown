@@ -20,6 +20,10 @@ final class AutoResume: @unchecked Sendable {
     private var timers: [String: (item: DispatchWorkItem, at: Date)] = [:]
     private var failures: [String: Int] = [:]
     private var lastOpened: [String: Date] = [:]
+    /// When Cooldown last had the app load a conversation, and conversations already reported as
+    /// unreachable (the app's own connection broke: it answers "no window has it" for everything).
+    private var loadAsked: [String: Date] = [:]
+    private var brokenNoted = Set<String>()
     /// When Codex's spent limit comes back (kept current by AgentActivity.spent): until then the
     /// conversation has nothing to be loaded for, so the app is not touched.
     nonisolated(unsafe) static var codexSpentUntil: Date?
@@ -410,6 +414,8 @@ final class AutoResume: @unchecked Sendable {
             return Outcome(status: "retrying", reason: ResumeError.friendly(error), kind: .failure)
         }
         connection.close()
+        loadAsked[id] = nil
+        brokenNoted.remove(id)
         return judge(id, state: state, watch: watch, data: data)
     }
 
@@ -418,6 +424,26 @@ final class AutoResume: @unchecked Sendable {
     private func notLoaded(_ id: String) -> Outcome {
         let waiting = Outcome(status: "waiting_connection", reason: L("Диалог не открыт в Codex — жду, когда он загрузится."),
                               kind: .temporary, next: 60)
+        // The conversation is open and in use (Codex wrote to it just now), or the app was asked to
+        // load it and still says no window has it: the app's connection to Cooldown is broken (its
+        // socket restarts now and then and the windows do not come back to it). Opening it again
+        // would only pull the app forward; a restart of the app is what helps.
+        let recent = CodexThreadIndex.thread(id: id).map { Date().timeIntervalSince($0.updatedAt) < 300 } ?? false
+        let loadedInVain = loadAsked[id].map { Date().timeIntervalSince($0) > 45 } ?? false
+        if recent || loadedInVain {
+            if brokenNoted.insert(id).inserted {
+                AgentActivity.trace("auto-continue \(id): Codex does not answer (\(recent ? "in use" : "loaded") but no window found)")
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated {
+                        Notifier.shared.post(id: "codex-ipc-broken", title: L("Codex не отвечает Cooldown"),
+                                             body: L("Перезапустите приложение Codex (⌘Q и откройте снова) — автопродолжение снова увидит диалог."))
+                    }
+                }
+            }
+            return Outcome(status: "waiting_connection",
+                           reason: L("Перезапустите приложение Codex (⌘Q и откройте снова) — автопродолжение снова увидит диалог."),
+                           kind: .temporary, next: 120)
+        }
         if let last = lastOpened[id], Date().timeIntervalSince(last) < 300 { return waiting }
         // Nothing can be sent before the limit is back: no reason to load the conversation yet.
         if let until = Self.codexSpentUntil, until > Date().addingTimeInterval(60) { return waiting }
@@ -434,6 +460,7 @@ final class AutoResume: @unchecked Sendable {
             return waiting
         }
         guard (try? store.load())?.watch(id)?.enabled == true else { return waiting }
+        loadAsked[id] = Date()
         CodexApp.load(thread: id)
         AgentActivity.trace("auto-continue \(id): asked Codex to load the conversation")
         return Outcome(status: "waiting_connection", reason: L("Открываю диалог в Codex в фоне."), kind: .temporary, next: 30)

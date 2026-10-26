@@ -277,9 +277,21 @@ final class CodexRequestWatcher: @unchecked Sendable {
                 choices.append(RequestChoice(id: "open", title: JSON.bool(question["isOther"]) == true ? L("Свой ответ в чате") : L("Открыть чат"), role: .open))
                 return make(L("Codex спрашивает"), question["question"] as? String, choices)
             }
-            // Several questions, each with ready answers: one after another on the same card.
+            // A question answered in words: a field on the card.
+            if questions.count == 1, let question = questions.first, JSON.bool(question["isSecret"]) != true {
+                return make(L("Codex спрашивает"), question["question"] as? String,
+                            [RequestChoice(id: "input", title: L("Ваш ответ"), role: .input), RequestChoice(id: "open", title: L("Ответить в чате"), role: .open)])
+            }
+            // Several questions: one after another on the same card, ready answers as buttons and
+            // a field for those answered in words.
             let steps = questions.map { question -> RequestStep? in
-                guard JSON.bool(question["isSecret"]) != true, let options = question["options"] as? [[String: Any]], !options.isEmpty else { return nil }
+                guard JSON.bool(question["isSecret"]) != true else { return nil }
+                let options = question["options"] as? [[String: Any]] ?? []
+                if options.isEmpty {
+                    return RequestStep(headline: L("Codex спрашивает"), detail: question["question"] as? String,
+                                       choices: [RequestChoice(id: "input", title: L("Ваш ответ"), role: .input),
+                                                 RequestChoice(id: "open", title: L("Ответить в чате"), role: .open)])
+                }
                 var choices = options.enumerated().compactMap { index, option -> RequestChoice? in
                     guard let label = option["label"] as? String else { return nil }
                     let note = (option["description"] as? String).flatMap { $0.isEmpty ? nil : " — " + $0 } ?? ""
@@ -381,17 +393,21 @@ final class CodexRequestWatcher: @unchecked Sendable {
                   let label = options[index]["label"] as? String else { throw CodexIPCError.app(L("Вариант ответа не найден.")) }
             command = "thread-follower-submit-user-input"
             base["response"] = ["answers": [qid: ["answers": [label]]]]
-        case ("item/tool/requestUserInput", let picks) where picks.hasPrefix("answers:"):
-            let indices = picks.dropFirst("answers:".count).split(separator: ",").compactMap { Int($0) }
+        case ("item/tool/requestUserInput", let picks) where picks.hasPrefix("answers:") || picks.hasPrefix("text:"):
+            let picked = RequestAnswer.decode(picks) ?? RequestAnswer(choice: picks).map { [$0] } ?? []
             let questions = params["questions"] as? [[String: Any]] ?? []
-            guard indices.count == questions.count else { throw CodexIPCError.app(L("Ответы не совпадают с вопросами.")) }
+            guard !picked.isEmpty, picked.count == questions.count else { throw CodexIPCError.app(L("Ответы не совпадают с вопросами.")) }
             var answers: [String: Any] = [:]
-            for (question, index) in zip(questions, indices) {
-                guard let qid = question["id"] as? String, let options = question["options"] as? [[String: Any]],
-                      options.indices.contains(index), let label = options[index]["label"] as? String else {
-                    throw CodexIPCError.app(L("Вариант ответа не найден."))
+            for (question, answer) in zip(questions, picked) {
+                guard let qid = question["id"] as? String else { throw CodexIPCError.app(L("Вариант ответа не найден.")) }
+                switch answer {
+                case .text(let text):
+                    answers[qid] = ["answers": [text]]
+                case .option(let index):
+                    guard let options = question["options"] as? [[String: Any]], options.indices.contains(index),
+                          let label = options[index]["label"] as? String else { throw CodexIPCError.app(L("Вариант ответа не найден.")) }
+                    answers[qid] = ["answers": [label]]
                 }
-                answers[qid] = ["answers": [label]]
             }
             command = "thread-follower-submit-user-input"
             base["response"] = ["answers": answers]

@@ -108,8 +108,12 @@ enum SelfTest {
                      "questions": [["title": "SSH or web?", "options": ["SSH", "Web"]]]]]] // l10n:skip
         let asked = CodexQuestions.asked(in: askLine)
         expect(asked?.call == "call_054e5eb10ca6" && asked?.questions.first?.options == ["SSH", "Web"], "a Codex question with answers is read from its session file") // l10n:skip
+        let plaque = [CodexQuestions.Question(title: "A?", options: ["x", "y"]), CodexQuestions.Question(title: "B?", options: [])] // l10n:skip
+        let picked = RequestAnswer.decode(RequestAnswer.encode([.option(1), .text("my words")])) // l10n:skip
+        expect(picked == [.option(1), .text("my words")] && CodexQuestions.texts(plaque, picked ?? []) == ["y", "my words"], // l10n:skip
+               "a card with several questions sends all answers together, typed ones included")
         if let asked {
-            let text = CodexQuestions.reply(call: asked.call, questions: asked.questions, picks: [1])
+            let text = CodexQuestions.reply(call: asked.call, questions: asked.questions, answers: CodexQuestions.texts(asked.questions, [.option(1)]) ?? [])
             expect(text.hasPrefix("<send_user_message_question_reply>\n[") && text.contains("\"answer\":\"Web\"") // l10n:skip
                    && text.contains("request_user_input_async") && CodexQuestions.answered(in: text) == [asked.call], // l10n:skip
                    "the answer to a Codex question is the app's own reply, and it is recognised as answered")

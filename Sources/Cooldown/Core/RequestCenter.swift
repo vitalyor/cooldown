@@ -3,12 +3,50 @@ import Foundation
 
 /// One button of a request card.
 struct RequestChoice: Equatable, Identifiable {
-    enum Role: Equatable { case allow, normal, decline, open }
+    /// `input`: a text field and "Отправить"; the answer arrives as "text:<what was typed>".
+    enum Role: Equatable { case allow, normal, decline, open, input }
     var id: String
     var title: String
     var role: Role = .normal
     /// Shown only after "Ещё" (rarely needed, stronger choices).
     var extra = false
+}
+
+/// An answer to one question: a ready option (its index) or typed text.
+enum RequestAnswer: Equatable, Sendable {
+    case option(Int)
+    case text(String)
+
+    /// "option:2" or "text:…", as a pressed button or a sent field gives it.
+    init?(choice id: String) {
+        if id.hasPrefix("option:"), let index = Int(id.dropFirst("option:".count)) { self = .option(index) }
+        else if id.hasPrefix("text:") { self = .text(String(id.dropFirst("text:".count))) }
+        else { return nil }
+    }
+
+    var token: String {
+        switch self {
+        case .option(let index): return "o:\(index)"
+        case .text(let text): return "t:" + text
+        }
+    }
+
+    /// All answers of a card with several questions: "answers:" and a JSON list of tokens.
+    static func encode(_ answers: [RequestAnswer]) -> String {
+        let data = (try? JSONSerialization.data(withJSONObject: answers.map(\.token))) ?? Data("[]".utf8)
+        return "answers:" + String(decoding: data, as: UTF8.self)
+    }
+
+    static func decode(_ id: String) -> [RequestAnswer]? {
+        guard id.hasPrefix("answers:"),
+              let list = (try? JSONSerialization.jsonObject(with: Data(id.dropFirst("answers:".count).utf8))) as? [String] else { return nil }
+        let answers = list.compactMap { token -> RequestAnswer? in
+            if token.hasPrefix("o:"), let index = Int(token.dropFirst(2)) { return .option(index) }
+            if token.hasPrefix("t:") { return .text(String(token.dropFirst(2))) }
+            return nil
+        }
+        return answers.count == list.count ? answers : nil
+    }
 }
 
 /// One of several questions asked at once: answered one after another on the same card.
@@ -52,7 +90,7 @@ final class RequestCenter: ObservableObject {
     private var pending: [String: (request: AgentRequest, respond: Responder, open: () -> Void)] = [:]
     private var shown = Set<String>()
     /// Multi-question cards: which question is shown and the options picked so far.
-    private var steps: [String: [Int]] = [:]
+    private var steps: [String: [RequestAnswer]] = [:]
     private var observer: NSObjectProtocol?
 
     private init() {
@@ -153,19 +191,25 @@ final class RequestCenter: ObservableObject {
     func answer(_ key: String, _ choice: RequestChoice) {
         guard let entry = pending[key] else { ToastController.shared.dismiss(key: "req-" + key); return }
         if choice.role == .open {
+            // The question is in front of you in the chat now: the card steps aside and stays
+            // away (the feed still has it; it closes for good once the answer is seen).
             entry.open()
+            shown.insert(key)
+            steps[key] = nil
+            ToastController.shared.dismiss(key: "req-" + key)
             return
         }
-        // Several questions: note this answer and show the next question on the same card.
-        if !entry.request.steps.isEmpty, choice.id.hasPrefix("option:"), let option = Int(choice.id.dropFirst("option:".count)) {
+        // Several questions: note this answer and show the next question on the same card; all
+        // answers go together after the last one, as the agent's own app sends them.
+        if !entry.request.steps.isEmpty, let answer = RequestAnswer(choice: choice.id) {
             var picked = steps[key] ?? []
-            picked.append(option)
+            picked.append(answer)
             steps[key] = picked
             if picked.count < entry.request.steps.count {
                 ToastController.shared.reveal(content(entry.request))
                 return
             }
-            let all = RequestChoice(id: "answers:" + picked.map(String.init).joined(separator: ","), title: "")
+            let all = RequestChoice(id: RequestAnswer.encode(picked), title: "")
             return send(key, entry: entry, choice: all)
         }
         send(key, entry: entry, choice: choice)

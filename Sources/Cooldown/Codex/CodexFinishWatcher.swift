@@ -157,9 +157,11 @@ final class CodexFinishWatcher {
     /// them, in one stretch of a session file: what is still unanswered gets a card.
     private func questions(in data: Data, thread: String, title: String, maxAge: TimeInterval) {
         let asks = Data("\"delivery\":\"async\"".utf8), replies = Data("send_user_message_question_reply".utf8)
-        guard data.range(of: asks) != nil || data.range(of: replies) != nil else { return }
+        let userMessage = Data("\"type\":\"UserMessage\"".utf8)
+        guard data.range(of: asks) != nil || data.range(of: replies) != nil || data.range(of: userMessage) != nil else { return }
         var open: [(call: String, questions: [CodexQuestions.Question])] = []
         var answered = Set<String>()
+        var spoke = false
         for line in data.split(separator: UInt8(ascii: "\n")) where line.count < 400_000 {
             let raw = Data(line)
             if raw.range(of: asks) != nil, let object = (try? JSONSerialization.jsonObject(with: raw)) as? [String: Any],
@@ -168,8 +170,13 @@ final class CodexFinishWatcher {
                 open.append(asked)
             } else if raw.range(of: replies) != nil {
                 answered.formUnion(CodexQuestions.answered(in: String(decoding: raw, as: UTF8.self)))
+            } else if raw.range(of: userMessage) != nil, raw.prefix(200).range(of: Data("\"event_msg\"".utf8)) != nil {
+                // You wrote to the chat yourself: the questions asked before are dealt with there.
+                open.removeAll()
+                spoke = true
             }
         }
+        if spoke { CodexQuestions.turnEnded(thread: thread) }
         for item in open where !answered.contains(item.call) {
             AgentActivity.trace("codex question \(thread.prefix(8)) \(item.call): \(item.questions.count) asked")
             CodexQuestions.show(thread: thread, title: title, call: item.call, questions: item.questions)

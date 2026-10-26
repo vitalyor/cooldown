@@ -568,7 +568,8 @@ private struct ToastView: View {
                     if content.requestKey != nil {
                         RequestBlock(model: model, choose: choose)
                     } else {
-                    HStack(spacing: 8) {
+                    // Every label on one line; what does not fit goes to the next row.
+                    FlowRow(spacing: 6) {
                         ForEach(Array(content.actions.enumerated()), id: \.offset) { index, action in
                             Button(action.title) { act(action) }
                                 .buttonStyle(ToastButton(fill: index == 0 ? content.tint : .primary, prominent: index == 0))
@@ -600,10 +601,52 @@ private struct ToastView: View {
     }
 }
 
+/// Pictures of sample cards, for checking the layout (`--render --card <name>`).
+@MainActor
+enum CardSamples {
+    static func content(_ name: String) -> ToastContent? {
+        let reset = Date().addingTimeInterval(2 * 3600 + 33 * 60)
+        switch name {
+        case "stopped": return ToastCatalog.limitStopped(.codex, name: "Проверить установку OpenWRT", reset: reset, opener: .codexThread("x")) // l10n:skip
+        case "out": return ToastCatalog.limitOut(.codex, reset: reset)
+        case "request": return RequestCenter.exampleContent()
+        case "question":
+            var c = RequestCenter.exampleContent()
+            c.title = L("Codex спрашивает")
+            c.detail = "Что должно открываться на ssh.example.com: SSH в терминале или веб-терминал в браузере?" // l10n:skip
+            c.choices = [RequestChoice(id: "option:0", title: "SSH в обычном терминале"), RequestChoice(id: "option:1", title: "Терминал в браузере"), // l10n:skip
+                         RequestChoice(id: "open", title: L("Ответить в чате"), role: .open)]
+            return c
+        case "text":
+            var c = RequestCenter.exampleContent()
+            c.title = L("Codex спрашивает")
+            c.body += L(" · вопрос %@ из %@", "2", "2")
+            c.detail = "Какой email разрешить для входа?" // l10n:skip
+            c.choices = [RequestChoice(id: "input", title: L("Ваш ответ"), role: .input), RequestChoice(id: "open", title: L("Ответить в чате"), role: .open)]
+            return c
+        default: return nil
+        }
+    }
+
+    static func view(_ content: ToastContent) -> some View {
+        ToastView(model: ToastController.CardModel(content), act: { _ in }, choose: { _ in }, close: {}, hover: { _ in })
+            .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Color(nsColor: .windowBackgroundColor)))
+    }
+}
+
 /// The asked-about thing and the answers. No answer is the default: only a click sends one.
 private struct RequestBlock: View {
     @ObservedObject var model: ToastController.CardModel
     let choose: (RequestChoice) -> Void
+    @State private var draft = ""
+    @FocusState private var typing: Bool
+
+    private func sendDraft() {
+        let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        draft = ""
+        choose(RequestChoice(id: "text:" + text, title: text))
+    }
 
     var body: some View {
         let content = model.content
@@ -612,8 +655,10 @@ private struct RequestBlock: View {
         let options = main.filter { $0.role == .normal }
         VStack(alignment: .leading, spacing: 8) {
             if let detail = content.detail, !detail.isEmpty {
+                // A command or files in code type; a question in ordinary words.
+                let question = content.choices.contains { $0.role == .normal || $0.role == .input }
                 Text(detail)
-                    .font(.system(size: 11.5, design: .monospaced))
+                    .font(question ? .system(size: 12.5) : .system(size: 11.5, design: .monospaced))
                     .lineLimit(6)
                     .truncationMode(.middle)
                     .textSelection(.enabled)
@@ -635,7 +680,25 @@ private struct RequestBlock: View {
                     }
                     .buttonStyle(ToastButton(fill: content.tint, prominent: false, wide: true))
                 }
-                let buttons = main.filter { $0.role != .normal } + (model.showExtra ? extra : [])
+                // A question answered in words: the field right on the card.
+                ForEach(main.filter { $0.role == .input }) { choice in
+                    HStack(alignment: .bottom, spacing: 6) {
+                        TextField(choice.title, text: $draft, axis: .vertical)
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 12.5))
+                            .lineLimit(1...5)
+                            .focused($typing)
+                            .onSubmit(sendDraft)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 7)
+                            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.07)))
+                        Button(L("Отправить"), action: sendDraft)
+                            .buttonStyle(ToastButton(fill: content.tint, prominent: true))
+                            .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            .opacity(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1)
+                    }
+                }
+                let buttons = main.filter { $0.role != .normal && $0.role != .input } + (model.showExtra ? extra : [])
                 FlowRow(spacing: 6) {
                     ForEach(buttons) { choice in
                         Button(choice.title) { choose(choice) }
@@ -650,6 +713,7 @@ private struct RequestBlock: View {
             }
         }
         .padding(.top, 4)
+        .onChange(of: content.detail) { draft = "" }
     }
 }
 
@@ -661,7 +725,8 @@ private struct FlowRow: Layout {
         let width = proposal.width ?? 300
         var x: CGFloat = 0, y: CGFloat = 0, line: CGFloat = 0
         for view in subviews {
-            let size = view.sizeThatFits(.unspecified)
+            var size = view.sizeThatFits(.unspecified)
+            if size.width > width { size = view.sizeThatFits(ProposedViewSize(width: width, height: nil)); size.width = width }
             if x > 0 && x + size.width > width { x = 0; y += line + spacing; line = 0 }
             x += size.width + spacing
             line = max(line, size.height)
@@ -672,8 +737,10 @@ private struct FlowRow: Layout {
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         var x = bounds.minX, y = bounds.minY, line: CGFloat = 0
         for view in subviews {
-            let size = view.sizeThatFits(.unspecified)
+            var size = view.sizeThatFits(.unspecified)
             if x > bounds.minX && x + size.width > bounds.maxX { x = bounds.minX; y += line + spacing; line = 0 }
+            // A label longer than the whole row keeps its line and is shortened with "…".
+            if size.width > bounds.width { size = view.sizeThatFits(ProposedViewSize(width: bounds.width, height: nil)); size.width = bounds.width }
             view.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
             x += size.width + spacing
             line = max(line, size.height)
@@ -691,6 +758,9 @@ private struct ToastButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 12, weight: .semibold))
+            // Never broken inside a word: one line (wide answer buttons may wrap between words).
+            .lineLimit(wide ? 3 : 1)
+            .truncationMode(.tail)
             .foregroundStyle(prominent ? Color.white : Color.primary)
             .padding(.horizontal, 12)
             .padding(.vertical, wide ? 7 : 5)

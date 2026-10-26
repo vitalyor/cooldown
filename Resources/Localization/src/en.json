@@ -1129,5 +1129,8 @@
  "≈%@ лимита": "≈%@ of the limit",
  "Ответ не ушёл в Codex": "The answer did not reach Codex",
  "Codex работал без перерыва 15 минут. Ответьте в чате.": "Codex kept working for 15 minutes without a break. Answer in the chat.",
- "На мобильном интернете iPhone теряет связь с сервисом уведомлений Apple и получает уведомления пачкой раз в 10 минут. Пока агенты работают, Cooldown шлёт тихий сигнал: на мобильном интернете раз в 2,5 минуты — и уведомления приходят сразу, на Wi‑Fi раз в 10 минут, только чтобы заметить, что вы ушли. На телефоне его не видно.": "On mobile data the iPhone loses its link to Apple's notification service and gets notifications in a batch every 10 minutes. While agents work, Cooldown sends a silent signal: every 2.5 minutes on mobile data, so notifications arrive at once, and every 10 minutes on Wi‑Fi, only to notice that you have left. It is invisible on the phone."
+ "На мобильном интернете iPhone теряет связь с сервисом уведомлений Apple и получает уведомления пачкой раз в 10 минут. Пока агенты работают, Cooldown шлёт тихий сигнал: на мобильном интернете раз в 2,5 минуты — и уведомления приходят сразу, на Wi‑Fi раз в 10 минут, только чтобы заметить, что вы ушли. На телефоне его не видно.": "On mobile data the iPhone loses its link to Apple's notification service and gets notifications in a batch every 10 minutes. While agents work, Cooldown sends a silent signal: every 2.5 minutes on mobile data, so notifications arrive at once, and every 10 minutes on Wi‑Fi, only to notice that you have left. It is invisible on the phone.",
+ "Codex не отвечает Cooldown": "Codex is not answering Cooldown",
+ "Перезапустите приложение Codex (⌘Q и откройте снова) — автопродолжение снова увидит диалог.": "Restart the Codex app (⌘Q and open it again) so auto-continue can see the conversation again.",
+ "Ваш ответ": "Your answer"
 }

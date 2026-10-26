@@ -267,6 +267,16 @@ enum RenderMode {
             if let provider = value("--provider").flatMap(ProviderID.init(rawValue:)) { model.selected = provider }
             await model.prepareForRender(scan: arguments.contains("--scan"))
 
+            if let name = value("--card") {
+                guard let content = CardSamples.content(name) else { exit(2) }
+                let renderer = ImageRenderer(content: CardSamples.view(content).padding(12)
+                    .background(Color(nsColor: dark ? NSColor(white: 0.25, alpha: 1) : NSColor(white: 0.85, alpha: 1)))
+                    .environment(\.colorScheme, dark ? .dark : .light))
+                renderer.scale = 2
+                if let image = renderer.nsImage, let png = pngData(image) { try? png.write(to: URL(fileURLWithPath: out)) }
+                print("ok \(out)")
+                exit(0)
+            }
             let screen: Screen = value("--screen") == "add" ? .addTask : .home
             let tab = MainTab(rawValue: value("--tab") ?? "") ?? .limits
             let stats = StatsTab(rawValue: value("--stats") ?? "") ?? .limits

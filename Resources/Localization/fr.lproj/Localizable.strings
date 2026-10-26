@@ -127,6 +127,7 @@
 "Codex молчит 15 минут: «%@»" = "Codex est silencieux depuis 15 minutes : « %@ »";
 "Codex не запущен — проверю, когда он будет открыт." = "Codex n’est pas lancé — je vérifierai dès qu’il sera ouvert.";
 "Codex не ответил за 20 секунд." = "Codex n’a pas répondu en 20 secondes.";
+"Codex не отвечает Cooldown" = "Codex ne répond pas à Cooldown";
 "Codex не подтвердил ответ." = "Codex n’a pas confirmé la réponse.";
 "Codex не принял подключение." = "Codex n’a pas accepté la connexion.";
 "Codex не принял сообщение." = "Codex n’a pas accepté le message.";
@@ -261,6 +262,7 @@
 "В очереди есть ваше сообщение — Codex отправит его сам." = "Votre message est en file d’attente — Codex l’enverra lui-même.";
 "В среднем на одну задачу: доля лимита на 5 часов, токены и время. Помогает выбрать модель под задачу." = "En moyenne par tâche : part de la limite de 5 heures, tokens et durée. Aide à choisir le modèle adapté.";
 "Вариант ответа не найден." = "Option de réponse introuvable.";
+"Ваш ответ" = "Votre réponse";
 "Версия %@" = "Version %@";
 "Версия %@ загружена и готова" = "Version %@ téléchargée et prête";
 "Версия, лицензия и благодарности" = "Version, licence et remerciements";
@@ -701,6 +703,7 @@
 "Папка не указана" = "Sans dossier";
 "Папка проекта" = "Dossier du projet";
 "Папка сокета Codex доступна другим пользователям или не принадлежит вам." = "Le dossier du socket Codex est accessible à d’autres utilisateurs ou ne vous appartient pas.";
+"Перезапустите приложение Codex (⌘Q и откройте снова) — автопродолжение снова увидит диалог." = "Redémarrez l'app Codex (⌘Q puis rouvrez-la) pour que la reprise automatique revoie la conversation.";
 "Перезапустите приложение Codex." = "Relancez l’app Codex.";
 "Перезапустить" = "Relancer";
 "Перенесено из прошлой версии Cooldown." = "Repris de la version précédente de Cooldown.";

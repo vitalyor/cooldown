@@ -44,7 +44,9 @@ enum CodexQuestions {
         let key = key(thread, call)
         if RequestCenter.shared.isPending(key) { return }
         func choices(_ q: Question) -> [RequestChoice] {
-            q.options.enumerated().map { RequestChoice(id: "option:\($0.offset)", title: String($0.element.prefix(60))) }
+            // Ready answers as buttons; a question without them is answered in a field on the card.
+            (q.options.isEmpty ? [RequestChoice(id: "input", title: L("Ваш ответ"), role: .input)]
+                               : q.options.enumerated().map { RequestChoice(id: "option:\($0.offset)", title: String($0.element.prefix(80))) })
                 + [RequestChoice(id: "open", title: L("Ответить в чате"), role: .open)]
         }
         var request = AgentRequest(key: key, provider: .codex, chat: title.isEmpty ? L("Диалог Codex") : "«\(title)»",
@@ -55,17 +57,13 @@ enum CodexQuestions {
             request.steps = questions.map { RequestStep(headline: L("Codex спрашивает"), detail: $0.title, choices: choices($0)) }
         }
         RequestCenter.shared.post(request, open: { CodexApp.open(thread: thread) }) { choice in
-            let picks: [Int]
-            if choice.id.hasPrefix("answers:") {
-                picks = choice.id.dropFirst("answers:".count).split(separator: ",").compactMap { Int($0) }
-            } else if let one = Int(choice.id.dropFirst("option:".count)) {
-                picks = [one]
-            } else { throw CodexIPCError.app(L("Такой ответ здесь не поддерживается.")) }
-            guard picks.count == questions.count,
-                  zip(questions, picks).allSatisfy({ $0.options.indices.contains($1) }) else {
+            guard let picks = RequestAnswer.decode(choice.id) ?? RequestAnswer(choice: choice.id).map({ [$0] }) else {
+                throw CodexIPCError.app(L("Такой ответ здесь не поддерживается."))
+            }
+            guard picks.count == questions.count, let answers = Self.texts(questions, picks) else {
                 throw CodexIPCError.app(L("Ответы не совпадают с вопросами."))
             }
-            let text = reply(call: call, questions: questions, picks: picks)
+            let text = reply(call: call, questions: questions, answers: answers)
             await deliver(thread: thread, text: text, key: key)
         }
     }
@@ -79,11 +77,29 @@ enum CodexQuestions {
         for call in calls { RequestCenter.shared.resolved(key(thread, call)) }
     }
 
-    /// The same message the app sends when an answer is picked there.
-    nonisolated static func reply(call: String, questions: [Question], picks: [Int]) -> String {
-        let rows: [[String: String]] = zip(questions.indices, zip(questions, picks)).map { index, pair in
+    /// The words of each answer: the option picked, or what was typed.
+    nonisolated static func texts(_ questions: [Question], _ picks: [RequestAnswer]) -> [String]? {
+        var result: [String] = []
+        for (question, pick) in zip(questions, picks) {
+            switch pick {
+            case .option(let index):
+                guard question.options.indices.contains(index) else { return nil }
+                result.append(question.options[index])
+            case .text(let text):
+                let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !text.isEmpty else { return nil }
+                result.append(text)
+            }
+        }
+        return result
+    }
+
+    /// The same message the app sends when the questions are answered there: all answers of the
+    /// plaque in one message.
+    nonisolated static func reply(call: String, questions: [Question], answers: [String]) -> String {
+        let rows: [[String: String]] = zip(questions.indices, zip(questions, answers)).map { index, pair in
             let item = (try? String(data: JSONSerialization.data(withJSONObject: ["request_user_input_async", call, index]), encoding: .utf8)) ?? ""
-            return ["questionItemId": item, "question": pair.0.title, "answer": pair.0.options[pair.1]]
+            return ["questionItemId": item, "question": pair.0.title, "answer": pair.1]
         }
         let json = (try? JSONSerialization.data(withJSONObject: rows, options: [.sortedKeys, .withoutEscapingSlashes]))
             .flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
