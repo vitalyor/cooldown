@@ -93,6 +93,8 @@ Every frame is JSON with a type `t`:
   `collapse` is an opaque id, so a newer card replaces an older one with the same key.
 - `push.remove` `[collapse ids]` sends a silent push that removes those notifications.
 - `push.badge`: the number for the app icon (cards waiting for a press).
+- The same envelope id again within ten minutes is acknowledged and dropped: a device whose
+  connection died before the `ack` sends unacknowledged envelopes again on the next one.
 - A message for a device that is offline waits until `ttl` runs out (at most a day, 200 per device).
 
 ## Messages inside a box

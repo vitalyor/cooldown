@@ -304,6 +304,9 @@ public final class LinkClient {
     private var attempt = 0
     private var retry: Task<Void, Never>?
     private var outbox: [LinkFrame] = []
+    /// Envelopes written but not yet acknowledged by the relay. A connection can die with frames
+    /// still in its buffer; those go again on the next one (the relay drops a second copy).
+    private var unacked: [(id: String, frame: LinkFrame, at: Date)] = []
     private var monitor: NWPathMonitor?
     private var generation = 0
 
@@ -347,6 +350,10 @@ public final class LinkClient {
     }
 
     private func write(_ frame: LinkFrame, on task: URLSessionWebSocketTask) {
+        if frame.t == "env", let id = frame.id, !unacked.contains(where: { $0.id == id }) {
+            unacked.append((id, frame, Date()))
+            if unacked.count > 200 { unacked.removeFirst(unacked.count - 200) }
+        }
         guard let data = try? JSONEncoder().encode(frame), let text = String(data: data, encoding: .utf8) else { return }
         task.send(.string(text)) { [weak self] error in
             guard let error else { return }
@@ -425,9 +432,15 @@ public final class LinkClient {
             attempt = 0
             status = .online
             beat(on: t, generation: generation)
-            let waiting = outbox
+            // Unacknowledged ones from the last connection first, then what queued meanwhile.
+            let fresh = unacked.filter { Date().timeIntervalSince($0.at) < 3600 }
+            let queued = Set(outbox.compactMap(\.id))
+            let waiting = fresh.filter { !queued.contains($0.id) }.map(\.frame) + outbox
+            unacked = []
             outbox = []
             for f in waiting { write(f, on: t) }
+        } else if frame.t == "ack" || frame.t == "error", let id = frame.id {
+            unacked.removeAll { $0.id == id }
         }
         onFrame?(frame)
     }
