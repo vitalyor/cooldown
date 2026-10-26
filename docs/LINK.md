@@ -176,7 +176,7 @@ minutes, and a new activity token replaces the old ones.
 - A Live Activity older than seven and a half hours is started afresh, quietly: iOS ends one by
   itself after eight hours without telling the Mac.
 - Keeping the line open: on some mobile networks the phone's connection to Apple goes quiet and
-  pushes wait up to ten minutes. While you're away and something may come (an agent works, a card
+  pushes wait up to ten minutes. While something may come (an agent works, a card
   waits for a press, a limit comes back within 15 minutes) the Mac sends a silent push every two and
   a half minutes; the phone shows nothing. It can be turned off in Settings → iPhone.
 

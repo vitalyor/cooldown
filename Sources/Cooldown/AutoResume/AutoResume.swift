@@ -165,6 +165,41 @@ final class AutoResume: @unchecked Sendable {
         }
     }
 
+    /// An answer to a question Codex asked while it works: it goes into the running turn at once,
+    /// as when the answer is picked in the app ("steer"). Between turns it starts one instead.
+    func answerQuestion(_ raw: String, text: String) async throws {
+        let id = raw.lowercased()
+        try await offMain {
+            try CodexApp.checkVersion()
+            let connection = CodexIPCConnection(timeout: 8)
+            defer { connection.close() }
+            try connection.open()
+            let owner = try connection.discoverOwner(id)
+            let state = try connection.snapshot(id, owner: owner)
+            let message = UUID().uuidString.lowercased()
+            let input: [[String: Any]] = [["type": "text", "text": text, "text_elements": [Any]()]]
+            guard ResumeRules.decide(state, thread: id).taskState == "running" else {
+                let params: [String: Any] = ["conversationId": id,
+                                             "turnStart": ["request": ["threadId": id, "clientUserMessageId": message, "input": input]]]
+                AgentActivity.trace("question \(id): answer as a new message")
+                let reply = try connection.request("thread-follower-start-turn", params: params, version: 2, target: owner, wait: 30)
+                guard (JSON.dig(reply, "result", "result", "turn", "id") as? String)?.isEmpty == false else {
+                    throw ResumeError.refused(L("Codex не принял сообщение."))
+                }
+                return
+            }
+            let cwd = state["cwd"] as? String
+            let restore: [String: Any] = ["cwd": cwd ?? NSNull(),
+                                          "context": ["prompt": text, "workspaceRoots": cwd.map { [$0] } ?? [String](), "collaborationMode": NSNull()],
+                                          "responsesapiClientMetadata": NSNull()]
+            let params: [String: Any] = ["conversationId": id, "clientUserMessageId": message, "input": input,
+                                         "serviceTier": NSNull(), "attachments": [Any](), "additionalContext": NSNull(),
+                                         "toolOutput": NSNull(), "restoreMessage": restore]
+            AgentActivity.trace("question \(id): answer into the running turn")
+            _ = try connection.request("thread-follower-steer-turn", params: params, version: 1, target: owner, wait: 30)
+        }
+    }
+
     func poke(_ id: String, after delay: TimeInterval = 2) {
         let id = id.lowercased()
         if !enabledIds().contains(id) { return }

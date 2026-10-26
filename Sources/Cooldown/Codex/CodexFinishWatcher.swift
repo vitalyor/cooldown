@@ -130,13 +130,16 @@ final class CodexFinishWatcher {
         let tail: UInt64 = 512 << 10
         try? handle.seek(toOffset: size > tail ? size - tail : 0)
         guard let data = try? handle.readToEnd() else { return }
-        // Questions still unanswered from before Cooldown started (up to six hours old).
+        let text = String(decoding: data, as: UTF8.self)
+        guard Self.openTurnStart(text, fallback: modified) != nil else { return }
+        // Questions still unanswered in the turn that is still on (the app shows them only then).
         if let id = threadIds[file.path] ?? Self.meta(file).id ?? Self.threadId(from: file), Self.meta(file).user {
             let title = titles[id] ?? AppModel.shared.knownTitle(id) ?? Self.indexTitle(id) ?? ""
-            questions(in: data, thread: id, title: title, maxAge: 6 * 3600)
+            let turn = text.range(of: "\"task_started\"", options: .backwards).map { text[$0.lowerBound...] } ?? Substring(text)
+            questions(in: Data(turn.utf8), thread: id, title: title, maxAge: 6 * 3600)
         }
         guard Date().timeIntervalSince(modified) < 30 * 60 else { return }
-        guard let since = Self.openTurnStart(String(decoding: data, as: UTF8.self), fallback: modified) else { return }
+        guard let since = Self.openTurnStart(text, fallback: modified) else { return }
         if userThreads[file.path] == nil {
             let meta = Self.meta(file)
             userThreads[file.path] = meta.user
@@ -241,6 +244,7 @@ final class CodexFinishWatcher {
             // only what happened in the last few minutes is news.
             guard Date().timeIntervalSince(date) < 5 * 60 else { continue }
             if kind != "started", let threadId { AutoResume.shared.poke(threadId) }
+            if kind != "started", let threadId { CodexQuestions.turnEnded(thread: threadId) }
             switch kind {
             case "started":
                 turnStart[key] = lastTotal[key]

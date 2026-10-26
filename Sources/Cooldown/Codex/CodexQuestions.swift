@@ -70,6 +70,11 @@ enum CodexQuestions {
         }
     }
 
+    /// The turn is over: the app no longer shows its questions, so neither does Cooldown.
+    static func turnEnded(thread: String) {
+        RequestCenter.shared.resolveAll(prefix: "codexq|\(thread)|", except: [])
+    }
+
     static func resolve(thread: String, calls: [String]) {
         for call in calls { RequestCenter.shared.resolved(key(thread, call)) }
     }
@@ -85,9 +90,16 @@ enum CodexQuestions {
         return "<send_user_message_question_reply>\n\(json)\n</send_user_message_question_reply>\n"
     }
 
-    /// Codex takes a new message only between its turns: while it works, the answer waits (up to
-    /// fifteen minutes) and goes as soon as it is free.
+    /// Into the running turn at once, as the app does. If Codex does not take it that way, the
+    /// answer goes as a message once the turn is over (up to fifteen minutes).
     private static func deliver(thread: String, text: String, key: String) async {
+        do {
+            try await AutoResume.shared.answerQuestion(thread, text: text)
+            AgentActivity.trace("codex question \(key): answer sent")
+            return
+        } catch {
+            AgentActivity.trace("codex question \(key): not taken at once (\(error.localizedDescription)); waiting for the turn to end")
+        }
         let deadline = Date().addingTimeInterval(15 * 60)
         while Date() < deadline {
             do {

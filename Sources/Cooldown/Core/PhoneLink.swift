@@ -377,7 +377,8 @@ final class PhoneLink: ObservableObject {
     private var keepAliveInterval: TimeInterval? {
         let probe = UserDefaults.standard.double(forKey: "phoneProbeMinutes")
         if probe > 0 { return probe * 60 }
-        guard Settings.phoneKeepAlive, paired, away else { return nil }
+        // Also at the Mac: when you leave, the first news must not wait for the line to wake.
+        guard Settings.phoneKeepAlive, paired else { return nil }
         let working = ProviderID.allCases.contains { !AgentActivity.shared.working($0).isEmpty }
         let waitingPress = cards.values.contains { !$0.card.actions.filter { $0.input != true }.isEmpty }
         let resetSoon = ProviderID.allCases.contains { p in AgentActivity.spent(p).map { $0.timeIntervalSinceNow < 15 * 60 } ?? false }

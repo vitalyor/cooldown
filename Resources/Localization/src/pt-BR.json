@@ -517,7 +517,6 @@
  "На Mac: Cooldown → Настройки → iPhone": "No Mac: Cooldown → Ajustes → iPhone",
  "На аккаунте действует отдельный лимит — нужно ваше решение.": "A conta tem um limite próprio — sua decisão é necessária.",
  "На всю сессию": "Para a sessão",
- "На мобильной сети iPhone теряет связь с сервисом уведомлений Apple и получает уведомления пачкой раз в 10 минут. Пока агенты работают, а вас нет у Mac, Cooldown раз в 3 минуты шлёт тихий сигнал — и уведомления приходят сразу. На телефоне его не видно; заряд расходует совсем немного.": "Na rede móvel, o iPhone perde a conexão com o serviço de notificações da Apple e recebe notificações em lotes a cada 10 minutos. Enquanto agentes trabalham e você está longe do Mac, o Cooldown envia um sinal silencioso a cada 3 minutos e as notificações chegam na hora. Não aparece no celular e gasta pouquíssima bateria.",
  "На связи": "Online",
  "На этот проект ушло %@ работы %@ с начала недели.": "Este projeto ficou com %@ do trabalho do %@ desde o início da semana.",
  "На этот проект ушло %@ работы %@ с начала недели. Всего неделя израсходована на %@.": "Este projeto ficou com %@ do trabalho do %@ desde o início da semana. No total, %@ da semana já foi gasto.",
@@ -1129,5 +1128,6 @@
  "чтение: ": "leitura: ",
  "≈%@ лимита": "≈%@ do limite",
  "Ответ не ушёл в Codex": "A resposta não chegou ao Codex",
- "Codex работал без перерыва 15 минут. Ответьте в чате.": "O Codex trabalhou 15 minutos sem pausa. Responda no chat."
+ "Codex работал без перерыва 15 минут. Ответьте в чате.": "O Codex trabalhou 15 minutos sem pausa. Responda no chat.",
+ "На мобильной сети iPhone теряет связь с сервисом уведомлений Apple и получает уведомления пачкой раз в 10 минут. Пока агенты работают, Cooldown раз в 2,5 минуты шлёт тихий сигнал — и уведомления приходят сразу, в том числе первое после того, как вы отошли от Mac. На телефоне его не видно; заряд расходует совсем немного.": "Na rede móvel o iPhone perde a ligação com o serviço de notificações da Apple e recebe as notificações em lote a cada 10 minutos. Enquanto os agentes trabalham, o Cooldown envia um sinal silencioso a cada 2,5 minutos e as notificações chegam na hora, inclusive a primeira depois que você sai do Mac. Não aparece no telefone e gasta pouquíssima bateria."
 }
