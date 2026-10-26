@@ -464,14 +464,20 @@ final class PhoneLink: ObservableObject {
     private var away: Bool { Settings.phoneAlways || rehearsing || Presence.shared.away().away }
     private var awayReason: String { rehearsing ? "rehearsal" : Settings.phoneAlways ? "always" : Presence.shared.away().reason }
     private var wasAway: Bool?
+    /// Since when you are at the Mac (nil while away). After half a minute there the Live Activity
+    /// goes: everything is on the screen in front of you. It comes back when you leave.
+    private var presentSince: Date?
+    private var atMacLongEnough: Bool { !away && presentSince.map { Date().timeIntervalSince($0) > 30 } ?? false }
 
     /// Checked every few seconds: the moment you leave, what is open goes to the phone and the Live
     /// Activity starts — not at the next half-minute tick.
     private func checkPresence() {
         checkOffline()
         keepAliveIfDue()
+        if liveOn, atMacLongEnough { publishState() }
         if renewDue, status == .online { publishState() }
         let now = away
+        if now { presentSince = nil } else if presentSince == nil { presentSince = Date() }
         guard now != wasAway else { return }
         if wasAway != nil { AgentActivity.trace("phone: \(now ? "away" : "back at the Mac") — \(awayReason)") }
         wasAway = now
@@ -922,6 +928,16 @@ final class PhoneLink: ObservableObject {
         let newCountdown = live.countdowns.first { c in !(previous?.countdowns.contains { $0.provider == c.provider } ?? false) }
         // At the Mac the cards are in front of you: no Live Activity is started then, only kept current.
         if !liveOn && !away { return }
+        // At the Mac for a while: the Lock Screen has nothing to add. Gone now, back when you leave.
+        if liveOn && atMacLongEnough {
+            liveOn = false
+            lastLive = nil
+            liveStartedAt = nil
+            liveCheck?.cancel()
+            client.send(.live("end", LiveState(items: []), dismiss: Date()))
+            AgentActivity.trace("phone: live end — you are at the Mac")
+            return
+        }
         let renew = renewDue
         let fresh = !liveOn || newItem != nil || newCountdown != nil || renew
         var alert: LiveAlert?

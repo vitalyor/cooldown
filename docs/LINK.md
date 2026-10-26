@@ -153,7 +153,8 @@ minutes, and a new activity token replaces the old ones.
 
 ## What reaches the phone, and how
 
-- At the Mac: nothing interrupts. Cards are in the app; the Live Activity is only kept current.
+- At the Mac: nothing interrupts. Cards are in the app; after half a minute at the Mac the Live Activity
+  goes, and it comes back (without a sound) when you leave.
 - "At the Mac" means real input: a hardware mouse, trackpad or keyboard within two minutes. Input
   made by apps — Codex Computer Use, remote control from a phone, scripts — does not count; the Mac
   tells them apart by the event's source (an event tap that only listens).
