@@ -47,6 +47,7 @@ public struct LinkFrame: Codable, Equatable, Sendable {
     public var text: String?
     public var ids: [String]?
     public var ms: Int64?          // "delivered": how long the push took to be confirmed
+    public var net: String?        // "delivered": the phone's network then (wifi, cellular...)
     // Live Activity
     public var event: String?
     public var state: LiveState?
@@ -308,6 +309,8 @@ public final class LinkClient {
     /// still in its buffer; those go again on the next one (the relay drops a second copy).
     private var unacked: [(id: String, frame: LinkFrame, at: Date)] = []
     private var monitor: NWPathMonitor?
+    /// The network this device is on now (wifi, cellular), as confirmations tell the relay.
+    public private(set) var network: String?
     private var generation = 0
 
     public init(relay: URL, token: String) {
@@ -346,6 +349,7 @@ public final class LinkClient {
         guard !ids.isEmpty else { return }
         var f = LinkFrame(t: "got")
         f.ids = ids
+        f.net = network
         send(f)
     }
 
@@ -486,6 +490,8 @@ public final class LinkClient {
         guard monitor == nil else { return }
         let m = NWPathMonitor()
         m.pathUpdateHandler = { [weak self] path in
+            let kind = path.usesInterfaceType(.wifi) ? "wifi" : path.usesInterfaceType(.cellular) ? "cellular" : nil
+            Task { @MainActor in self?.network = kind }
             guard path.status == .satisfied else { return }
             Task { @MainActor in
                 guard let self, self.wanted else { return }

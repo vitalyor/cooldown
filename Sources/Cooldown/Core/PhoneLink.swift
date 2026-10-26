@@ -377,12 +377,20 @@ final class PhoneLink: ObservableObject {
     private var keepAliveInterval: TimeInterval? {
         let probe = UserDefaults.standard.double(forKey: "phoneProbeMinutes")
         if probe > 0 { return probe * 60 }
-        // Also at the Mac: when you leave, the first news must not wait for the line to wake.
         guard Settings.phoneKeepAlive, paired else { return nil }
         let working = ProviderID.allCases.contains { !AgentActivity.shared.working($0).isEmpty }
         let waitingPress = cards.values.contains { !$0.card.actions.filter { $0.input != true }.isEmpty }
         let resetSoon = ProviderID.allCases.contains { p in AgentActivity.spent(p).map { $0.timeIntervalSinceNow < 15 * 60 } ?? false }
-        return working || waitingPress || resetSoon ? 150 : nil
+        guard working || waitingPress || resetSoon else { return nil }
+        // Only mobile data puts the phone's line to sleep. On Wi-Fi a rare one is enough to notice
+        // that it left the Wi-Fi (you went out); on mobile data often enough to keep it awake.
+        return phoneOnWiFi ? 600 : 150
+    }
+    /// The network the phone named with its last confirmation (unknown counts as mobile data).
+    private var phoneNet: (net: String, at: Date)?
+    private var phoneOnWiFi: Bool {
+        guard let phoneNet, Date().timeIntervalSince(phoneNet.at) < 15 * 60 else { return false }
+        return phoneNet.net.hasPrefix("wifi")
     }
 
     private func keepAliveIfDue() {
@@ -444,6 +452,10 @@ final class PhoneLink: ObservableObject {
     private func delivered(_ frame: LinkFrame, ok: Bool) {
         let seconds = frame.ms.map { Double($0) / 1000 }
         let keepAlive = frame.id.map { keepAliveAnswered($0) } ?? false
+        if ok, let net = frame.net {
+            if phoneNet?.net != net { AgentActivity.trace("phone: on \(net)") }
+            phoneNet = (net, Date())
+        }
         AgentActivity.trace(ok ? "phone: push confirmed in \(frame.ms ?? 0) ms\(keepAlive ? " (keep-alive)" : "")"
                                : "phone: push \(frame.id ?? "") never confirmed\(keepAlive ? " (keep-alive)" : "")")
         // The summary is about real news; the line-keeping pushes would only drown it.

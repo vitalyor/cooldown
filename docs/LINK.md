@@ -177,8 +177,9 @@ minutes, and a new activity token replaces the old ones.
   itself after eight hours without telling the Mac.
 - Keeping the line open: on some mobile networks the phone's connection to Apple goes quiet and
   pushes wait up to ten minutes. While something may come (an agent works, a card
-  waits for a press, a limit comes back within 15 minutes) the Mac sends a silent push every two and
-  a half minutes; the phone shows nothing. It can be turned off in Settings → iPhone.
+  waits for a press, a limit comes back within 15 minutes) the Mac sends a silent push: every two and
+  a half minutes while the phone is on mobile data, every ten minutes on Wi‑Fi (only to notice it
+  left the Wi‑Fi; the phone names its network with each confirmation). The phone shows nothing. It can be turned off in Settings → iPhone.
 
 ## Confirmed delivery
 
