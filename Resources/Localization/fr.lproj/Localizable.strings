@@ -243,6 +243,7 @@
 "Без них Cooldown не сможет сообщить, когда экран заблокирован." = "Sans elles, Cooldown ne pourra rien vous signaler quand l’écran est verrouillé.";
 "Без приложения Codex не работают автопродолжение и карточки запросов; лимиты читаются через codex." = "Sans l’app Codex, la reprise automatique et les cartes de demande ne fonctionnent pas ; les limites sont lues via codex.";
 "Без проекта" = "Sans projet";
+"Без этого нажатие на кнопку Live Activity открывает Cooldown и выполняет действие там — так работает всегда. Прямо на экране удобнее, но iOS должна знать действия приложения; если кнопки молчат, перезагрузите iPhone." = "Sinon, un bouton de l’activité en direct ouvre Cooldown et y exécute l’action — cela fonctionne toujours. Directement sur l’écran, c’est plus pratique, mais iOS doit connaître les actions de l’app ; si les boutons ne font rien, redémarrez l’iPhone.";
 "Бесплатные сбросы лимита. Использовать их можно в Codex командой /usage." = "Réinitialisations de limite gratuites. Vous pouvez les utiliser dans Codex avec la commande /usage.";
 "Был на связи %@" = "En ligne %@";
 "Была версия %@." = "La version %@ était installée auparavant.";
@@ -447,6 +448,7 @@
 "Карточки, баннеры и звуки" = "Cartes, bannières et sons";
 "Карточки, названия чатов и ответы шифруются на Mac и открываются только на вашем iPhone. Сервер Cooldown передаёт их, не читая; для Live Activity он видит только общие строки вроде «Claude работает» и время сброса." = "Les cartes, noms de discussions et réponses sont chiffrés sur le Mac et ne s’ouvrent que sur votre iPhone. Le serveur Cooldown les transmet sans les lire ; pour l’activité en direct, il ne voit que des lignes générales comme « Claude travaille » et les heures de réinitialisation.";
 "Кнопки на экране блокировки" = "Boutons sur l’écran verrouillé";
+"Кнопки срабатывают прямо на экране блокировки" = "Les boutons agissent directement sur l’écran verrouillé";
 "Когда лимит восстановится, придёт карточка «Продолжить» (для нескольких чатов — одна, «Продолжить все»). Нажмёте — Cooldown сам найдёт каждый чат, даже если вы ушли в другой, проверит его и отправит сообщение." = "Quand la limite se réinitialise, une carte « Reprendre » arrive (une seule, « Tout reprendre », pour plusieurs chats). Appuyez dessus et Cooldown trouvera chaque chat — même si vous êtes passé à un autre —, le vérifiera et enverra le message.";
 "Когда лимит восстановится, придёт карточка «Продолжить». Нажмёте её, и Cooldown найдёт нужный чат и отправит туда сообщение ниже. Без вашего нажатия ничего не отправляется." = "Quand la limite se réinitialise, une carte « Reprendre » arrive. Appuyez dessus, et Cooldown trouvera le bon chat et y enverra le message ci-dessous. Rien n’est envoyé sans votre clic.";
 "Код истёк" = "Le code a expiré";

@@ -243,6 +243,7 @@
 "Без них Cooldown не сможет сообщить, когда экран заблокирован." = "Ohne sie kann Cooldown dir bei gesperrtem Bildschirm nichts mitteilen.";
 "Без приложения Codex не работают автопродолжение и карточки запросов; лимиты читаются через codex." = "Ohne die Codex-App funktionieren Auto-Fortsetzen und Anfragekarten nicht; die Limits werden über codex gelesen.";
 "Без проекта" = "Ohne Projekt";
+"Без этого нажатие на кнопку Live Activity открывает Cooldown и выполняет действие там — так работает всегда. Прямо на экране удобнее, но iOS должна знать действия приложения; если кнопки молчат, перезагрузите iPhone." = "Sonst öffnet eine Taste der Live-Aktivität Cooldown und führt die Aktion dort aus – das klappt immer. Direkt auf dem Bildschirm ist bequemer, aber iOS muss die Aktionen der App kennen; tun die Tasten nichts, starte das iPhone neu.";
 "Бесплатные сбросы лимита. Использовать их можно в Codex командой /usage." = "Kostenlose Limit-Rücksetzungen. Du kannst sie in Codex mit dem Befehl /usage nutzen.";
 "Был на связи %@" = "Zuletzt online %@";
 "Была версия %@." = "Vorher war Version %@ installiert.";
@@ -447,6 +448,7 @@
 "Карточки, баннеры и звуки" = "Karten, Banner und Töne";
 "Карточки, названия чатов и ответы шифруются на Mac и открываются только на вашем iPhone. Сервер Cooldown передаёт их, не читая; для Live Activity он видит только общие строки вроде «Claude работает» и время сброса." = "Karten, Chatnamen und Antworten werden auf dem Mac verschlüsselt und nur auf deinem iPhone geöffnet. Der Cooldown-Server leitet sie weiter, ohne sie zu lesen; für die Live-Aktivität sieht er nur allgemeine Zeilen wie „Claude arbeitet“ und Zeiten des Zurücksetzens.";
 "Кнопки на экране блокировки" = "Tasten auf dem Sperrbildschirm";
+"Кнопки срабатывают прямо на экране блокировки" = "Tasten wirken direkt auf dem Sperrbildschirm";
 "Когда лимит восстановится, придёт карточка «Продолжить» (для нескольких чатов — одна, «Продолжить все»). Нажмёте — Cooldown сам найдёт каждый чат, даже если вы ушли в другой, проверит его и отправит сообщение." = "Wenn das Limit zurückgesetzt ist, kommt eine Karte „Fortsetzen“ (bei mehreren Chats eine einzige: „Alle fortsetzen“). Drückst du sie, findet Cooldown jeden Chat — auch wenn du inzwischen in einem anderen bist —, prüft ihn und sendet die Nachricht.";
 "Когда лимит восстановится, придёт карточка «Продолжить». Нажмёте её, и Cooldown найдёт нужный чат и отправит туда сообщение ниже. Без вашего нажатия ничего не отправляется." = "Wenn das Limit zurückgesetzt ist, kommt eine Karte „Fortsetzen“. Drückst du sie, findet Cooldown den richtigen Chat und sendet die Nachricht unten. Ohne deinen Klick wird nichts gesendet.";
 "Код истёк" = "Der Code ist abgelaufen";

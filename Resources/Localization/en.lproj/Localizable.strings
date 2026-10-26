@@ -243,6 +243,7 @@
 "Без них Cooldown не сможет сообщить, когда экран заблокирован." = "Without them Cooldown can't tell you anything while the screen is locked.";
 "Без приложения Codex не работают автопродолжение и карточки запросов; лимиты читаются через codex." = "Without the Codex app, auto-continue and request cards don't work; limits are read through codex.";
 "Без проекта" = "No project";
+"Без этого нажатие на кнопку Live Activity открывает Cooldown и выполняет действие там — так работает всегда. Прямо на экране удобнее, но iOS должна знать действия приложения; если кнопки молчат, перезагрузите iPhone." = "Otherwise a Live Activity button opens Cooldown and does the action there — that always works. Right on the screen is handier, but iOS has to know the app’s actions; if the buttons do nothing, restart the iPhone.";
 "Бесплатные сбросы лимита. Использовать их можно в Codex командой /usage." = "Free limit resets. You can use them in Codex with the /usage command.";
 "Был на связи %@" = "Last online %@";
 "Была версия %@." = "It was version %@.";
@@ -447,6 +448,7 @@
 "Карточки, баннеры и звуки" = "Cards, banners and sounds";
 "Карточки, названия чатов и ответы шифруются на Mac и открываются только на вашем iPhone. Сервер Cooldown передаёт их, не читая; для Live Activity он видит только общие строки вроде «Claude работает» и время сброса." = "Cards, chat names and replies are encrypted on the Mac and opened only on your iPhone. The Cooldown server passes them on without reading them; for the Live Activity it sees only general lines like “Claude is working” and reset times.";
 "Кнопки на экране блокировки" = "Buttons on the Lock Screen";
+"Кнопки срабатывают прямо на экране блокировки" = "Buttons act right on the Lock Screen";
 "Когда лимит восстановится, придёт карточка «Продолжить» (для нескольких чатов — одна, «Продолжить все»). Нажмёте — Cooldown сам найдёт каждый чат, даже если вы ушли в другой, проверит его и отправит сообщение." = "When the limit resets, a “Continue” card arrives (one “Continue all” card for several chats). Press it and Cooldown finds each chat — even if you've moved to another — checks it and sends the message.";
 "Когда лимит восстановится, придёт карточка «Продолжить». Нажмёте её, и Cooldown найдёт нужный чат и отправит туда сообщение ниже. Без вашего нажатия ничего не отправляется." = "When the limit resets, a “Continue” card arrives. Press it, and Cooldown finds the right chat and sends the message below. Nothing is sent without your click.";
 "Код истёк" = "The code has expired";
