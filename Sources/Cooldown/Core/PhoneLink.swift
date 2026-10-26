@@ -736,7 +736,9 @@ final class PhoneLink: ObservableObject {
         let open = cards.values.map(\.card).sorted { $0.created > $1.created }
         let mac = LinkMac(name: Host.current().localizedName ?? "Mac", version: GitHubUpdater.current,
                           locked: ToastController.screenLocked, language: AppLanguage.code)
-        let live = liveState(limits: limits, agents: agents, watches: watches, cards: open)
+        // At the Mac for a while: nothing for the Lock Screen (it comes back when you leave). Sent as
+        // "no Live Activity", so a phone whose one was missed by the end push closes it too.
+        let live = atMacLongEnough ? nil : liveState(limits: limits, agents: agents, watches: watches, cards: open)
         return LinkState(limits: limits, agents: agents, watches: watches, cards: open, mac: mac, live: live, at: now)
     }
 
@@ -904,7 +906,7 @@ final class PhoneLink: ObservableObject {
                 liveStartedAt = nil
                 // Nothing left to press or wait for: gone at once.
                 client.send(.live("end", LiveState(items: []), dismiss: Date()))
-                AgentActivity.trace("phone: live end")
+                AgentActivity.trace("phone: live end\(atMacLongEnough ? " — you are at the Mac" : "")")
             }
             return
         }
@@ -928,16 +930,6 @@ final class PhoneLink: ObservableObject {
         let newCountdown = live.countdowns.first { c in !(previous?.countdowns.contains { $0.provider == c.provider } ?? false) }
         // At the Mac the cards are in front of you: no Live Activity is started then, only kept current.
         if !liveOn && !away { return }
-        // At the Mac for a while: the Lock Screen has nothing to add. Gone now, back when you leave.
-        if liveOn && atMacLongEnough {
-            liveOn = false
-            lastLive = nil
-            liveStartedAt = nil
-            liveCheck?.cancel()
-            client.send(.live("end", LiveState(items: []), dismiss: Date()))
-            AgentActivity.trace("phone: live end — you are at the Mac")
-            return
-        }
         let renew = renewDue
         let fresh = !liveOn || newItem != nil || newCountdown != nil || renew
         var alert: LiveAlert?
