@@ -105,6 +105,23 @@ final class CodexFinishWatcher {
     /// Cooldown started while a turn was running (or waiting for an answer): the turn's start is in
     /// the file already, so it is picked up from the end of the file. Without it the work would not
     /// show and a question Codex asks would not be followed.
+    /// The end of a session file: when its last turn started, if that turn has not ended yet.
+    static func openTurnStart(_ text: String, fallback: Date) -> Date? {
+        guard let started = text.range(of: "\"task_started\"", options: .backwards)?.lowerBound else { return nil }
+        let ended = ["\"task_complete\"", "\"turn_aborted\"", "\"task_aborted\""]
+            .compactMap { text.range(of: $0, options: .backwards)?.lowerBound }.max()
+        if let ended, ended > started { return nil }
+        // The turn's own start time, so the timer on the phone shows how long it has really run.
+        let lineStart = text[..<started].lastIndex(of: "\n").map { text.index(after: $0) } ?? text.startIndex
+        let line = text[lineStart..<started]
+        guard let r = line.range(of: "\"timestamp\":\"") else { return fallback }
+        let rest = line[r.upperBound...]
+        guard let end = rest.firstIndex(of: "\"") else { return fallback }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.date(from: String(rest[..<end])) ?? fallback
+    }
+
     private func resumeOpenTurn(_ file: URL, size: UInt64) {
         guard let modified = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate,
               Date().timeIntervalSince(modified) < 30 * 60,
@@ -113,11 +130,7 @@ final class CodexFinishWatcher {
         let tail: UInt64 = 512 << 10
         try? handle.seek(toOffset: size > tail ? size - tail : 0)
         guard let data = try? handle.readToEnd() else { return }
-        let text = String(decoding: data, as: UTF8.self)
-        guard let started = text.range(of: "\"task_started\"", options: .backwards)?.lowerBound else { return }
-        let ended = ["\"task_complete\"", "\"turn_aborted\"", "\"task_aborted\""]
-            .compactMap { text.range(of: $0, options: .backwards)?.lowerBound }.max()
-        if let ended, ended > started { return }
+        guard let since = Self.openTurnStart(String(decoding: data, as: UTF8.self), fallback: modified) else { return }
         if userThreads[file.path] == nil {
             let meta = Self.meta(file)
             userThreads[file.path] = meta.user
@@ -127,14 +140,6 @@ final class CodexFinishWatcher {
         let threadId = threadIds[file.path] ?? Self.threadId(from: file)
         let key = threadId ?? file.lastPathComponent
         let title = threadId.flatMap { titles[$0] ?? AppModel.shared.knownTitle($0) ?? Self.indexTitle($0) } ?? ""
-        // The turn's own start time, so the timer on the phone shows how long it has really run.
-        let lineStart = text[..<started].lastIndex(of: "\n").map { text.index(after: $0) } ?? text.startIndex
-        let line = text[lineStart..<started]
-        var since = modified
-        if let r = line.range(of: "\"timestamp\":\"") {
-            let rest = line[r.upperBound...]
-            if let end = rest.firstIndex(of: "\""), let date = isoDate.date(from: String(rest[..<end])) { since = date }
-        }
         AgentActivity.trace("codex turn open at start: \(key), since \(since)")
         AgentActivity.shared.started(.codex, key: key, title: title, source: .files, at: since)
     }

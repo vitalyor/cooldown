@@ -97,6 +97,11 @@ enum SelfTest {
                "a short pause between turns keeps one stretch of work")
         expect(link.work([], now: Date().addingTimeInterval(120)) == nil, "work that stopped leaves the Live Activity")
         let long = ToastContent(key: "finished-codex:x", kind: .finished, provider: .codex, title: "T", body: String(repeating: "ж", count: 5000)) // l10n:skip
+        // A turn still open in a Codex session file is found with its own start time; an ended one is not.
+        let openNow = Date()
+        let open = "{\"timestamp\":\"2026-10-26T05:00:00.000Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"task_started\"}}\n{\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\"}}\n" // l10n:skip
+        expect(CodexFinishWatcher.openTurnStart(open, fallback: openNow) == Date(timeIntervalSince1970: 1_792_990_800), "an open Codex turn keeps its real start time")
+        expect(CodexFinishWatcher.openTurnStart(open + "{\"type\":\"event_msg\",\"payload\":{\"type\":\"task_complete\"}}\n", fallback: openNow) == nil, "an ended Codex turn is not picked up") // l10n:skip
         expect(PhoneLink.card(long).body.count <= PhoneLink.maxBody, "a card fits inside the push, so the phone needs no network to show it")
         return failures
     }
