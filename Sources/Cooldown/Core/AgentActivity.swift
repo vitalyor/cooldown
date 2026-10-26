@@ -148,6 +148,10 @@ final class AgentActivity: ObservableObject {
             if let moved = activity.pulse[id], moved > date { Self.trace("  \(id): moved on"); return }
             if let session = activity.sessions[id], session.updated > date { Self.trace("  \(id): changed"); return }
             if activity.sessions[id] == nil { Self.trace("  \(id): turn over"); return }
+            // Codex says what it waits for: nothing open there, nobody is being asked.
+            if provider == .codex, CodexRequestWatcher.shared.openCount(key) == 0 {
+                Self.trace("  \(id): nothing open in Codex"); return
+            }
             if reviewerMayDecide, provider == .codex, CodexThreadIndex.reviewerActive(since: date.addingTimeInterval(-2)) {
                 Self.trace("  \(id): Codex's reviewer looks first; again in 40 s")
                 check(after: 40, reviewerMayDecide: false)

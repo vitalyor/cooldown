@@ -35,6 +35,12 @@ final class CodexRequestWatcher: @unchecked Sendable {
         if changed { wake.signal() }
     }
 
+    /// How many requests each followed conversation has open, from its latest snapshot.
+    private var openRequests: [String: Int] = [:]
+    /// Requests open in a conversation as Codex itself reports them; nil when it is not followed.
+    func openCount(_ thread: String) -> Int? { lock.lock(); defer { lock.unlock() }; return openRequests[thread] }
+    private func setOpen(_ thread: String, _ count: Int?) { lock.lock(); openRequests[thread] = count; lock.unlock() }
+
     private func currentWanted() -> Set<String> { lock.lock(); defer { lock.unlock() }; return wanted }
     private func setLive(_ value: Bool) { lock.lock(); _live = value; lock.unlock() }
 
@@ -115,6 +121,7 @@ final class CodexRequestWatcher: @unchecked Sendable {
                 try? connection.setFollowing(id, owner: entry.owner, false)
                 followed[id] = nil
                 states[id] = nil
+                setOpen(id, nil)
                 DispatchQueue.main.async { MainActor.assumeIsolated { RequestCenter.shared.resolveAll(prefix: Self.prefix(id), except: []) } }
             }
             // The owner window may change (a conversation moved to another window).
@@ -139,6 +146,7 @@ final class CodexRequestWatcher: @unchecked Sendable {
             if ready < 0 && errno != EINTR { throw CodexIPCError.connection(L("Соединение с приложением разорвано")) }
         }
         for (id, entry) in followed { try? connection.setFollowing(id, owner: entry.owner, false) }
+        for id in followed.keys { setOpen(id, nil) }
     }
 
     static func touchesRequests(_ patches: Any?) -> Bool {
@@ -174,6 +182,7 @@ final class CodexRequestWatcher: @unchecked Sendable {
     private func evaluate(_ thread: String, _ state: [String: Any]) {
         let title = (state["title"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? CodexThreadIndex.thread(id: thread)?.title ?? L("Диалог Codex")
         let requests = state["requests"] as? [Any] ?? []
+        setOpen(thread, requests.count)
         var keys = Set<String>()
         var cards: [(AgentRequest, [String: Any])] = []
         for raw in requests {
