@@ -48,6 +48,8 @@ final class AgentActivity: ObservableObject {
         }
     }
 
+    func isActive(_ provider: ProviderID, key: String) -> Bool { sessions["\(provider.rawValue):\(key)"] != nil }
+
     func working(_ provider: ProviderID) -> [Session] {
         sessions.values.filter { $0.provider == provider && $0.state == .working }.sorted { $0.started < $1.started }
     }
@@ -134,17 +136,27 @@ final class AgentActivity: ObservableObject {
     func permissionAsked(_ provider: ProviderID, key: String, title: String, reason: String, opener: Opener, at date: Date) {
         let id = "\(provider.rawValue):\(key)"
         Self.trace("permission \(id) — checking in 20 s")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 20) {
+        // A question proves the turn is on, even if its start was missed (Cooldown started during it):
+        // without a session the conversation would not be followed and its question never shown.
+        if sessions[id] == nil { started(provider, key: key, title: title, source: .hook, at: date) }
+        check(after: 20, reviewerMayDecide: true)
+        // Codex's reviewer ("approve for me") looks first; when it hands the question to the person
+        // nothing moves on, so a second look later still asks.
+        func check(after delay: TimeInterval, reviewerMayDecide: Bool) {
+          DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
             let activity = AgentActivity.shared
             if let moved = activity.pulse[id], moved > date { Self.trace("  \(id): moved on"); return }
             if let session = activity.sessions[id], session.updated > date { Self.trace("  \(id): changed"); return }
             if activity.sessions[id] == nil { Self.trace("  \(id): turn over"); return }
-            if provider == .codex, CodexThreadIndex.reviewerActive(since: date.addingTimeInterval(-2)) {
-                Self.trace("  \(id): Codex's reviewer decides"); return
+            if reviewerMayDecide, provider == .codex, CodexThreadIndex.reviewerActive(since: date.addingTimeInterval(-2)) {
+                Self.trace("  \(id): Codex's reviewer looks first; again in 40 s")
+                check(after: 40, reviewerMayDecide: false)
+                return
             }
             // Codex's requests arrive as cards with the answers on them (CodexRequestWatcher).
             activity.waiting(provider, key: key, title: title, reason: reason, opener: opener,
-                             announce: !(provider == .codex && CodexRequestWatcher.shared.live))
+                             announce: !(provider == .codex && RequestCenter.shared.hasPending(prefix: CodexRequestWatcher.prefix(key))))
+          }
         }
     }
 

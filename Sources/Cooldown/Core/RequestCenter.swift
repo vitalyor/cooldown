@@ -64,6 +64,7 @@ final class RequestCenter: ObservableObject {
     }
 
     func isPending(_ key: String) -> Bool { pending[key] != nil }
+    func hasPending(prefix: String) -> Bool { pending.keys.contains { $0.hasPrefix(prefix) } }
 
     /// A request appeared (or changed). Shown at once unless its app is in front.
     func post(_ request: AgentRequest, open: @escaping () -> Void, respond: @escaping Responder) {

@@ -178,6 +178,10 @@ final class CodexRequestWatcher: @unchecked Sendable {
             keys.insert(key)
             cards.append((card, request))
         }
+        if !requests.isEmpty || !cards.isEmpty {
+            let kinds = requests.map { (($0 as? [String: Any])?["type"] as? String) ?? (($0 as? [String: Any])?["method"] as? String) ?? "?" }
+            AgentActivity.trace("codex requests \(thread.prefix(8)): \(kinds) → \(cards.count) cards")
+        }
         lock.lock()
         for key in firstSeen.keys where key.hasPrefix(Self.prefix(thread)) && !keys.contains(key) { firstSeen[key] = nil }
         for key in keys where firstSeen[key] == nil { firstSeen[key] = Date() }

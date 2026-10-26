@@ -141,6 +141,13 @@ final class CodexFinishWatcher {
                 // One parse for both: the running token total and the account limits.
                 if let object = (try? JSONSerialization.jsonObject(with: Data(line))) as? [String: Any],
                    let payload = object["payload"] as? [String: Any] {
+                    // A turn already running when Cooldown started: its start is not news, but
+                    // the work is (Live Activity, following its questions).
+                    if !activity.isActive(.codex, key: key),
+                       let date = (object["timestamp"] as? String).flatMap({ isoDate.date(from: $0) }),
+                       Date().timeIntervalSince(date) < 60 {
+                        activity.started(.codex, key: key, title: title, source: .files, at: date)
+                    }
                     if let total = (payload["info"] as? [String: Any])?["total_token_usage"] as? [String: Any] {
                         let sum = (Num.int(total["input_tokens"]) ?? 0) + (Num.int(total["output_tokens"]) ?? 0)
                         if sum > 0 { lastTotal[key] = sum }
