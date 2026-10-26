@@ -243,6 +243,25 @@ public enum LinkHTTP {
         return data
     }
 
+    /// The same call, tried again when the network let it down (a weak mobile signal, a moment
+    /// between networks): three tries over about ten seconds. Only for calls that are safe to
+    /// repeat, like sending an envelope: its id makes a second copy harmless.
+    public static func callRetrying(_ relay: URL, _ method: String, _ path: String, token: String? = nil, body: Encodable? = nil) async throws -> Data {
+        var wait: UInt64 = 1
+        for attempt in 1...3 {
+            do {
+                return try await call(relay, method, path, token: token, body: body)
+            } catch let failure as Failure where failure.status < 500 && failure.status != 429 {
+                throw failure
+            } catch {
+                if attempt == 3 { throw error }
+                try? await Task.sleep(nanoseconds: wait * 1_000_000_000)
+                wait *= 3
+            }
+        }
+        throw URLError(.cannotConnectToHost)
+    }
+
     public static func json<T: Decodable>(_ type: T.Type, _ relay: URL, _ method: String, _ path: String, token: String? = nil, body: Encodable? = nil) async throws -> T {
         try JSONDecoder().decode(T.self, from: await call(relay, method, path, token: token, body: body))
     }
