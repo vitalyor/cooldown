@@ -102,6 +102,18 @@ enum SelfTest {
         let open = "{\"timestamp\":\"2026-10-26T05:00:00.000Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"task_started\"}}\n{\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\"}}\n" // l10n:skip
         expect(CodexFinishWatcher.openTurnStart(open, fallback: openNow) == Date(timeIntervalSince1970: 1_792_990_800), "an open Codex turn keeps its real start time")
         expect(CodexFinishWatcher.openTurnStart(open + "{\"type\":\"event_msg\",\"payload\":{\"type\":\"task_complete\"}}\n", fallback: openNow) == nil, "an ended Codex turn is not picked up") // l10n:skip
+        // Codex's questions asked while it works: found in the session file, answered like the app does.
+        let askLine: [String: Any] = ["timestamp": "2026-10-26T05:01:59.181Z", "type": "event_msg", "payload": ["type": "item_completed", // l10n:skip
+            "item": ["type": "AgentMessage", "id": "call_054e5eb10ca6", "delivery": "async", // l10n:skip
+                     "questions": [["title": "SSH or web?", "options": ["SSH", "Web"]]]]]] // l10n:skip
+        let asked = CodexQuestions.asked(in: askLine)
+        expect(asked?.call == "call_054e5eb10ca6" && asked?.questions.first?.options == ["SSH", "Web"], "a Codex question with answers is read from its session file") // l10n:skip
+        if let asked {
+            let text = CodexQuestions.reply(call: asked.call, questions: asked.questions, picks: [1])
+            expect(text.hasPrefix("<send_user_message_question_reply>\n[") && text.contains("\"answer\":\"Web\"") // l10n:skip
+                   && text.contains("request_user_input_async") && CodexQuestions.answered(in: text) == [asked.call], // l10n:skip
+                   "the answer to a Codex question is the app's own reply, and it is recognised as answered")
+        }
         expect(PhoneLink.card(long).body.count <= PhoneLink.maxBody, "a card fits inside the push, so the phone needs no network to show it")
         return failures
     }

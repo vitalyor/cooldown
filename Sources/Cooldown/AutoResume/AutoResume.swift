@@ -150,7 +150,7 @@ final class AutoResume: @unchecked Sendable {
             let owner = try connection.discoverOwner(id)
             let state = try connection.snapshot(id, owner: owner)
             if ResumeRules.decide(state, thread: id).taskState == "running" {
-                throw ResumeError.refused(L("Codex ещё работает в этом чате. Ответьте, когда он закончит."))
+                throw CodexBusy()
             }
             let params: [String: Any] = [
                 "conversationId": id,

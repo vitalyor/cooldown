@@ -1127,5 +1127,7 @@
  "чаще всего: %@": "most often: %@",
  "чтение": "read",
  "чтение: ": "read: ",
- "≈%@ лимита": "≈%@ of the limit"
+ "≈%@ лимита": "≈%@ of the limit",
+ "Ответ не ушёл в Codex": "The answer did not reach Codex",
+ "Codex работал без перерыва 15 минут. Ответьте в чате.": "Codex kept working for 15 minutes without a break. Answer in the chat."
 }

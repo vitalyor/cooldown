@@ -151,6 +151,7 @@
 "Codex работает над задачей" = "Codex is working on a task";
 "Codex работает над задачей." = "Codex is working on the task.";
 "Codex работает, Cooldown следит за лимитом." = "Codex is working; Cooldown is watching the limit.";
+"Codex работал без перерыва 15 минут. Ответьте в чате." = "Codex kept working for 15 minutes without a break. Answer in the chat.";
 "Codex сам сообщает Cooldown, когда начал и закончил работу или ждёт разрешения. Хук только дописывает строку в файл и выходит; хуки других программ остаются как были." = "Codex tells Cooldown itself when it starts and finishes work or waits for permission. The hook only appends a line to a file and exits; other apps' hooks stay as they were.";
 "Codex снова работает." = "Codex is working again.";
 "Codex сообщил незнакомый вид ограничения." = "Codex reported an unfamiliar kind of restriction.";
@@ -643,6 +644,7 @@
 "Остановлено на «%@»" = "Stopped at “%@”";
 "Ответ" = "Output";
 "Ответ не дошёл. Откройте чат на Mac и ответьте там." = "The answer didn’t get through. Open the chat on the Mac and answer there.";
+"Ответ не ушёл в Codex" = "The answer did not reach Codex";
 "Ответ отправлен: «%@»." = "Answer sent: “%@”.";
 "Ответить" = "Answer";
 "Ответить в чате" = "Answer in the chat";

@@ -124,12 +124,18 @@ final class CodexFinishWatcher {
 
     private func resumeOpenTurn(_ file: URL, size: UInt64) {
         guard let modified = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate,
-              Date().timeIntervalSince(modified) < 30 * 60,
+              Date().timeIntervalSince(modified) < 6 * 3600,
               let handle = try? FileHandle(forReadingFrom: file) else { return }
         defer { try? handle.close() }
         let tail: UInt64 = 512 << 10
         try? handle.seek(toOffset: size > tail ? size - tail : 0)
         guard let data = try? handle.readToEnd() else { return }
+        // Questions still unanswered from before Cooldown started (up to six hours old).
+        if let id = threadIds[file.path] ?? Self.meta(file).id ?? Self.threadId(from: file), Self.meta(file).user {
+            let title = titles[id] ?? AppModel.shared.knownTitle(id) ?? Self.indexTitle(id) ?? ""
+            questions(in: data, thread: id, title: title, maxAge: 6 * 3600)
+        }
+        guard Date().timeIntervalSince(modified) < 30 * 60 else { return }
         guard let since = Self.openTurnStart(String(decoding: data, as: UTF8.self), fallback: modified) else { return }
         if userThreads[file.path] == nil {
             let meta = Self.meta(file)
@@ -142,6 +148,30 @@ final class CodexFinishWatcher {
         let title = threadId.flatMap { titles[$0] ?? AppModel.shared.knownTitle($0) ?? Self.indexTitle($0) } ?? ""
         AgentActivity.trace("codex turn open at start: \(key), since \(since)")
         AgentActivity.shared.started(.codex, key: key, title: title, source: .files, at: since)
+    }
+
+    /// Codex's questions with ready answers (asked while it goes on working) and the answers to
+    /// them, in one stretch of a session file: what is still unanswered gets a card.
+    private func questions(in data: Data, thread: String, title: String, maxAge: TimeInterval) {
+        let asks = Data("\"delivery\":\"async\"".utf8), replies = Data("send_user_message_question_reply".utf8)
+        guard data.range(of: asks) != nil || data.range(of: replies) != nil else { return }
+        var open: [(call: String, questions: [CodexQuestions.Question])] = []
+        var answered = Set<String>()
+        for line in data.split(separator: UInt8(ascii: "\n")) where line.count < 400_000 {
+            let raw = Data(line)
+            if raw.range(of: asks) != nil, let object = (try? JSONSerialization.jsonObject(with: raw)) as? [String: Any],
+               let date = (object["timestamp"] as? String).flatMap({ isoDate.date(from: $0) }), Date().timeIntervalSince(date) < maxAge,
+               let asked = CodexQuestions.asked(in: object) {
+                open.append(asked)
+            } else if raw.range(of: replies) != nil {
+                answered.formUnion(CodexQuestions.answered(in: String(decoding: raw, as: UTF8.self)))
+            }
+        }
+        for item in open where !answered.contains(item.call) {
+            AgentActivity.trace("codex question \(thread.prefix(8)) \(item.call): \(item.questions.count) asked")
+            CodexQuestions.show(thread: thread, title: title, call: item.call, questions: item.questions)
+        }
+        if !answered.isEmpty { CodexQuestions.resolve(thread: thread, calls: Array(answered)) }
     }
 
     private func read(_ file: URL, from start: UInt64, to end: UInt64) {
@@ -162,6 +192,7 @@ final class CodexFinishWatcher {
         let title = threadId.flatMap { titles[$0] ?? AppModel.shared.knownTitle($0) ?? Self.indexTitle($0) } ?? ""
         let opener: AgentActivity.Opener = threadId.map { .codexThread($0) } ?? .none
         let activity = AgentActivity.shared
+        if let threadId { questions(in: data, thread: threadId, title: title, maxAge: 30 * 60) }
         for line in data.split(separator: UInt8(ascii: "\n")) {
             // Only short event lines matter; skip the big ones (tool output, messages) unparsed.
             guard line.count < 1 << 20 else { continue }
