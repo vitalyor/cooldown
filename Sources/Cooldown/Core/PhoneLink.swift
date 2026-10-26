@@ -355,29 +355,44 @@ final class PhoneLink: ObservableObject {
         AgentActivity.trace("phone: told the phone the Mac is going to sleep")
     }
 
-    // MARK: Quiet probes
+    // MARK: Keeping the phone's line to Apple open
 
-    /// For measuring delivery over a long time (a night on mobile data, say): every N minutes a
-    /// silent notification goes to the phone, and is taken off it again once confirmed. Off unless
-    /// `phoneProbeMinutes` is set; the results land in the log and the day's summary.
-    private var probeIDs: [String: Date] = [:]
-    private var lastProbe = Date.distantPast
+    /// On mobile data the iPhone's connection to Apple's push service is closed by the network
+    /// when it stays quiet, and iOS opens it again only every ten minutes or so: notifications then
+    /// arrive in batches, minutes late (measured: a push every 10 minutes took 1.5–6 minutes to
+    /// arrive; one every 3 minutes, under a second and a half). So while something may come — an
+    /// agent at work, a card waiting for a press, a limit about to come back — and nobody is at the
+    /// Mac, a silent push goes every two and a half minutes (the network closed the line after 3–5 quiet minutes); the phone shows nothing and it is taken off again.
+    private var keepAliveIDs: [String: Date] = [:]
+    private var lastKeepAlive = Date.distantPast
 
-    private func probeIfDue() {
-        let minutes = UserDefaults.standard.double(forKey: "phoneProbeMinutes")
-        guard minutes > 0, paired, status == .online, Date().timeIntervalSince(lastProbe) > minutes * 60 else { return }
-        lastProbe = Date()
-        let card = LinkCard(key: "probe", kind: "info", provider: nil, title: L("Проверка связи"),
-                            body: L("Тихая проверка доставки. Уберётся сама."), actions: [])
-        let ids = send(.card(card), ttl: 1800, push: LinkPush(collapse: card.collapseID, sound: false, level: "passive", urgent: true))
-        for id in ids { probeIDs[id] = Date() }
-        AgentActivity.trace("phone: probe sent env=\(ids.joined(separator: ","))")
+    /// `phoneProbeMinutes` (diagnostics) sends them always, at that interval, for measuring.
+    private var keepAliveInterval: TimeInterval? {
+        let probe = UserDefaults.standard.double(forKey: "phoneProbeMinutes")
+        if probe > 0 { return probe * 60 }
+        guard Settings.phoneKeepAlive, paired, away else { return nil }
+        let working = ProviderID.allCases.contains { !AgentActivity.shared.working($0).isEmpty }
+        let waitingPress = cards.values.contains { !$0.card.actions.filter { $0.input != true }.isEmpty }
+        let resetSoon = ProviderID.allCases.contains { p in AgentActivity.spent(p).map { $0.timeIntervalSinceNow < 15 * 60 } ?? false }
+        return working || waitingPress || resetSoon ? 150 : nil
     }
 
-    private func probeAnswered(_ id: String, ok: Bool) {
-        guard probeIDs.removeValue(forKey: id) != nil else { return }
-        // Off the phone again: it was only a measurement.
-        send(.resolve("probe", by: "mac"), ttl: 1800, push: LinkPush(remove: [LinkCard.collapseID("probe")], silent: true))
+    private func keepAliveIfDue() {
+        guard let interval = keepAliveInterval, status == .online, Date().timeIntervalSince(lastKeepAlive) > interval,
+              devices.contains(where: { $0.confirms ?? false }) else { return }
+        lastKeepAlive = Date()
+        let card = LinkCard(key: "keepalive", kind: "info", provider: nil, title: "", body: "", actions: [])
+        let ids = send(.card(card), ttl: 600, push: LinkPush(collapse: card.collapseID, sound: false, level: "passive", urgent: true))
+        for id in ids { keepAliveIDs[id] = Date() }
+        AgentActivity.trace("phone: keep-alive sent env=\(ids.joined(separator: ","))")
+    }
+
+    private func keepAliveAnswered(_ id: String) -> Bool {
+        guard keepAliveIDs.removeValue(forKey: id) != nil else { return false }
+        keepAliveIDs = keepAliveIDs.filter { Date().timeIntervalSince($0.value) < 3600 }
+        // Off the phone again: it only kept the line open.
+        send(.resolve("keepalive", by: "mac"), ttl: 600, push: LinkPush(remove: [LinkCard.collapseID("keepalive")], silent: true))
+        return true
     }
 
     // MARK: Rehearsal
@@ -420,11 +435,13 @@ final class PhoneLink: ObservableObject {
     /// The relay says a notification reached the phone, or that it never did.
     private func delivered(_ frame: LinkFrame, ok: Bool) {
         let seconds = frame.ms.map { Double($0) / 1000 }
+        let keepAlive = frame.id.map { keepAliveAnswered($0) } ?? false
+        AgentActivity.trace(ok ? "phone: push confirmed in \(frame.ms ?? 0) ms\(keepAlive ? " (keep-alive)" : "")"
+                               : "phone: push \(frame.id ?? "") never confirmed\(keepAlive ? " (keep-alive)" : "")")
+        // The summary is about real news; the line-keeping pushes would only drown it.
+        guard !keepAlive else { return }
         lastDelivery = Delivery(ok: ok, seconds: seconds, at: Date())
         history.append(Delivery(ok: ok, seconds: seconds, at: Date()))
-        AgentActivity.trace(ok ? "phone: push confirmed in \(frame.ms ?? 0) ms\(probeIDs[frame.id ?? ""] != nil ? " (probe)" : "")"
-                               : "phone: push \(frame.id ?? "") never confirmed")
-        if let id = frame.id { probeAnswered(id, ok: ok) }
         guard let id = frame.id, checkIDs.contains(id) else { return }
         if ok, let seconds {
             finishCheck(ok: true, L("Дошло до iPhone за %@ с.", seconds.formatted(.number.precision(.fractionLength(1)))))
@@ -443,7 +460,7 @@ final class PhoneLink: ObservableObject {
     /// Activity starts — not at the next half-minute tick.
     private func checkPresence() {
         checkOffline()
-        probeIfDue()
+        keepAliveIfDue()
         let now = away
         guard now != wasAway else { return }
         if wasAway != nil { AgentActivity.trace("phone: \(now ? "away" : "back at the Mac") — \(awayReason)") }

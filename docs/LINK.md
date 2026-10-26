@@ -168,6 +168,10 @@ minutes, and a new activity token replaces the old ones.
 - The app icon badge counts cards waiting for a press; every push carries the current number.
 - The same card again within ten minutes (new words, same news): replaced on the phone quietly.
 - A Live Activity with buttons that does not appear within 45 seconds: its cards go as notifications.
+- Keeping the line open: on some mobile networks the phone's connection to Apple goes quiet and
+  pushes wait up to ten minutes. While you're away and something may come (an agent works, a card
+  waits for a press, a limit comes back within 15 minutes) the Mac sends a silent push every two and
+  a half minutes; the phone shows nothing. It can be turned off in Settings → iPhone.
 
 ## Confirmed delivery
 

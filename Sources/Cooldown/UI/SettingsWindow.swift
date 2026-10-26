@@ -1012,6 +1012,7 @@ private struct PhonePane: View {
     @AppStorage(SettingsKey.phoneLink) private var enabled = false
     @AppStorage(SettingsKey.phoneAlways) private var always = false
     @AppStorage(SettingsKey.phoneLive) private var live = true
+    @AppStorage(SettingsKey.phoneKeepAlive) private var keepAlive = true
 
     var body: some View {
         Section {
@@ -1065,6 +1066,11 @@ private struct PhonePane: View {
                 OptionToggle(title: L("Кнопки на экране блокировки"),
                              detail: L("Live Activity: пока агент работает — сколько он уже работает; ответы агентам и «Продолжить» — с кнопками; когда лимит кончился — отсчёт до сброса. Без лишних цифр."),
                              isOn: $live)
+            }
+            Section {
+                OptionToggle(title: L("Держать связь с iPhone"),
+                             detail: L("На мобильной сети iPhone теряет связь с сервисом уведомлений Apple и получает уведомления пачкой раз в 10 минут. Пока агенты работают, а вас нет у Mac, Cooldown раз в 3 минуты шлёт тихий сигнал — и уведомления приходят сразу. На телефоне его не видно; заряд расходует совсем немного."),
+                             isOn: $keepAlive)
             }
             Section(L("Доставка")) {
                 if let last = link.lastDelivery {
