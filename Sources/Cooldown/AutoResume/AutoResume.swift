@@ -20,6 +20,9 @@ final class AutoResume: @unchecked Sendable {
     private var timers: [String: (item: DispatchWorkItem, at: Date)] = [:]
     private var failures: [String: Int] = [:]
     private var lastOpened: [String: Date] = [:]
+    /// When Codex's spent limit comes back (kept current by AgentActivity.spent): until then the
+    /// conversation has nothing to be loaded for, so the app is not touched.
+    nonisolated(unsafe) static var codexSpentUntil: Date?
 
     // Read from any thread.
     private let shownLock = NSLock()
@@ -416,6 +419,8 @@ final class AutoResume: @unchecked Sendable {
         let waiting = Outcome(status: "waiting_connection", reason: L("Диалог не открыт в Codex — жду, когда он загрузится."),
                               kind: .temporary, next: 60)
         if let last = lastOpened[id], Date().timeIntervalSince(last) < 300 { return waiting }
+        // Nothing can be sent before the limit is back: no reason to load the conversation yet.
+        if let until = Self.codexSpentUntil, until > Date().addingTimeInterval(60) { return waiting }
         lastOpened[id] = Date()
         do {
             if try Self.inArchive(id) {

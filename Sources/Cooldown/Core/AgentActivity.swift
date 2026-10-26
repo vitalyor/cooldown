@@ -263,8 +263,13 @@ final class AgentActivity: ObservableObject {
 
     /// When the 5-hour window of `provider` is spent right now: its reset time, otherwise nil.
     static func spent(_ provider: ProviderID, now: Date = Date()) -> Date? {
-        guard let s = AppModel.shared.store(provider).snapshot, let w = s.session, !w.isExpired(at: now) else { return nil }
-        return w.remainingPercent < 0.5 || s.limitReached ? w.resetsAt : nil
+        guard let s = AppModel.shared.store(provider).snapshot, let w = s.session, !w.isExpired(at: now) else {
+            if provider == .codex { AutoResume.codexSpentUntil = nil }
+            return nil
+        }
+        let until = w.remainingPercent < 0.5 || s.limitReached ? w.resetsAt : nil
+        if provider == .codex { AutoResume.codexSpentUntil = until }
+        return until
     }
 
     /// The agent's last words are its limit notice ("You've hit your usage limit…").

@@ -107,8 +107,18 @@ enum CodexApp {
         guard let link = URL(string: "codex://threads/\(thread.lowercased())") else { return }
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = false
+        // The app comes forward on a link anyway: whatever you were in goes back in front.
+        let before = NSWorkspace.shared.frontmostApplication
         NSWorkspace.shared.open(link, configuration: configuration)
+        guard let before, before.bundleIdentifier != bundleId, before.bundleIdentifier != chatBundleId else { return }
+        for delay in [0.4, 1.2, 2.5] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+                if front == bundleId || front == chatBundleId { before.activate() }
+            }
+        }
     }
+    static let chatBundleId = "com.openai.chat"
 }
 
 // MARK: The local socket

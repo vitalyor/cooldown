@@ -344,7 +344,7 @@ final class PhoneLink: ObservableObject {
 
     private func goingToSleep() async {
         let working = ProviderID.allCases.flatMap { AgentActivity.shared.working($0) }
-        let waiting = AppModel.shared.watches.filter { $0.enabled && ["quota_limited", "waiting_reset"].contains($0.status) }.count
+        let waiting = AppModel.shared.watches.filter { $0.enabled && ["quota_limited", "waiting_reset", "waiting_connection"].contains($0.status) }.count
             + (AgentActivity.spent(.claude) != nil ? ClaudeChatList.shared.entries.count : 0)
         AgentActivity.trace("phone: Mac going to sleep — working \(working.count), waiting \(waiting)")
         guard paired, !working.isEmpty || waiting > 0, let session, let account else { return }
@@ -474,13 +474,15 @@ final class PhoneLink: ObservableObject {
 
     /// Nobody at the Mac: cards go to the phone as notifications. At the Mac they only appear in the
     /// phone's app, unless pushes are wanted always. Only real input counts (see Presence).
-    private var away: Bool { Settings.phoneAlways || rehearsing || Presence.shared.away().away }
-    private var awayReason: String { rehearsing ? "rehearsal" : Settings.phoneAlways ? "always" : Presence.shared.away().reason }
+    /// Reading at the Mac without touching it is still being there: five quiet minutes count as away
+    /// (a locked screen or a sleeping display at once).
+    private var away: Bool { Settings.phoneAlways || rehearsing || Presence.shared.away(after: 300).away }
+    private var awayReason: String { rehearsing ? "rehearsal" : Settings.phoneAlways ? "always" : Presence.shared.away(after: 300).reason }
     private var wasAway: Bool?
-    /// Since when you are at the Mac (nil while away). After half a minute there the Live Activity
+    /// Since when you are at the Mac (nil while away). After two minutes there the Live Activity
     /// goes: everything is on the screen in front of you. It comes back when you leave.
     private var presentSince: Date?
-    private var atMacLongEnough: Bool { !away && presentSince.map { Date().timeIntervalSince($0) > 30 } ?? false }
+    private var atMacLongEnough: Bool { !away && presentSince.map { Date().timeIntervalSince($0) > 120 } ?? false }
 
     /// Checked every few seconds: the moment you leave, what is open goes to the phone and the Live
     /// Activity starts — not at the next half-minute tick.
@@ -805,7 +807,7 @@ final class PhoneLink: ObservableObject {
         for p in ProviderID.allCases {
             guard let reset = AgentActivity.spent(p) else { continue }
             let waiting = p == .codex
-                ? watches.filter { $0.provider == "codex" && ["quota_limited", "waiting_reset"].contains($0.state) }.count
+                ? watches.filter { $0.provider == "codex" && ["quota_limited", "waiting_reset", "waiting_connection"].contains($0.state) }.count
                 : ClaudeChatList.shared.entries.count
             countdowns.append(.init(provider: p.rawValue, until: reset.timeIntervalSince1970, waiting: waiting))
         }
@@ -950,7 +952,8 @@ final class PhoneLink: ObservableObject {
             if let body = newItem?.title ?? newCountdown.map({ c in
                 L("%@: снова можно в %@", "\(c.provider == "codex" ? "Codex" : "Claude")", "\(Format.clock(Date(timeIntervalSince1970: c.until)))")
             }) {
-                alert = LiveAlert(title: "Cooldown", body: body, sound: QuietHours.active && newItem?.kind != "attention" ? nil : Self.sound(for: newItem))
+                // A countdown is not news to ring about: only something to press makes a sound.
+                alert = LiveAlert(title: "Cooldown", body: body, sound: newItem == nil || (QuietHours.active && newItem?.kind != "attention") ? nil : Self.sound(for: newItem))
             } else if let w = live.working?.first {
                 // Only "at work": shown without a sound, it is not news by itself.
                 alert = LiveAlert(title: "Cooldown", body: L("%@ работает", Self.providerName(w.provider)))
