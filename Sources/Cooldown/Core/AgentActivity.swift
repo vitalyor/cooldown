@@ -90,6 +90,23 @@ final class AgentActivity: ObservableObject {
     }()
 
 
+    /// What was busy when Cooldown last ran, and since when (from activity-now.json, if it was
+    /// written in the last five minutes): after a restart a running agent keeps its real start.
+    private var carried: [String: Date] = {
+        let url = Settings.appSupport.appendingPathComponent("activity-now.json")
+        guard let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate,
+              Date().timeIntervalSince(modified) < 300,
+              let data = try? Data(contentsOf: url),
+              let rows = (try? JSONSerialization.jsonObject(with: data)) as? [[String: String]] else { return [:] }
+        let format = ISO8601DateFormatter()
+        var result: [String: Date] = [:]
+        for row in rows {
+            guard let agent = row["agent"], let key = row["key"], let since = row["since"].flatMap(format.date(from:)) else { continue }
+            result["\(agent):\(key)"] = since
+        }
+        return result
+    }()
+
     func started(_ provider: ProviderID, key: String, title: String, source: Source, at date: Date = Date()) {
         if sessions["\(provider.rawValue):\(key)"] == nil { Self.trace("start \(provider.rawValue) \(source.rawValue) \(key) «\(title)»") }
         let id = "\(provider.rawValue):\(key)"
@@ -102,7 +119,9 @@ final class AgentActivity: ObservableObject {
             sessions[id] = existing
         } else {
             let window = AppModel.shared.store(provider).snapshot?.session
-            sessions[id] = Session(provider: provider, key: key, title: title, state: .working, started: date, updated: date, source: source,
+            // Busy already before Cooldown restarted: the stretch goes on from when it began.
+            let begin = min(date, carried.removeValue(forKey: id) ?? date)
+            sessions[id] = Session(provider: provider, key: key, title: title, state: .working, started: begin, updated: date, source: source,
                                    startUsed: window?.usedPercent, startReset: window?.resetsAt)
         }
         changed()
