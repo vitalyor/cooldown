@@ -440,6 +440,8 @@ final class PhoneLink: ObservableObject {
                                : "phone: push \(frame.id ?? "") never confirmed\(keepAlive ? " (keep-alive)" : "")")
         // The summary is about real news; the line-keeping pushes would only drown it.
         guard !keepAlive else { return }
+        // A real push just got through: the line is open, the next keep-alive can wait.
+        if ok { lastKeepAlive = Date() }
         lastDelivery = Delivery(ok: ok, seconds: seconds, at: Date())
         history.append(Delivery(ok: ok, seconds: seconds, at: Date()))
         guard let id = frame.id, checkIDs.contains(id) else { return }
