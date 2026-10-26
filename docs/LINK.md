@@ -168,6 +168,8 @@ minutes, and a new activity token replaces the old ones.
 - The app icon badge counts cards waiting for a press; every push carries the current number.
 - The same card again within ten minutes (new words, same news): replaced on the phone quietly.
 - A Live Activity with buttons that does not appear within 45 seconds: its cards go as notifications.
+- A Live Activity older than seven and a half hours is started afresh, quietly: iOS ends one by
+  itself after eight hours without telling the Mac.
 - Keeping the line open: on some mobile networks the phone's connection to Apple goes quiet and
   pushes wait up to ten minutes. While you're away and something may come (an agent works, a card
   waits for a press, a limit comes back within 15 minutes) the Mac sends a silent push every two and

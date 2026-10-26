@@ -91,6 +91,13 @@ final class PhoneLink: ObservableObject {
     }
     /// What the Live Activity shows, kept across restarts: a restarted Mac updates it instead of
     /// starting a second one.
+    /// When the phone's Live Activity was started. iOS ends one by itself after eight hours, without
+    /// a word to the Mac, so a long wait (a weekly limit, a long run of work) starts a new one in time.
+    private var liveStartedAt: Date? = UserDefaults.standard.object(forKey: "phoneLiveStarted") as? Date {
+        didSet { UserDefaults.standard.set(liveStartedAt, forKey: "phoneLiveStarted") }
+    }
+    private static let liveRenewAfter: TimeInterval = 7.5 * 3600
+    private var renewDue: Bool { liveOn && liveStartedAt.map { Date().timeIntervalSince($0) > Self.liveRenewAfter } ?? false }
     private var lastLive: LiveState? = UserDefaults.standard.data(forKey: "phoneLastLive").flatMap { try? JSONDecoder().decode(LiveState.self, from: $0) } {
         didSet { UserDefaults.standard.set(lastLive.flatMap { try? JSONEncoder().encode($0) }, forKey: "phoneLastLive") }
     }
@@ -463,6 +470,7 @@ final class PhoneLink: ObservableObject {
     private func checkPresence() {
         checkOffline()
         keepAliveIfDue()
+        if renewDue, status == .online { publishState() }
         let now = away
         guard now != wasAway else { return }
         if wasAway != nil { AgentActivity.trace("phone: \(now ? "away" : "back at the Mac") — \(awayReason)") }
@@ -883,6 +891,7 @@ final class PhoneLink: ObservableObject {
                 endSent = true
                 liveOn = false
                 lastLive = nil
+                liveStartedAt = nil
                 // Nothing left to press or wait for: gone at once.
                 client.send(.live("end", LiveState(items: []), dismiss: Date()))
                 AgentActivity.trace("phone: live end")
@@ -903,15 +912,16 @@ final class PhoneLink: ObservableObject {
         var previous = lastLive
         previous?.updated = live.updated
         // After a reconnect it goes again even if unchanged: the relay may have marked it out of date.
-        if liveOn, previous == live, !refreshLive { return }
+        if liveOn, previous == live, !refreshLive, !renewDue { return }
         refreshLive = false
         let newItem = live.items.first { item in !(previous?.items.contains { $0.id == item.id } ?? false) }
         let newCountdown = live.countdowns.first { c in !(previous?.countdowns.contains { $0.provider == c.provider } ?? false) }
         // At the Mac the cards are in front of you: no Live Activity is started then, only kept current.
         if !liveOn && !away { return }
-        let fresh = !liveOn || newItem != nil || newCountdown != nil
+        let renew = renewDue
+        let fresh = !liveOn || newItem != nil || newCountdown != nil || renew
         var alert: LiveAlert?
-        if fresh && away {
+        if fresh && away && !renew {
             if let body = newItem?.title ?? newCountdown.map({ c in
                 L("%@: снова можно в %@", "\(c.provider == "codex" ? "Codex" : "Claude")", "\(Format.clock(Date(timeIntervalSince1970: c.until)))")
             }) {
@@ -923,13 +933,14 @@ final class PhoneLink: ObservableObject {
         }
         liveOn = true
         lastLive = live
+        if fresh || liveStartedAt == nil { liveStartedAt = Date() }
         // Something new starts afresh (in case the last one was swiped away); the phone keeps one.
         // iOS gives each app a budget of high-priority updates: spend it on what you would act on
         // (something to press, an alert); timers and counts go at normal priority.
         let urgent = fresh || alert != nil || live.items.map(\.id) != (previous?.items.map(\.id) ?? [])
         client.send(.live(fresh ? "start" : "update", live, alert: alert, stale: Date().addingTimeInterval(1800), urgent: urgent))
         if fresh, !live.items.isEmpty { verifyLive() }
-        AgentActivity.trace("phone: live \(fresh ? "start" : "update") items=\(live.items.map(\.kind)) work=\((live.working ?? []).map(\.provider)) countdowns=\(live.countdowns.map(\.provider))\(alert.map { " alert «\($0.body)»" } ?? "")")
+        AgentActivity.trace("phone: live \(renew ? "renew" : fresh ? "start" : "update") items=\(live.items.map(\.kind)) work=\((live.working ?? []).map(\.provider)) countdowns=\(live.countdowns.map(\.provider))\(alert.map { " alert «\($0.body)»" } ?? "")")
     }
 
     // MARK: Receiving
