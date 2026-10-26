@@ -465,6 +465,22 @@ public final class LinkClient {
         }
     }
 
+    /// Checks the open connection at once (after a wake or a network change): no answer within five
+    /// seconds and it is replaced; what it swallowed goes again on the new one.
+    public func probe() {
+        guard status == .online, let t = task else { return }
+        let mine = generation
+        Task { @MainActor [weak self] in
+            let answered = await withCheckedContinuation { (done: CheckedContinuation<Bool, Never>) in
+                let once = Once()
+                t.sendPing { error in once.run { done.resume(returning: error == nil) } }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 5) { once.run { done.resume(returning: false) } }
+            }
+            guard let self, !answered, mine == self.generation, self.task === t else { return }
+            self.dropped("no answer after a network change")
+        }
+    }
+
     /// Reconnects at once when the network comes back instead of waiting out the backoff.
     private func watchNetwork() {
         guard monitor == nil else { return }
@@ -472,7 +488,10 @@ public final class LinkClient {
         m.pathUpdateHandler = { [weak self] path in
             guard path.status == .satisfied else { return }
             Task { @MainActor in
-                guard let self, self.wanted, self.status != .online else { return }
+                guard let self, self.wanted else { return }
+                // Online over a network that just changed (Wi-Fi to cable, a new address): the old
+                // connection may be dead already. A quick ping says so now, not in a minute.
+                if self.status == .online { self.probe(); return }
                 self.attempt = 0
                 self.retry?.cancel()
                 if self.task == nil { self.connect() }

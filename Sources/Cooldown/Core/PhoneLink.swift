@@ -677,6 +677,10 @@ final class PhoneLink: ObservableObject {
         }.store(in: &subscriptions)
         // The Mac is about to sleep while agents work or tasks wait: nothing will go on until it
         // wakes, and from the phone that looks just like "all quiet". Say so before it goes.
+        // Awake again: the connection from before the sleep is most likely dead; find out now.
+        NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didWakeNotification).sink { [weak self] _ in
+            Task { @MainActor in self?.client?.probe() }
+        }.store(in: &subscriptions)
         NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.willSleepNotification).sink { [weak self] _ in
             Task { @MainActor in await self?.goingToSleep() }
         }.store(in: &subscriptions)
