@@ -452,10 +452,11 @@ public final class LinkClient {
 }
 
 /// Runs its closure the first time only (a ping answered or timed out, whichever comes first).
-final class Once: @unchecked Sendable {
+public final class Once: @unchecked Sendable {
     private let lock = NSLock()
     private var done = false
-    func run(_ body: () -> Void) {
+    public init() {}
+    public func run(_ body: () -> Void) {
         lock.lock()
         let first = !done
         done = true
