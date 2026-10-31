@@ -174,7 +174,8 @@ final class ToastController: ObservableObject {
         panel.becomesKeyOnlyIfNeeded = true
         // Only the Space the person is on, and never in a screen recording or share. A card may
         // carry a prompt, a command or an agent's answer; it must not appear on another Space.
-        panel.collectionBehavior = [.transient, .ignoresCycle]
+        // Over a full-screen Codex or Claude too: that is the Space the person is on.
+        panel.collectionBehavior = [.transient, .ignoresCycle, .fullScreenAuxiliary]
         panel.sharingType = .none
         panel.contentView = container
         panel.setContentSize(size)

@@ -201,6 +201,11 @@ final class StatusController: NSObject {
         NSApp.activate()
         panel.makeKeyAndOrderFront(nil)
         panel.contentView?.displayIfNeeded()
+        // The panel opens for a glance: no text field should start out with the cursor in it.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            guard let panel = self?.panel, panel.firstResponder is NSText else { return }
+            panel.makeFirstResponder(nil)
+        }
         button.highlight(true)
         model.panelOpened()
 
@@ -234,6 +239,16 @@ final class StatusController: NSObject {
 
     /// Draws the panel's content into a PNG (the desktop seen through the glass is not part of it).
     func capture(to url: URL) {
+        // The window server's own picture shows glass and controls exactly as on screen; it needs
+        // screen-recording access, so the view's cached drawing (no glass) is the fallback.
+        try? FileManager.default.removeItem(at: url)
+        let shot = Process()
+        shot.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+        shot.arguments = ["-x", "-o", "-l", "\(panel.windowNumber)", url.path]
+        if (try? shot.run()) != nil {
+            shot.waitUntilExit()
+            if shot.terminationStatus == 0, FileManager.default.fileExists(atPath: url.path) { return }
+        }
         let glass = panel.contentView?.subviews.first as? NSGlassEffectView
         guard let view = glass?.contentView ?? panel.contentView else { return }
         let bounds = view.bounds

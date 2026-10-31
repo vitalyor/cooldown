@@ -118,6 +118,7 @@ Button ids (`action`):
 
 - `continue`, `continueChat`, `continueAll`: send "continue" into the chat on the Mac.
 - `choice:<id>`: answer an agent's question or permission request. `auth: true` asks for Face ID first.
+- `restart:<provider>` (`auth: true`): restart Codex or Claude on the Mac once it is free (see README).
 - `reply` (`input: true`): a text answer, sent in `args.text`. Only on "finished" cards.
 
 Commands (`op`):

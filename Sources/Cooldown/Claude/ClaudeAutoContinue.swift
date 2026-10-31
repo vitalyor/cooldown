@@ -112,6 +112,7 @@ final class ClaudeAutoContinue: ObservableObject {
 
         var sent = 0
         var failed = 0
+        var continued: [String] = []
         for entry in pending {
             guard !Task.isCancelled else { return }
             guard Settings.claudeAutoContinue else { showCards(); return }
@@ -127,6 +128,7 @@ final class ClaudeAutoContinue: ObservableObject {
                 try await ClaudeSender.continueChat(entry.chat, promptForPermission: false, onlyIfStopped: true)
                 ClaudeChatList.shared.markAutoResult(entry.chat, outcome: "sent")
                 sent += 1
+                continued.append("«\(entry.chat.title)»")
             } catch {
                 // Finished on its own before the limit: nothing to continue; off the list, with a word.
                 if let send = error as? ClaudeSender.SendError, case .notStopped = send {
@@ -160,6 +162,14 @@ final class ClaudeAutoContinue: ObservableObject {
             try? await Task.sleep(for: .seconds(2))
         }
 
+        if !continued.isEmpty {
+            // The reset card offered "Продолжить"; that is done now. Say so in the same card — shown
+            // even though Claude is in front, since Cooldown itself just brought it there.
+            ToastController.shared.reveal(ToastContent(
+                key: "reset-claude", kind: .reset, provider: .claude, title: L("Лимит Claude восстановился"),
+                body: L("Cooldown продолжил: %@", continued.joined(separator: ", ")),
+                actions: [.openClaude], life: .auto(30)))
+        }
         lastSummary = failed == 0
             ? L("Продолжено чатов: %@.", "\(sent)")
             : L("Продолжено: %@, не вышло: %@.", "\(sent)", "\(failed)")

@@ -120,6 +120,7 @@ Id кнопок (`action`):
 
 - `continue`, `continueChat`, `continueAll`: отправить «продолжай» в чат на Mac.
 - `choice:<id>`: ответить на вопрос агента или запрос разрешения. `auth: true` — сначала Face ID.
+- `restart:<provider>` (`auth: true`): перезапустить Codex или Claude на Mac, когда он освободится (см. README).
 - `reply` (`input: true`): ответ текстом в `args.text`. Только у карточек «закончил».
 
 Команды (`op`):

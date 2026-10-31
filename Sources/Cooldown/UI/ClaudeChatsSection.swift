@@ -48,9 +48,6 @@ struct ClaudeChatsSection: View {
                     .buttonStyle(.glass)
                     .disabled(list.continuing)
                 }
-                Text(L("Когда лимит восстановится, Cooldown продолжит эти чаты по очереди сам. Если какой-то чат не получится открыть или отправить, для него придёт карточка «Продолжить»."))
-                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 4)
             }
             if let error { Note(symbol: "exclamationmark.triangle.fill", text: error, color: Theme.amber) }
         }

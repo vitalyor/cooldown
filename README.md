@@ -60,14 +60,28 @@ Cooldown is signed with a Developer ID certificate and notarized by Apple, so it
 - While an agent works, a soft light runs along its bar in the menu bar; an orange dot means it is waiting for your decision.
 - Cards under the menu bar icon: "finished" (with the start of the answer, time spent and share of the limit),
   "waiting for your decision", "limit is back", "silent for 15 minutes", "stopped with an error".
-- Answer requests right on the card: permissions and questions from Codex, Claude Code and Claude chats,
+- Answer requests right on the card: permissions and questions from Codex (including app access for
+  Computer Use), Claude Code and Claude chats,
   including multi-question requests, step by step. Cooldown never approves anything for you.
 - Sources: Codex session files, Codex and Claude Code hooks (optional), the Claude Desktop window
   via Accessibility.
 
 **Continuing after a reset**
 - Codex: a task that hit the limit continues by itself, right after the limit resets (built in, nothing else to install).
+- Claude Code: the session continues by itself through `claude --resume`.
+- Claude Desktop chats: the chats you picked (or the one the limit stopped) continue after the reset — automatically
+  if you turned that on, otherwise with one press on the card. Only a chat the limit really stopped is continued;
+  Cooldown presses Claude's own "Try again" when it is there.
 - Deferred Codex tasks: start as soon as Codex has limit again.
+- While a task waits for the reset, its bar in the menu bar turns into the time left until it continues.
+
+**When an agent gets stuck**
+- If Codex stops answering Cooldown, a card says so right away instead of pretending an answer went out.
+- Restart Codex or Claude from that card or from the iPhone (Face ID), or let Cooldown do it by itself
+  when the link breaks (a setting): never while something
+  is running there (a turn, a request, a question, unsent text) — then it waits until the agent is free.
+  It quits the app the normal way (like ⌘Q), never kills it, starts it again in the background and checks
+  that Cooldown sees it again. Each restart is written to the event feed.
 
 **Statistics**
 - Tokens, projects, models and the approximate API price of the same work.

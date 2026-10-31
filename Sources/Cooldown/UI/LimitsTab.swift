@@ -427,12 +427,24 @@ struct RunwayChart: View {
             }
         }
         .chartXAxis {
-            AxisMarks(values: .stride(by: .hour)) { value in
+            AxisMarks(values: hourTicks) { value in
                 AxisValueLabel {
                     if let date = value.as(Date.self) { Text(Format.clock(date)).font(.caption2) }
                 }
             }
         }
+    }
+
+    /// Whole hours inside the window, without one so close to the end that its label would be cut off.
+    private var hourTicks: [Date] {
+        let calendar = Calendar.current
+        guard var tick = calendar.nextDate(after: window.start, matching: DateComponents(minute: 0), matchingPolicy: .nextTime) else { return [] }
+        var ticks: [Date] = []
+        while tick <= window.resetsAt.addingTimeInterval(-40 * 60) {
+            ticks.append(tick)
+            tick = tick.addingTimeInterval(3600)
+        }
+        return ticks
     }
 }
 

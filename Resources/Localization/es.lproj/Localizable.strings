@@ -197,6 +197,7 @@
 "Cooldown по очереди пробует каждое звено: приложения, лимиты, хуки, окно Claude, уведомления, обновления и свои правила безопасности. Ничего не отправляет и не меняет." = "Cooldown prueba cada eslabón por turno: apps, límites, hooks, la ventana de Claude, notificaciones, actualizaciones y sus propias reglas de seguridad. No envía ni cambia nada.";
 "Cooldown продолжает чат" = "Cooldown está continuando un chat";
 "Cooldown продолжил задач: %@" = "Cooldown continuó tareas: %@";
+"Cooldown продолжил: %@" = "Cooldown ha continuado: %@";
 "Cooldown продолжит «%@», как только Codex сможет." = "Cooldown continuará «%@» en cuanto Codex pueda.";
 "Cooldown продолжит задачу сам после сброса." = "Cooldown continuará la tarea solo tras el reinicio.";
 "Cooldown сам не проверяет новые версии; кнопка «Проверить» работает всегда." = "Cooldown no busca nuevas versiones por su cuenta; el botón «Comprobar» funciona siempre.";
@@ -473,7 +474,6 @@
 "Кнопки на экране блокировки" = "Botones en la pantalla bloqueada";
 "Кнопки срабатывают прямо на экране блокировки" = "Los botones actúan en la pantalla bloqueada";
 "Когда лимит восстановится, Cooldown продолжит выбранные чаты сам. Если не получится — например, нет разрешения или в поле ввода уже есть текст — придёт карточка «Продолжить»." = "Cuando se restablezca el límite, Cooldown continuará los chats elegidos por sí mismo. Si no puede —por ejemplo, sin permiso o si ya hay texto en el cuadro— aparecerá una tarjeta «Continuar».";
-"Когда лимит восстановится, Cooldown продолжит эти чаты по очереди сам. Если какой-то чат не получится открыть или отправить, для него придёт карточка «Продолжить»." = "Cuando se restablezca el límite, Cooldown continuará estos chats uno a uno. Si un chat no se puede abrir o enviar, aparecerá una tarjeta «Continuar» para él.";
 "Код истёк" = "El código caducó";
 "Код устарел или уже использован. Нажмите на Mac «Новый код»." = "El código caducó o ya se usó. Haz clic en «Nuevo código» en el Mac.";
 "Команда устарела и не выполнена." = "El comando era demasiado antiguo y no se ejecutó.";
@@ -873,7 +873,6 @@
 "Работал %@ мин." = "Trabajó %@ min.";
 "Работают · последнее событие %@" = "Funcionan · último evento %@";
 "Работы в %@ %@ не было." = "No hubo trabajo en %@ %@.";
-"Раздел" = "Sección";
 "Разрешения и вопросы Codex, Claude Code и чатов Claude — с кнопками ответа прямо на карточке." = "Permisos y preguntas de Codex, Claude Code y los chats de Claude, con botones de respuesta en la propia tarjeta.";
 "Разрешения также обрабатывает другая программа: %@. Она может ответить раньше Cooldown; оставьте один обработчик, если карточки дублируются." = "Otro programa también gestiona permisos: %@. Puede responder antes que Cooldown; deja solo un gestor si las tarjetas se duplican.";
 "Разрешены" = "Permitidas";

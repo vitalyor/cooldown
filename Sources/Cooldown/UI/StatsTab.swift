@@ -11,12 +11,12 @@ struct StatsTabView: View {
         TabScroll(render: render) {
             YearActivityCard(provider: store.id, render: render).id(store.id)
             // Sections on their own row: four of them plus the period would not fit the window.
-            Picker(L("Раздел"), selection: $tab) {
-                ForEach(StatsTab.options(for: store.id)) { Text($0.title).tag($0) }
+            GlassSegments(options: StatsTab.options(for: store.id), selection: $tab, tint: { _ in store.tint }) { option, selected in
+                Text(option.title)
+                    .font(.system(size: 12.5, weight: selected ? .semibold : .medium))
+                    .foregroundStyle(selected ? .primary : .secondary)
+                    .padding(.vertical, 2)
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .frame(maxWidth: .infinity)
             HStack(spacing: 8) {
                 Text(L("Период")).font(.caption).foregroundStyle(.secondary)
                 Spacer()
