@@ -208,6 +208,9 @@ extension PhoneLink {
             case .continueAfterReset(let opener):
                 let text = await AgentActivity.continueAfterReset(opener)
                 return LinkResult(cmd: cmd.id, code: "ok", text: text)
+            case .restartAgent(let provider):
+                let text = await AgentRestart.shared.restart(provider, whenFree: true, from: "iPhone")
+                return LinkResult(cmd: cmd.id, code: "ok", text: text)
             default:
                 return LinkResult(cmd: cmd.id, code: "unknown", text: L("Это действие доступно только на Mac."))
             }

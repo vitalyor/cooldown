@@ -19,6 +19,8 @@ enum ToastAction: Equatable {
     /// The chat the limit stopped: continue it after the reset (Codex by itself, Claude with a card).
     case continueAfterReset(AgentActivity.Opener)
     case openFile(URL)
+    /// Quit and open the agent's app again — only when nothing is going on in it (AgentRestart).
+    case restartAgent(ProviderID)
 
     var title: String {
         switch self {
@@ -26,6 +28,7 @@ enum ToastAction: Equatable {
         case .remindBeforeReset: return L("Напомнить за 10 мин")
         case .continueAfterReset: return L("Продолжить после сброса")
         case .openFile: return L("Открыть отчёт")
+        case .restartAgent(let provider): return L("Перезапустить %@", provider.displayName)
         case .openSchedule: return L("Отложить задачу")
         case .installUpdate: return L("Перезапустить")
         case .installRelease: return L("Обновить")

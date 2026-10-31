@@ -85,7 +85,8 @@ enum ClaudeLimits {
                 ClaudeUsageCLI.Pace(claudeWorking: !AgentActivity.shared.working(.claude).isEmpty,
                                     panelOpen: AppModel.shared.panelVisible,
                                     claudeRunning: ClaudeSender.claudeApp != nil,
-                                    statusLineFresh: bridged.map { Date().timeIntervalSince($0.fetchedAt) < 180 } ?? false)
+                                    statusLineFresh: bridged.map { Date().timeIntervalSince($0.fetchedAt) < 180 } ?? false,
+                                    resetNear: Settings.pendingReset(.claude).map { abs($0.timeIntervalSinceNow) < 15 * 60 } ?? false)
             }
             do { candidates.append(try await ClaudeUsageCLI.shared.read(binary: binary, force: force, pace: pace)) } catch { firstError = error }
         }

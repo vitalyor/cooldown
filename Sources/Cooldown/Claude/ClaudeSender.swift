@@ -25,7 +25,7 @@ enum ClaudeSender {
 
     enum SendError: LocalizedError {
         case noPermission, notRunning, notFront, noInput, chatNotOpened(String)
-        case inputNotEmpty, notConfirmed, busy
+        case inputNotEmpty, notConfirmed, busy, notStopped(String)
 
         var errorDescription: String? {
             switch self {
@@ -38,6 +38,7 @@ enum ClaudeSender {
             case .inputNotEmpty: return L("В поле ввода Claude уже есть текст. Сообщение не отправлено, чтобы его не потерять.")
             case .notConfirmed: return L("Не удалось подтвердить, что Claude принял сообщение. Проверьте чат — повторно оно не отправится.")
             case .busy: return L("Cooldown уже отправляет сообщение в Claude. Дождитесь конца и повторите.")
+            case .notStopped(let title): return L("«%@» не был остановлен лимитом — ответ закончился сам. Продолжать не стал.", "\(title)")
             }
         }
     }
@@ -124,14 +125,44 @@ enum ClaudeSender {
 
     /// Brings Claude forward, opens `chat` (if given and not open yet), checks it is open,
     /// puts the text into its input and presses Return.
-    static func continueChat(_ chat: ClaudeChat? = nil, promptForPermission: Bool = true) async throws {
-        try await send(text, to: chat, promptForPermission: promptForPermission)
+    /// `onlyIfStopped` (the automatic path): continue only a chat that the limit really stopped —
+    /// Claude shows its own notice and "Повторить попытку" there. Claude's own button is pressed
+    /// when it is there (exactly what the person would do); otherwise the message is typed.
+    static func continueChat(_ chat: ClaudeChat? = nil, promptForPermission: Bool = true, onlyIfStopped: Bool = false) async throws {
+        try await send(text, to: chat, promptForPermission: promptForPermission, retryIfStopped: true, onlyIfStopped: onlyIfStopped)
+    }
+
+    /// Claude's own words under an answer the limit cut off, and its button to try again.
+    nonisolated static let limitNotices = ["Остановлено из-за лимита", "Stopped due to usage limit", "usage limit", "лимита использования", "Usage limit reached"] // l10n:skip
+    nonisolated static let retryLabels: Set<String> = ["Повторить попытку", "Повторить", "Try again", "Retry"] // l10n:skip
+
+    /// Looks at the end of the open chat: was it stopped by the limit, and Claude's retry button.
+    nonisolated static func limitStop(in window: AXUIElement) -> (stopped: Bool, retry: AXUIElement?) {
+        var stack = [window]
+        var visited = 0
+        var notice = false
+        var retry: AXUIElement?
+        while let element = stack.popLast(), visited < 8000 {
+            visited += 1
+            let values = Self.values(element, [kAXRoleAttribute, kAXValueAttribute, kAXTitleAttribute, kAXDescriptionAttribute, kAXChildrenAttribute])
+            let role = values[0] as? String
+            let words = [values[1], values[2], values[3]].compactMap { $0 as? String }
+            if role == "AXStaticText" || role == "AXGroup", words.contains(where: { w in limitNotices.contains { w.localizedCaseInsensitiveContains($0) } }) {
+                notice = true
+            }
+            if role == "AXButton", words.contains(where: { retryLabels.contains($0.trimmingCharacters(in: .whitespaces)) }) {
+                retry = element   // the last one on the page: the newest answer
+            }
+            stack.append(contentsOf: ((values[4] as? [AXUIElement]) ?? []).reversed())
+        }
+        return (notice, notice ? retry : nil)
     }
 
     /// The same for any message ("Ответить" from the phone).
     /// With `promptForPermission` false (the automatic path) a missing permission simply fails;
     /// nothing pops up while the person is away.
-    static func send(_ message: String, to chat: ClaudeChat?, promptForPermission: Bool = true) async throws {
+    static func send(_ message: String, to chat: ClaudeChat?, promptForPermission: Bool = true,
+                     retryIfStopped: Bool = false, onlyIfStopped: Bool = false) async throws {
         guard !sending else { throw SendError.busy }
         sending = true
         defer { sending = false }
@@ -162,6 +193,34 @@ enum ClaudeSender {
             try await open(chat, app: app)
             window = Self.window(of: app) ?? window
             guard chat.matches(await currentChatOffMain(window)) else { throw SendError.chatNotOpened(chat.title) }
+        }
+
+        if retryIfStopped {
+            // Give the chat a moment to draw its last answer, then look at how it ended.
+            try await Task.sleep(for: .milliseconds(600))
+            let current = Self.window(of: app) ?? window
+            let stop = await Task.detached { Self.limitStop(in: current) }.value
+            if onlyIfStopped && !stop.stopped {
+                throw SendError.notStopped(chat?.title ?? L("Чат Claude"))
+            }
+            if let retry = stop.retry {
+                guard NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier else { throw SendError.notFront }
+                guard AXUIElementPerformAction(retry, kAXPressAction as CFString) == .success else { throw SendError.notConfirmed }
+                // Claude starts answering again: the notice goes and the stop button appears.
+                for _ in 0..<30 {
+                    try await Task.sleep(for: .milliseconds(200))
+                    let now = Self.window(of: app) ?? current
+                    let after = await Task.detached { Self.limitStop(in: now) }.value
+                    if !after.stopped {
+                        if let chat {
+                            if pendingChat?.matches(chat) == true { pendingChat = nil }
+                            if let open = await currentChatOffMain(Self.window(of: app) ?? current) { ClaudeChatList.shared.sent(to: chat, now: open) }
+                        }
+                        return
+                    }
+                }
+                throw SendError.notConfirmed
+            }
         }
 
         var input: AXUIElement?
@@ -299,6 +358,13 @@ enum ClaudeSender {
     }
 
     // MARK: Reading Claude's window
+
+    /// Is there unsent text in the open chat's message box? nil when it cannot be read.
+    static func draftInOpenChat() async -> Bool? {
+        guard hasPermission, let app = claudeApp, let window = window(of: app) else { return nil }
+        guard let input = await findInputOffMain(window), let text = inputText(input) else { return nil }
+        return !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     static var claudeApp: NSRunningApplication? {
         NSRunningApplication.runningApplications(withBundleIdentifier: ClaudeApp.bundleID).first

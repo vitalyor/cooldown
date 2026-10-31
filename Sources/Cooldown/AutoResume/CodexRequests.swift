@@ -314,6 +314,21 @@ final class CodexRequestWatcher: @unchecked Sendable {
         case "mcpServer/elicitation/request":
             let server = params["serverName"] as? String ?? "MCP"
             let message = params["message"] as? String
+            // Codex asks to let it use a tool or an app (Computer Use: "Разрешить ChatGPT
+            // использовать Safari?"): the same three answers as in Codex.
+            if let meta = params["_meta"] as? [String: Any], meta["codex_approval_kind"] as? String == "mcp_tool_call" {
+                let persist: [String] = (meta["persist"] as? [String]) ?? (meta["persist"] as? String).map { [$0] } ?? []
+                let app = ((meta["tool_params"] as? [String: Any])?["app"] as? String)
+                let what = app ?? (meta["tool_title"] as? String) ?? (meta["connector_name"] as? String) ?? (meta["tool_name"] as? String) ?? server
+                let risky = (meta["riskLevel"] as? String ?? meta["risk_level"] as? String) == "high" || app != nil
+                var choices: [RequestChoice] = [RequestChoice(id: persist.contains("session") ? "elicit:session" : "elicit:accept",
+                                                              title: persist.contains("session") ? L("Разрешить в этом разговоре") : L("Разрешить"), role: .allow)]
+                if persist.contains("always") { choices.append(RequestChoice(id: "elicit:always", title: L("Всегда разрешать"), role: .allow, extra: true)) }
+                choices += [RequestChoice(id: "elicit:decline", title: L("Отклонить"), role: .decline), open]
+                return make(app != nil ? L("Codex просит доступ к «%@»", "\(what)") : L("Codex просит разрешение: %@", "\(what)"),
+                            [risky ? L("Повышенный риск: агент сможет управлять этим приложением.") : nil, message].compactMap { $0 }.joined(separator: "\n"),
+                            choices)
+            }
             // A plain confirmation (no form to fill) can be answered here.
             let schema = params["requestedSchema"] as? [String: Any]
             let fields = (schema?["properties"] as? [String: Any])?.isEmpty ?? true
@@ -415,9 +430,16 @@ final class CodexRequestWatcher: @unchecked Sendable {
             }
             command = "thread-follower-submit-user-input"
             base["response"] = ["answers": answers]
-        case ("mcpServer/elicitation/request", "elicit:accept"), ("mcpServer/elicitation/request", "elicit:decline"):
+        case ("mcpServer/elicitation/request", let answer) where answer.hasPrefix("elicit:"):
             command = "thread-follower-submit-mcp-server-elicitation-response"
-            base["response"] = ["action": choice.id == "elicit:accept" ? "accept" : "decline", "content": NSNull()]
+            // As Codex itself answers: accept carries an empty form, decline none; how long a
+            // permission lasts goes in _meta.
+            switch answer {
+            case "elicit:decline": base["response"] = ["action": "decline", "content": NSNull(), "_meta": NSNull()]
+            case "elicit:session": base["response"] = ["action": "accept", "content": [String: Any](), "_meta": ["persist": "session"]]
+            case "elicit:always": base["response"] = ["action": "accept", "content": [String: Any](), "_meta": ["persist": "always"]]
+            default: base["response"] = ["action": "accept", "content": [String: Any](), "_meta": NSNull()]
+            }
         default:
             throw CodexIPCError.app(L("Такой ответ здесь не поддерживается."))
         }

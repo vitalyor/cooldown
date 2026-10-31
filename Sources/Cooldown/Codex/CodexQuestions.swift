@@ -109,6 +109,11 @@ enum CodexQuestions {
     /// Into the running turn at once, as the app does. If Codex does not take it that way, the
     /// answer goes as a message once the turn is over (up to fifteen minutes).
     private static func deliver(thread: String, text: String, key: String) async {
+        if CodexLink.isBroken {
+            Notifier.shared.post(id: "codexq-failed-\(key)", title: L("Ответ не ушёл в Codex"),
+                                 body: L("Codex перестал отвечать Cooldown. Ответьте в самом Codex или перезапустите его."))
+            return
+        }
         do {
             try await AutoResume.shared.answerQuestion(thread, text: text)
             AgentActivity.trace("codex question \(key): answer sent")
@@ -133,6 +138,14 @@ enum CodexQuestions {
                 return
             } catch is CodexBusy {
                 try? await Task.sleep(for: .seconds(5))
+            } catch CodexIPCError.threadUnavailable {
+                // The chat is open and in use, yet Codex says no window has it: its connection to
+                // Cooldown broke. Say that, not "the chat is not open".
+                AgentActivity.trace("codex question \(key): Codex does not answer")
+                CodexLink.broken()
+                Notifier.shared.post(id: "codexq-failed-\(key)", title: L("Ответ не ушёл в Codex"),
+                                     body: L("Codex перестал отвечать Cooldown. Ответьте в самом Codex или перезапустите его."))
+                return
             } catch {
                 AgentActivity.trace("codex question \(key): \(error.localizedDescription)")
                 Notifier.shared.post(id: "codexq-failed-\(key)", title: L("Ответ не ушёл в Codex"), body: error.localizedDescription)

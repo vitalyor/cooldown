@@ -486,7 +486,7 @@ final class AutoResume: @unchecked Sendable {
         }
         connection.close()
         loadAsked[id] = nil
-        brokenNoted.remove(id)
+        if brokenNoted.remove(id) != nil { DispatchQueue.main.async { MainActor.assumeIsolated { CodexLink.works() } } }
         return judge(id, state: state, watch: watch, data: data)
     }
 
@@ -505,14 +505,11 @@ final class AutoResume: @unchecked Sendable {
             if brokenNoted.insert(id).inserted {
                 AgentActivity.trace("auto-continue \(id): Codex does not answer (\(recent ? "in use" : "loaded") but no window found)")
                 DispatchQueue.main.async {
-                    MainActor.assumeIsolated {
-                        Notifier.shared.post(id: "codex-ipc-broken", title: L("Codex не отвечает Cooldown"),
-                                             body: L("Перезапустите приложение Codex (⌘Q и откройте снова) — автопродолжение снова увидит диалог."))
-                    }
+                    MainActor.assumeIsolated { CodexLink.broken() }
                 }
             }
             return Outcome(status: "waiting_connection",
-                           reason: L("Перезапустите приложение Codex (⌘Q и откройте снова) — автопродолжение снова увидит диалог."),
+                           reason: L("Связь с Codex прервалась. Cooldown перезапустит его, когда он освободится."),
                            kind: .temporary, next: 120)
         }
         if let last = lastOpened[id], Date().timeIntervalSince(last) < 300 { return waiting }

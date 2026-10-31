@@ -270,6 +270,12 @@ final class ToastController: ObservableObject {
             Task { await AgentActivity.continueAfterReset(opener) }
         case .openFile(let url):
             NSWorkspace.shared.open(url)
+        case .restartAgent(let provider):
+            Task {
+                let text = await AgentRestart.shared.restart(provider, whenFree: true, from: "Mac")
+                ToastController.shared.show(ToastContent(key: "restart-\(provider.rawValue)", kind: .info, provider: provider,
+                                                         title: L("Перезапуск %@", provider.displayName), body: text, life: .auto(15)))
+            }
         case .installUpdate:
             UpdateWatch.install()
         case .installRelease:

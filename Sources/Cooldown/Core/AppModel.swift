@@ -23,10 +23,10 @@ final class ProviderStore: ObservableObject {
     private let store: HistoryStore
     private var history = HistoryFile()
     private var scanning = false
-    private let fetcher: () async throws -> LimitSnapshot
+    private let fetcher: (_ force: Bool) async throws -> LimitSnapshot
     private let makeScanner: () -> HistoryScanning
 
-    init(id: ProviderID, fetch: @escaping () async throws -> LimitSnapshot, scanner: @escaping () -> HistoryScanning) {
+    init(id: ProviderID, fetch: @escaping (_ force: Bool) async throws -> LimitSnapshot, scanner: @escaping () -> HistoryScanning) {
         self.id = id
         self.fetcher = fetch
         self.makeScanner = scanner
@@ -55,7 +55,8 @@ final class ProviderStore: ObservableObject {
         isRefreshing = true
         defer { isRefreshing = false }
         do {
-            let fresh = try await fetcher()
+            // A forced read really asks the source (Claude's /usage otherwise waits minutes between runs).
+            let fresh = try await fetcher(force)
             guard !inDemo else { return nil }   // the demo took over while this was reading
             withAnimation(.smooth(duration: 0.6)) { snapshot = fresh }
             limitError = nil
@@ -174,10 +175,10 @@ final class AppModel: ObservableObject {
     static let shared = AppModel()
 
     let codex = ProviderStore(id: .codex,
-                              fetch: { try await CodexLimits.fetch(binaryOverride: Settings.codexPath) },
+                              fetch: { _ in try await CodexLimits.fetch(binaryOverride: Settings.codexPath) },
                               scanner: { CodexHistoryScanner(root: CodexPaths.sessions) })
     let claude = ProviderStore(id: .claude,
-                               fetch: { try await ClaudeLimits.fetch() },
+                               fetch: { force in try await ClaudeLimits.fetch(force: force) },
                                scanner: { ClaudeHistoryScanner(root: ClaudePaths.projects) })
     let claudeTasks = ClaudeTaskManager()
 

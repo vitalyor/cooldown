@@ -172,7 +172,7 @@ final class AgentActivity: ObservableObject {
             if provider == .codex, CodexRequestWatcher.shared.openCount(key) == 0 {
                 Self.trace("  \(id): nothing open in Codex"); return
             }
-            if reviewerMayDecide, provider == .codex, CodexThreadIndex.reviewerActive(since: date.addingTimeInterval(-2)) {
+            if reviewerMayDecide, provider == .codex, !CodexLink.isBroken, CodexThreadIndex.reviewerActive(since: date.addingTimeInterval(-2)) {
                 Self.trace("  \(id): Codex's reviewer looks first; again in 40 s")
                 check(after: 40, reviewerMayDecide: false)
                 return
@@ -240,8 +240,10 @@ final class AgentActivity: ObservableObject {
         let name = !title.isEmpty ? title : (session?.title.isEmpty == false ? session!.title : L("%@: задача", "\(provider.displayName)"))
         if name == "Guardian review" { return }
         let text = message.replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespaces)
-        // A turn cut short by the limit is not "finished": say that the limit stopped it.
-        if Self.looksLikeLimit(text) || Self.spent(provider) != nil {
+        // A turn cut short by the limit is not "finished": say that the limit stopped it. A whole
+        // answer that came in just as the limit ran out did finish: it is told as finished (the
+        // limit gets its own card), so nothing is set to be "continued" that needs no continuing.
+        if Self.looksLikeLimit(text) || (Self.spent(provider) != nil && text.isEmpty) {
             Self.trace("  stopped by the limit")
             stoppedByLimit(provider, name: name, opener: opener)
             return

@@ -45,12 +45,16 @@ actor ClaudeUsageCLI {
         var panelOpen = false
         var claudeRunning = false
         var statusLineFresh = false
+        var resetNear = false
     }
 
     static func interval(_ pace: Pace) -> TimeInterval {
         if let info = CGSessionCopyCurrentDictionary() as? [String: Any], info["CGSSessionScreenIsLocked"] as? Bool == true {
             return 30 * 60
         }
+        // The five-hour window is about to come back (or just came back): read often, so chats
+        // waiting for it go on within a minute or two, not at the next lazy read.
+        if pace.resetNear { return minimumInterval }
         if pace.statusLineFresh { return 10 * 60 }
         if pace.claudeWorking || pace.panelOpen { return minimumInterval }
         let idle = CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: CGEventType(rawValue: ~0)!)

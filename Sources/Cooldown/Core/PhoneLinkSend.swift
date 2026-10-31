@@ -308,6 +308,7 @@ extension PhoneLink {
         case .continueClaudeChat: return "continueChat"
         case .continueAllClaude: return "continueAll"
         case .continueAfterReset: return "afterReset"
+        case .restartAgent(let provider): return "restart:" + provider.rawValue
         default: return nil
         }
     }
@@ -330,6 +331,8 @@ extension PhoneLink {
     static func card(_ content: ToastContent) -> LinkCard {
         var actions = content.actions.compactMap { action -> LinkAction? in
             guard let id = actionID(action) else { return nil }
+            // Quitting an app on the Mac from afar: Face ID first.
+            if case .restartAgent = action { return LinkAction(id: id, title: action.title, style: .normal, auth: true) }
             return LinkAction(id: id, title: action.title, style: .primary)
         }
         for choice in content.choices where choice.role != .open {

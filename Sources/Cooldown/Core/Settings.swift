@@ -41,6 +41,7 @@ enum SettingsKey {
     static let phoneAlways = "phoneAlways"
     static let phoneLive = "phoneLive"
     static let phoneKeepAlive = "phoneKeepAlive"
+    static let autoRestartAgents = "autoRestartAgents"
     static let haDevice = "haDevice"
     static let haLive = "haLive"
     static let haNotify = "haNotify"
@@ -145,6 +146,8 @@ enum Settings {
     static var phoneAlways: Bool { bool(SettingsKey.phoneAlways, false) }
     static var phoneLive: Bool { bool(SettingsKey.phoneLive, true) }
     static var phoneKeepAlive: Bool { bool(SettingsKey.phoneKeepAlive, true) }
+    /// Codex lost its connection to Cooldown while a task waits: restart it by itself once it is free.
+    static var autoRestartAgents: Bool { bool(SettingsKey.autoRestartAgents, true) }
 
     private static func bool(_ key: String, _ fallback: Bool) -> Bool {
         defaults.object(forKey: key) as? Bool ?? fallback

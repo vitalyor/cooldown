@@ -124,10 +124,22 @@ final class ClaudeAutoContinue: ObservableObject {
                 try ClaudeChatList.shared.markAutoAttempt(entry.chat, reset: reset)
                 attempted = true
                 ToastController.shared.dismiss(key: "claude-chat-\(entry.id)")
-                try await ClaudeSender.continueChat(entry.chat, promptForPermission: false)
+                try await ClaudeSender.continueChat(entry.chat, promptForPermission: false, onlyIfStopped: true)
                 ClaudeChatList.shared.markAutoResult(entry.chat, outcome: "sent")
                 sent += 1
             } catch {
+                // Finished on its own before the limit: nothing to continue; off the list, with a word.
+                if let send = error as? ClaudeSender.SendError, case .notStopped = send {
+                    if attempted { ClaudeChatList.shared.markAutoResult(entry.chat, outcome: "finished") }
+                    ClaudeChatList.shared.remove(entry)
+                    AgentActivity.trace("claude auto \(entry.id): not stopped by the limit, left alone")
+                    ToastController.shared.show(ToastContent(
+                        key: "claude-chat-\(entry.id)", kind: .info, provider: .claude,
+                        title: L("«%@» не нужно продолжать", "\(entry.chat.title)"),
+                        body: error.localizedDescription,
+                        actions: [.continueClaudeChat(entry.chat), .openClaude], life: .auto(20)))
+                    continue
+                }
                 let outcome: String
                 if let send = error as? ClaudeSender.SendError, case .notConfirmed = send { outcome = "uncertain" } else { outcome = "failed" }
                 if attempted { ClaudeChatList.shared.markAutoResult(entry.chat, outcome: outcome) }

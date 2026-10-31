@@ -9,6 +9,7 @@ struct PhonePane: View {
     @AppStorage(SettingsKey.phoneAlways) private var always = false
     @AppStorage(SettingsKey.phoneLive) private var live = true
     @AppStorage(SettingsKey.phoneKeepAlive) private var keepAlive = true
+    @AppStorage(SettingsKey.autoRestartAgents) private var autoRestart = true
 
     private var hasPhone: Bool { !link.devices.isEmpty || !(link.account?.peers.isEmpty ?? true) }
 
@@ -85,6 +86,9 @@ struct PhonePane: View {
                 OptionToggle(title: L("Держать связь с iPhone"),
                              detail: L("На мобильном интернете iPhone теряет связь с сервисом уведомлений Apple и получает уведомления пачкой раз в 10 минут. Пока агенты работают, Cooldown шлёт тихий сигнал: на мобильном интернете раз в 2,5 минуты — и уведомления приходят сразу, на Wi‑Fi раз в 10 минут, только чтобы заметить, что вы ушли. На телефоне его не видно."),
                              isOn: $keepAlive)
+                OptionToggle(title: L("Перезапускать Codex, если он перестал отвечать"),
+                             detail: L("Иногда Codex теряет связь с Cooldown: вопросы и автопродолжение перестают работать. Cooldown перезапустит его сам — только когда в нём ничего не идёт, как ⌘Q, — и скажет об этом. С iPhone перезапуск можно запустить кнопкой на карточке (с Face ID)."),
+                             isOn: $autoRestart)
             }
             Section(L("Доставка")) {
                 if let last = link.lastDelivery {

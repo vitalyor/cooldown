@@ -23,6 +23,7 @@
 "%@ ждёт вас" = "%@ ti aspetta";
 "%@ ждёт вас: %@" = "%@ ti aspetta: %@";
 "%@ ждёт вас: «%@»" = "%@ ti aspetta: «%@»";
+"%@ ждёт вашего ответа" = "%@ attende la tua risposta";
 "%@ ждёт вашего решения" = "%@ attende la tua decisione";
 "%@ закончил «%@»" = "%@ ha concluso «%@»";
 "%@ из %@" = "%@ su %@";
@@ -31,11 +32,17 @@
 "%@ мин назад" = "%@ min fa";
 "%@ млн" = "%@ Mln";
 "%@ млрд" = "%@ Mrd";
+"%@ не был запущен — открываю." = "%@ non era aperto: lo apro.";
 "%@ не в сети" = "%@ è offline";
 "%@ не в сети · был %@" = "%@ è offline · visto %@";
+"%@ не закрылся за 30 секунд — возможно, он что-то спросил на экране. Ничего не делал принудительно." = "%@ non si è chiuso in 30 secondi: forse chiede qualcosa sullo schermo. Nulla è stato forzato.";
 "%@ недельного лимита" = "%@ del limite settimanale";
 "%@ остановился с ошибкой" = "%@ si è fermato con un errore";
 "%@ остановился с ошибкой: «%@»" = "%@ si è fermato con un errore: «%@»";
+"%@ открыт заново, но Cooldown пока его не видит. Проверю ещё раз через минуту." = "%@ è di nuovo aperto, ma Cooldown non lo vede ancora. Ricontrollo tra un minuto.";
+"%@ перезапущен" = "%@ riavviato";
+"%@ перезапущен, связь не подтвердилась" = "%@ riavviato, connessione non confermata";
+"%@ перезапущен, связь с Cooldown восстановлена." = "%@ riavviato; la connessione con Cooldown è tornata.";
 "%@ продолжится автоматически после сброса лимита." = "%@ riprenderà automaticamente dopo il ripristino del limite.";
 "%@ просит заполнить данные" = "%@ chiede dei dati";
 "%@ просит подтверждения" = "%@ chiede una conferma";
@@ -44,11 +51,13 @@
 "%@ работал над «%@»." = "%@ stava lavorando a «%@».";
 "%@ с" = "%@ s";
 "%@ с работой за год" = "%@ con lavoro quest’anno";
+"%@ сейчас работает" = "%@ sta lavorando";
 "%@ скоро упрётся в лимит" = "%@ raggiungerà presto il limite";
 "%@ снова через" = "%@ di nuovo tra";
 "%@ событий" = "%@ eventi";
 "%@ токенов" = "%@ token";
 "%@ тыс." = "%@ mila";
+"%@ уже перезапускается." = "%@ si sta già riavviando.";
 "%@ упёрся в лимит" = "%@ ha raggiunto il limite";
 "%@ ч" = "%@ h";
 "%@ ч %@ мин" = "%@ h %@ min";
@@ -127,7 +136,6 @@
 "Codex молчит 15 минут: «%@»" = "Codex tace da 15 minuti: «%@»";
 "Codex не запущен — проверю, когда он будет открыт." = "Codex non è aperto: controllerò appena verrà aperto.";
 "Codex не ответил за 20 секунд." = "Codex non ha risposto entro 20 secondi.";
-"Codex не отвечает Cooldown" = "Codex non risponde a Cooldown";
 "Codex не подтвердил ответ." = "Codex non ha confermato la risposta.";
 "Codex не принял подключение." = "Codex non ha accettato la connessione.";
 "Codex не принял сообщение." = "Codex non ha accettato il messaggio.";
@@ -136,6 +144,8 @@
 "Codex не сообщил окно лимита." = "Codex non ha comunicato la finestra del limite.";
 "Codex не сообщил состояние диалога." = "Codex non ha comunicato lo stato della conversazione.";
 "Codex не сообщил, ждёт ли диалог ответа." = "Codex non ha detto se la conversazione aspetta una risposta.";
+"Codex перестал отвечать Cooldown" = "Codex non risponde più a Cooldown";
+"Codex перестал отвечать Cooldown. Ответьте в самом Codex или перезапустите его." = "Codex non risponde più a Cooldown. Rispondi in Codex o riavvialo.";
 "Codex прислал лимиты в незнакомом виде." = "Codex ha inviato i limiti in una forma sconosciuta.";
 "Codex прислал непонятный ответ о доступности работы." = "Codex ha dato una risposta poco chiara sulla possibilità di lavorare.";
 "Codex прислал ответ в незнакомом формате." = "Codex ha restituito una risposta in un formato sconosciuto.";
@@ -146,8 +156,10 @@
 "Codex продолжает работу над целью." = "Codex continua a lavorare sull’obiettivo.";
 "Codex просит дополнительные права" = "Codex chiede permessi aggiuntivi";
 "Codex просит доступ в сеть" = "Codex chiede l’accesso alla rete";
+"Codex просит доступ к «%@»" = "Codex chiede di usare «%@»";
 "Codex просит подтвердить продолжение цели." = "Codex chiede di confermare la prosecuzione dell’obiettivo.";
 "Codex просит разрешение." = "Codex chiede un permesso.";
+"Codex просит разрешение: %@" = "Codex chiede il permesso: %@";
 "Codex просит разрешение: %@." = "Codex chiede un permesso: %@.";
 "Codex работает в песочнице этой папки и сам решает простые подтверждения. За её пределы он не выходит." = "Codex lavora nella sandbox di questa cartella e gestisce da solo le conferme semplici. Non ne esce mai.";
 "Codex работает над задачей" = "Codex lavora a un’attività";
@@ -161,6 +173,7 @@
 "Codex спрашивает" = "Codex chiede";
 "Codex спрашивает разрешение выполнить команду." = "Codex chiede il permesso di eseguire un comando.";
 "Codex спрашивает разрешение выполнить команду. Откройте диалог и ответьте." = "Codex chiede il permesso di eseguire un comando. Apri la conversazione e rispondi.";
+"Codex только что писал в диалог" = "Codex ha appena scritto in una conversazione";
 "Codex хочет выполнить команду" = "Codex vuole eseguire un comando";
 "Codex хочет изменить файлы" = "Codex vuole modificare dei file";
 "Codex: %@ токенов" = "Codex: %@ token";
@@ -182,6 +195,7 @@
 "Cooldown открывает в Claude Code экран /usage, как если бы вы набрали команду сами. Запросов к модели нет, токены не тратятся. Лимиты общие для подписки, поэтому учитывается и расход в Claude Desktop." = "Cooldown apre la schermata /usage in Claude Code, come se digitassi il comando tu. Nessuna richiesta al modello, nessun token consumato. I limiti sono comuni all’abbonamento, quindi conta anche l’uso in Claude Desktop.";
 "Cooldown открывает экран /usage в Claude Code и сразу закрывает. Запросов к модели нет, токены не тратятся; лимиты общие для всей подписки." = "Cooldown apre la schermata /usage in Claude Code e la chiude subito. Nessuna richiesta al modello, nessun token consumato; i limiti sono comuni a tutto l’abbonamento.";
 "Cooldown по очереди пробует каждое звено: приложения, лимиты, хуки, окно Claude, уведомления, обновления и свои правила безопасности. Ничего не отправляет и не меняет." = "Cooldown prova a turno ogni anello: app, limiti, hook, finestra di Claude, notifiche, aggiornamenti e le proprie regole di sicurezza. Non invia e non modifica nulla.";
+"Cooldown продолжает чат" = "Cooldown sta riprendendo una chat";
 "Cooldown продолжил задач: %@" = "Cooldown ha continuato attività: %@";
 "Cooldown продолжит «%@», как только Codex сможет." = "Cooldown continuerà «%@» appena Codex potrà.";
 "Cooldown продолжит задачу сам после сброса." = "Cooldown continuerà l’attività da solo dopo il ripristino.";
@@ -218,6 +232,8 @@
 "«%@» больше не отслеживается." = "«%@» non è più seguito.";
 "«%@» ждёт вашего решения" = "«%@» attende la tua decisione";
 "«%@» ждёт сброса" = "«%@» attende il ripristino";
+"«%@» не был остановлен лимитом — ответ закончился сам. Продолжать не стал." = "«%@» non è stato fermato dal limite: la risposta era finita. Non ripreso.";
+"«%@» не нужно продолжать" = "«%@» non va ripreso";
 "«%@» остановлен: лимит на 5 часов исчерпан. %@" = "«%@» si è fermato: il limite di 5 ore è esaurito. %@";
 "«%@» продолжена" = "«%@» ripresa";
 "«%@» продолжится сам после сброса лимита." = "«%@» continuerà da solo dopo il ripristino del limite.";
@@ -276,11 +292,14 @@
 "Включить автопродолжение" = "Attiva la ripresa automatica";
 "Включённый звук сразу проигрывается, чтобы его можно было услышать." = "Il suono attivato viene riprodotto subito, così puoi sentirlo.";
 "Вопрос не найден." = "La domanda non è stata trovata.";
+"Вопросы и автопродолжение не работают, пока его не перезапустить." = "Domande e ripresa automatica non funzionano finché non viene riavviato.";
+"Вопросы и автопродолжение не работают, пока его не перезапустить. Cooldown сделает это сам, как только в Codex ничего не будет идти." = "Domande e ripresa automatica non funzionano finché non viene riavviato. Cooldown lo farà da solo appena Codex è libero.";
 "Вот и всё" = "È tutto";
 "Время" = "Ora";
 "Все" = "Tutti";
 "Все попытки продолжения использованы." = "Tutti i tentativi di ripresa sono esauriti.";
 "Все проверки пройдены" = "Tutti i controlli superati";
+"Всегда разрешать" = "Consenti sempre";
 "Всё работает" = "Tutto funziona";
 "Вчера" = "Ieri";
 "Вы выключили автопродолжение." = "Hai disattivato la ripresa automatica.";
@@ -422,6 +441,7 @@
 "Здесь чаты из боковой панели Claude и те, что Cooldown уже видел открытыми." = "Chat dalla barra laterale di Claude e quelle già viste aperte da Cooldown.";
 "Из кеша" = "Dalla cache";
 "Изменить…" = "Modifica…";
+"Иногда Codex теряет связь с Cooldown: вопросы и автопродолжение перестают работать. Cooldown перезапустит его сам — только когда в нём ничего не идёт, как ⌘Q, — и скажет об этом. С iPhone перезапуск можно запустить кнопкой на карточке (с Face ID)." = "A volte Codex perde la connessione con Cooldown e domande e ripresa automatica smettono di funzionare. Cooldown lo riavvia da solo, solo quando non c'è niente in corso, come ⌘Q, e lo segnala. Dall'iPhone il pulsante sulla scheda avvia il riavvio (con Face ID).";
 "Использованы все попытки продолжения." = "Tutti i tentativi di ripresa sono esauriti.";
 "Исправить" = "Correggi";
 "Истории лимитов Claude пока нет: она копится, пока лимиты подключены." = "Non c’è ancora una cronologia dei limiti di Claude: si accumula finché i limiti sono collegati.";
@@ -545,6 +565,7 @@
 "Не отправлено" = "Non inviato";
 "Не отправлено в «%@»" = "Non inviato a «%@»";
 "Не отправлено: %@ Откройте чат и ответьте там." = "Non inviato: %@ Apri la chat e rispondi lì.";
+"Не перезапускаю: %@." = "Non riavvio: %@.";
 "Не подключены" = "Non collegati";
 "Не получилось" = "Non è riuscito";
 "Не получилось открыть чат «%@». Сообщение не отправлено — откройте его и нажмите ещё раз." = "Impossibile aprire la chat «%@». Il messaggio non è stato inviato: aprila e premi di nuovo.";
@@ -711,9 +732,11 @@
 "Папка не указана" = "Nessuna cartella";
 "Папка проекта" = "Cartella del progetto";
 "Папка сокета Codex доступна другим пользователям или не принадлежит вам." = "La cartella del socket di Codex è accessibile ad altri utenti o non è tua.";
-"Перезапустите приложение Codex (⌘Q и откройте снова) — автопродолжение снова увидит диалог." = "Riavvia l'app Codex (⌘Q e riaprila) perché la ripresa automatica veda di nuovo la conversazione.";
+"Перезапуск %@" = "Riavvio di %@";
+"Перезапускать Codex, если он перестал отвечать" = "Riavvia Codex se smette di rispondere";
 "Перезапустите приложение Codex." = "Riavvia l’app Codex.";
 "Перезапустить" = "Riavvia";
+"Перезапустить %@" = "Riavvia %@";
 "Перенесено из прошлой версии Cooldown." = "Ripreso dalla versione precedente di Cooldown.";
 "Пересобрать" = "Ricostruisci";
 "Пересобрать статистику" = "Ricostruisci le statistiche";
@@ -722,6 +745,7 @@
 "По линии работающего агента пробегает мягкий свет; оранжевая точка — агент ждёт вашего решения." = "Una luce morbida scorre sulla linea dell’agente al lavoro; un punto arancione significa che l’agente attende la tua decisione.";
 "По сохранённой истории задача ещё выполняется." = "Secondo la cronologia salvata, l’attività è ancora in corso.";
 "Повторная проверка" = "Nuovo controllo";
+"Повышенный риск: агент сможет управлять этим приложением." = "Rischio elevato: l'agente potrà controllare questa app.";
 "Под наблюдением" = "Sotto osservazione";
 "Под наблюдением %@ из %@" = "Osservate: %@ su %@";
 "Под присмотром" = "Sotto controllo";
@@ -854,6 +878,7 @@
 "Разрешения также обрабатывает другая программа: %@. Она может ответить раньше Cooldown; оставьте один обработчик, если карточки дублируются." = "Un altro programma gestisce anche i permessi: %@. Può rispondere prima di Cooldown; lascia un solo gestore se le schede si duplicano.";
 "Разрешены" = "Consentite";
 "Разрешить" = "Consenti";
+"Разрешить в этом разговоре" = "Consenti in questa conversazione";
 "Разрешить и подключить" = "Consenti e collega";
 "Расход" = "Consumo";
 "Раунд завершён" = "Turno concluso";
@@ -872,6 +897,7 @@
 "Свой ответ в чате" = "La mia risposta in chat";
 "Свой ответ там" = "La mia risposta lì";
 "Связь" = "Connessione";
+"Связь с Codex прервалась. Cooldown перезапустит его, когда он освободится." = "La connessione a Codex si è interrotta. Cooldown lo riavvierà quando sarà libero.";
 "Связь с iPhone восстановлена" = "Connessione con l’iPhone ripristinata";
 "Связь с relay недоступна; пара сохранена" = "Relay irraggiungibile; l’accoppiamento è salvato";
 "Связь с окнами Codex" = "Connessione alle finestre di Codex";
@@ -880,6 +906,7 @@
 "Сейчас Cooldown вывел бы Claude вперёд и отправил в открытый чат: «%@»" = "Ora Cooldown porterebbe Claude in primo piano e invierebbe nella chat aperta: «%@»";
 "Сейчас в %@" = "Ora in %@";
 "Сейчас лимит не расходуется." = "Il limite non viene consumato in questo momento.";
+"Сейчас нельзя: %@. Перезапущу, когда освободится." = "Non ora: %@. Lo riavvio appena è libero.";
 "Сейчас ни одна задача не ждёт сброса." = "Al momento nessuna attività attende un ripristino.";
 "Сейчас работают в Codex" = "Al lavoro ora in Codex";
 "Сейчас установлена %@. Обновление займёт несколько секунд; настройки и история сохранятся." = "È installata la %@. L’aggiornamento richiede pochi secondi; impostazioni e cronologia restano.";
@@ -1026,6 +1053,7 @@
 "в " = "in ";
 "в лимит упирались %@" = "limite raggiunto %@";
 "в открытый чат Claude" = "nella chat di Claude aperta";
+"в поле ввода Claude есть неотправленный текст" = "c'è testo non inviato nel campo di Claude";
 "в чат «%@»" = "nella chat «%@»";
 "версия github обновить скачивать" = "versione github aggiornare scaricare";
 "восстановлен" = "ripristinato";
@@ -1038,6 +1066,7 @@
 "демо" = "Demo";
 "день|дня|дней" = "giorno|giorni";
 "доступ в сеть" = "accesso alla rete";
+"есть вопрос или запрос без ответа" = "c'è una domanda o richiesta senza risposta";
 "ждать сброса: «%@»" = "aspettare il ripristino: «%@»";
 "ждут вашего решения: %@" = "attendono la tua decisione: %@";
 "ждут продолжения: %@" = "in attesa di continuare: %@";
@@ -1105,6 +1134,7 @@
 "работает · чатов: %@" = "al lavoro · chat: %@";
 "раз|раза|раз" = "volta|volte";
 "разрешены" = "consentite";
+"сам: связь прервалась" = "da solo: connessione interrotta";
 "сброс %@" = "ripristino %@";
 "сброс|сброса|сбросов" = "ripristino|ripristini";
 "сбросов лимита: %@" = "ripristini del limite: %@";
