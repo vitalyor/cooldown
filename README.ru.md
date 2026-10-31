@@ -121,6 +121,12 @@ Cooldown подписан сертификатом Developer ID и завере�
 scripts/make_signing_identity.sh
 ```
 
+Иконка приложения — документ Icon Composer, `Resources/AppIcon.icon`: плоские слои, из которых macOS и iOS
+сами делают Liquid Glass, с тёмным, тонированным и прозрачным видом. Его пишет `scripts/make_icon.py`,
+открыть и доработать можно в Icon Composer (Xcode → Open Developer Tool), а `scripts/icon-preview.sh`
+рисует все варианты. Если есть Xcode, `build.sh` собирает иконку в приложение; с одними Command Line Tools
+берётся плоская `Resources/AppIcon.icns`, сохранённая при прошлой такой сборке.
+
 Собираете свою версию рядом с оригиналом? Задайте ей свой идентификатор, чтобы настройки и
 разрешения не смешивались: `echo 'COOLDOWN_BUNDLE_ID=com.yourname.cooldown' > local.env`.
 

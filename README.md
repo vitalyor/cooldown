@@ -122,6 +122,12 @@ across builds:
 scripts/make_signing_identity.sh
 ```
 
+The app icon is an Icon Composer document, `Resources/AppIcon.icon`: flat layers that macOS and iOS
+render as Liquid Glass, with dark, tinted and clear looks. `scripts/make_icon.py` writes it, Icon Composer
+(Xcode → Open Developer Tool) opens it for fine-tuning, and `scripts/icon-preview.sh` renders every look.
+With Xcode installed, `build.sh` compiles it into the app; with only the Command Line Tools the app gets
+the flat `Resources/AppIcon.icns` saved from the last such build.
+
 Building your own version next to the original? Give it its own bundle id so settings and
 permissions don't mix: `echo 'COOLDOWN_BUNDLE_ID=com.yourname.cooldown' > local.env`.
 

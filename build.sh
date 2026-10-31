@@ -20,10 +20,6 @@ if ! xcode-select -p 2>/dev/null | grep -q "Xcode.app"; then
   if [ -n "${SDKROOT:-}" ]; then export SDKROOT; echo "SDK: $SDKROOT"; fi
 fi
 
-if [ ! -f Resources/AppIcon.icns ] || [ scripts/make_icon.swift -nt Resources/AppIcon.icns ]; then
-  swift scripts/make_icon.swift .
-  iconutil -c icns build/AppIcon.iconset -o Resources/AppIcon.icns
-fi
 
 swift build -c release --product Cooldown
 BIN="$(swift build -c release --show-bin-path)/Cooldown"
@@ -48,6 +44,26 @@ cp Resources/Scriptable/Cooldown.js "$APP/Contents/Resources/Cooldown.js"
 for folder in Resources/Localization/*.lproj; do
   [ -d "$folder" ] && cp -R "$folder" "$APP/Contents/Resources/"
 done
+# The icon is an Icon Composer document (Resources/AppIcon.icon, made by scripts/make_icon.py):
+# layers that macOS renders as Liquid Glass, with its dark, tinted and clear looks. Xcode's actool
+# compiles it into Assets.car (the layered icon) and AppIcon.icns (for older places), and the
+# .icns is kept in Resources so a build with only the Command Line Tools still has an icon.
+ICON_OUT="build/icon"
+# actool comes only with Xcode; use it even when the active developer folder is the Command Line Tools.
+ICON_DEV="$(xcode-select -p 2>/dev/null)"
+[ -d /Applications/Xcode.app/Contents/Developer ] && ICON_DEV=/Applications/Xcode.app/Contents/Developer
+if DEVELOPER_DIR="$ICON_DEV" xcrun --find actool >/dev/null 2>&1 && [ -d Resources/AppIcon.icon ]; then
+  rm -rf "$ICON_OUT"; mkdir -p "$ICON_OUT"
+  if DEVELOPER_DIR="$ICON_DEV" xcrun actool Resources/AppIcon.icon --compile "$ICON_OUT" --platform macosx --minimum-deployment-target 26.0 \
+       --app-icon AppIcon --output-partial-info-plist "$ICON_OUT/partial.plist" >/dev/null 2>&1 \
+     && [ -f "$ICON_OUT/Assets.car" ]; then
+    cp "$ICON_OUT/Assets.car" "$APP/Contents/Resources/Assets.car"
+    /usr/libexec/PlistBuddy -c "Add :CFBundleIconName string AppIcon" "$APP/Contents/Info.plist" 2>/dev/null || true
+    [ -f "$ICON_OUT/AppIcon.icns" ] && ! cmp -s "$ICON_OUT/AppIcon.icns" Resources/AppIcon.icns && cp "$ICON_OUT/AppIcon.icns" Resources/AppIcon.icns
+  else
+    echo "actool could not compile Resources/AppIcon.icon; using Resources/AppIcon.icns"
+  fi
+fi
 if [ -f Resources/AppIcon.icns ]; then
   cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 fi

@@ -1,0 +1,127 @@
+{
+  "color-space-for-untagged-svg-colors": "display-p3",
+  "fill-specializations": [
+    {
+      "value": {
+        "automatic-gradient": "display-p3:0.11373,0.16471,0.40000,1.00000"
+      }
+    },
+    {
+      "appearance": "dark",
+      "value": {
+        "automatic-gradient": "display-p3:0.07059,0.09804,0.22353,1.00000"
+      }
+    }
+  ],
+  "groups": [
+    {
+      "name": "Lead",
+      "layers": [
+        {
+          "name": "4 Lead",
+          "image-name": "4-lead.svg",
+          "glass": true,
+          "fill-specializations": [
+            {
+              "value": {
+                "solid": "display-p3:1.00000,1.00000,1.00000,1.00000"
+              }
+            },
+            {
+              "appearance": "dark",
+              "value": {
+                "solid": "display-p3:1.00000,0.96000,0.90000,1.00000"
+              }
+            }
+          ]
+        }
+      ],
+      "lighting": "individual",
+      "specular": true,
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
+      },
+      "translucency": {
+        "enabled": false,
+        "value": 0.5
+      }
+    },
+    {
+      "name": "Arc",
+      "layers": [
+        {
+          "name": "3 Arc",
+          "image-name": "3-arc.svg",
+          "glass": true
+        }
+      ],
+      "lighting": "individual",
+      "specular": true,
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
+      },
+      "translucency": {
+        "enabled": true,
+        "value": 0.15
+      }
+    },
+    {
+      "name": "Track",
+      "layers": [
+        {
+          "name": "2 Sweep",
+          "image-name": "2-sweep.svg",
+          "glass": false,
+          "opacity-specializations": [
+            {
+              "value": 0.26
+            },
+            {
+              "appearance": "dark",
+              "value": 0.4
+            }
+          ],
+          "hidden-specializations": [
+            {
+              "value": false
+            },
+            {
+              "appearance": "tinted",
+              "value": true
+            }
+          ]
+        },
+        {
+          "name": "1 Ring",
+          "image-name": "1-ring.svg",
+          "glass": true,
+          "opacity-specializations": [
+            {
+              "value": 0.22
+            },
+            {
+              "appearance": "dark",
+              "value": 0.16
+            }
+          ]
+        }
+      ],
+      "lighting": "combined",
+      "specular": true,
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.35
+      },
+      "translucency": {
+        "enabled": true,
+        "value": 0.5
+      },
+      "blur-material": 0.3
+    }
+  ],
+  "supported-platforms": {
+    "squares": "shared"
+  }
+}
