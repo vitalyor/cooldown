@@ -33,7 +33,7 @@
 	<key>CFBundleShortVersionString</key>
 	<string>1.3.1</string>
 	<key>CFBundleVersion</key>
-	<string>2</string>
+	<string>106</string>
 	<key>CooldownUpdateRepo</key>
 	<string>vitalyor/cooldown</string>
 	<key>LSMinimumSystemVersion</key>

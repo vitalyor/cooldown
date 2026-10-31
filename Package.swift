@@ -12,5 +12,6 @@ let package = Package(
         .target(name: "CooldownLink", path: "Sources/CooldownLink"),
         .executableTarget(name: "Cooldown", dependencies: ["CooldownLink"], path: "Sources/Cooldown"),
         .testTarget(name: "CooldownLinkTests", dependencies: ["CooldownLink"], path: "Tests/CooldownLinkTests"),
+        .testTarget(name: "CooldownTests", dependencies: ["Cooldown", "CooldownLink"], path: "Tests/CooldownTests"),
     ]
 )

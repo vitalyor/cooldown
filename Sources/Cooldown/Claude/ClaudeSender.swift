@@ -2,7 +2,7 @@ import AppKit
 import ApplicationServices
 
 /// A Claude Desktop conversation, as its window reports it.
-struct ClaudeChat: Codable, Equatable {
+struct ClaudeChat: Codable, Equatable, Sendable {
     var id: String          // the uuid in claude.ai/chat/<id>; empty when only the title is known yet
     var title: String
     var seen: Date = Date()
@@ -25,6 +25,7 @@ enum ClaudeSender {
 
     enum SendError: LocalizedError {
         case noPermission, notRunning, notFront, noInput, chatNotOpened(String)
+        case inputNotEmpty, notConfirmed, busy
 
         var errorDescription: String? {
             switch self {
@@ -34,11 +35,16 @@ enum ClaudeSender {
             case .notFront: return L("Окно Claude не вышло на передний план, сообщение не отправлено.")
             case .noInput: return L("Не нашлось поле ввода в окне Claude. Сообщение не отправлено.")
             case .chatNotOpened(let title): return L("Не получилось открыть чат «%@». Сообщение не отправлено — откройте его и нажмите ещё раз.", "\(title)")
+            case .inputNotEmpty: return L("В поле ввода Claude уже есть текст. Сообщение не отправлено, чтобы его не потерять.")
+            case .notConfirmed: return L("Не удалось подтвердить, что Claude принял сообщение. Проверьте чат — повторно оно не отправится.")
+            case .busy: return L("Cooldown уже отправляет сообщение в Claude. Дождитесь конца и повторите.")
             }
         }
     }
 
     static var hasPermission: Bool { AXIsProcessTrusted() }
+    /// One message at a time: two callers must never type into the same composer.
+    private static var sending = false
 
     static func requestPermission() {
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
@@ -69,21 +75,30 @@ enum ClaudeSender {
     /// The window watcher saw this chat open.
     static func note(_ chat: ClaudeChat) { lastChat = chat }
 
-    /// Reads the open chat from Claude's window, if Claude runs and Accessibility is allowed.
-    @discardableResult
-    static func observe() -> ClaudeChat? {
+    /// The same observation, with the window walk off the main thread.
+    static func observeOffMain() async -> ClaudeChat? {
         guard hasPermission, let app = claudeApp, let window = window(of: app) else { return nil }
-        guard let chat = currentChat(in: window) else { return nil }
+        let handle = AXHandle(window)
+        let looked = await Task.detached(priority: .userInitiated) { currentChat(in: handle.value) }.value
+        guard let chat = looked else { return nil }
         lastChat = chat
         ClaudeChatList.shared.learn(chat)
         return chat
     }
 
     /// Called when the Claude limit runs out: the chat in use is the one to continue later.
+    /// The window walk is asynchronous, so the caller never blocks the main thread on AX.
     static func rememberChatForReset() {
-        if let chat = observe() ?? lastChat, Date().timeIntervalSince(chat.seen) < 3 * 3600 {
+        // The last seen chat is an immediate fallback; the fresh AX look may update it a moment later.
+        if let chat = lastChat, Date().timeIntervalSince(chat.seen) < 3 * 3600 {
             pendingChat = chat
             ClaudeChatList.shared.add(chat, automatic: true)
+        }
+        Task { @MainActor in
+            if let chat = await observeOffMain(), Date().timeIntervalSince(chat.seen) < 3 * 3600 {
+                pendingChat = chat
+                ClaudeChatList.shared.add(chat, automatic: true)
+            }
         }
     }
 
@@ -109,14 +124,19 @@ enum ClaudeSender {
 
     /// Brings Claude forward, opens `chat` (if given and not open yet), checks it is open,
     /// puts the text into its input and presses Return.
-    static func continueChat(_ chat: ClaudeChat? = nil) async throws {
-        try await send(text, to: chat)
+    static func continueChat(_ chat: ClaudeChat? = nil, promptForPermission: Bool = true) async throws {
+        try await send(text, to: chat, promptForPermission: promptForPermission)
     }
 
-    /// The same for any message: "Ответить" from the phone. Only ever on the person's press.
-    static func send(_ message: String, to chat: ClaudeChat?) async throws {
+    /// The same for any message ("Ответить" from the phone).
+    /// With `promptForPermission` false (the automatic path) a missing permission simply fails;
+    /// nothing pops up while the person is away.
+    static func send(_ message: String, to chat: ClaudeChat?, promptForPermission: Bool = true) async throws {
+        guard !sending else { throw SendError.busy }
+        sending = true
+        defer { sending = false }
         guard hasPermission else {
-            requestPermission()
+            if promptForPermission { requestPermission() }
             throw SendError.noPermission
         }
         ClaudeApp.open()
@@ -138,33 +158,78 @@ enum ClaudeSender {
         }
         guard var window else { throw SendError.noInput }
 
-        if let chat, !chat.matches(currentChat(in: window)) {
+        if let chat, !chat.matches(await currentChatOffMain(window)) {
             try await open(chat, app: app)
             window = Self.window(of: app) ?? window
-            guard chat.matches(currentChat(in: window)) else { throw SendError.chatNotOpened(chat.title) }
+            guard chat.matches(await currentChatOffMain(window)) else { throw SendError.chatNotOpened(chat.title) }
         }
 
         var input: AXUIElement?
         for _ in 0..<20 {
-            input = findInput(in: Self.window(of: app) ?? window)
+            // The composer walk is a few thousand AX elements; keep it off the main thread.
+            input = await findInputOffMain(Self.window(of: app) ?? window)
             if input != nil { break }
             try await Task.sleep(for: .milliseconds(150))
         }
         guard let input else { throw SendError.noInput }
-        AXUIElementSetAttributeValue(input, kAXFocusedAttribute as CFString, kCFBooleanTrue)
+        try requireEmptyInput(inputText(input))
+        guard AXUIElementSetAttributeValue(input, kAXFocusedAttribute as CFString, kCFBooleanTrue) == .success else {
+            throw SendError.noInput
+        }
         try await Task.sleep(for: .milliseconds(200))
 
+        if let chat, !chat.matches(await currentChatOffMain(Self.window(of: app) ?? window)) { throw SendError.chatNotOpened(chat.title) }
         guard NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier else { throw SendError.notFront }
-        if let chat, !chat.matches(currentChat(in: Self.window(of: app) ?? window)) { throw SendError.chatNotOpened(chat.title) }
+        try requireEmptyInput(inputText(input))
         type(message, to: app.processIdentifier)
         try await Task.sleep(for: .milliseconds(300))
+        if let chat, !chat.matches(await currentChatOffMain(Self.window(of: app) ?? window)) { throw SendError.chatNotOpened(chat.title) }
         guard NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier else { throw SendError.notFront }
+        try requireTypedInput(inputText(input), message: message)
         press(keyCode: 36, to: app.processIdentifier) // Return sends in Claude
+        try await confirmSent(readInput: { inputText(input) }, isFront: {
+            NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier
+        })
         if let chat {
             if pendingChat?.matches(chat) == true { pendingChat = nil }
             // Learn the chat's id now that it is open, so next time it is found even if renamed.
-            if let open = currentChat(in: Self.window(of: app) ?? window) { ClaudeChatList.shared.sent(to: chat, now: open) }
+            if let open = await currentChatOffMain(Self.window(of: app) ?? window) { ClaudeChatList.shared.sent(to: chat, now: open) }
         }
+    }
+
+    static func requireEmptyInput(_ text: String?) throws {
+        guard let text else { throw SendError.noInput }
+        guard text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw SendError.inputNotEmpty }
+    }
+
+    static func requireTypedInput(_ text: String?, message: String) throws {
+        guard text == message else { throw SendError.notConfirmed }
+    }
+
+    /// Reads what is in the message box, if Accessibility exposes it. An Electron contenteditable
+    /// may report nothing; then the caller cannot check for a draft, and neither can it confirm.
+    private static func inputText(_ input: AXUIElement) -> String? {
+        guard let raw = value(input, kAXValueAttribute) else { return nil }
+        if let text = raw as? String { return text }
+        if let text = raw as? NSAttributedString { return text.string }
+        return nil
+    }
+
+    /// Claude clears the message box after accepting a message. Wait a few seconds for that; if
+    /// the text is still there, do not claim success and do not clear the pending chat.
+    static func confirmSent(readInput: () -> String?, isFront: () -> Bool) async throws {
+        for _ in 0..<25 {
+            try await Task.sleep(for: .milliseconds(150))
+            guard isFront() else { throw SendError.notConfirmed }
+            guard let current = readInput() else {
+                // The element disappeared (the page redrew) or this Claude build does not expose
+                // its value. We cannot tell whether Return sent the message; do not claim it did.
+                throw SendError.notConfirmed
+            }
+            let text = current.trimmingCharacters(in: .whitespacesAndNewlines)
+            if text.isEmpty { return }
+        }
+        throw SendError.notConfirmed
     }
 
     /// Opens a chat: its button in Claude's sidebar if it is listed, otherwise Claude's own link.
@@ -174,7 +239,7 @@ enum ClaudeSender {
         func waitOpen() async -> Bool {
             for _ in 0..<25 {
                 try? await Task.sleep(for: .milliseconds(150))
-                if let window = window(of: app), chat.matches(currentChat(in: window)) { return true }
+                if let window = window(of: app), chat.matches(await currentChatOffMain(window)) { return true }
             }
             return false
         }
@@ -203,6 +268,17 @@ enum ClaudeSender {
     /// Chat titles listed in Claude's sidebar (pinned, projects and recent), in order.
     static func sidebarTitles() -> [String] {
         guard hasPermission, let app = claudeApp, let window = window(of: app) else { return [] }
+        return sidebarTitles(in: window)
+    }
+
+    /// The same walk, off the main thread; used by the picker.
+    static func sidebarTitlesOffMain() async -> [String] {
+        guard hasPermission, let app = claudeApp, let window = window(of: app) else { return [] }
+        let handle = AXHandle(window)
+        return await Task.detached(priority: .userInitiated) { sidebarTitles(in: handle.value) }.value
+    }
+
+    nonisolated private static func sidebarTitles(in window: AXUIElement) -> [String] {
         let navigation: Set<String> = ["Поиск", "Новое", "Проекты", "Артефакты", "Запланированные задачи", "Персонализация", // l10n:skip
                                        "Закрепленные", "Недавние", "Показать все", "Еще", "Ещё", "Search", "New chat", "Projects", // l10n:skip
                                        "Artifacts", "Recents", "Starred", "Show all", "More"]
@@ -230,11 +306,19 @@ enum ClaudeSender {
 
     static func window(of app: NSRunningApplication) -> AXUIElement? {
         let root = AXUIElementCreateApplication(app.processIdentifier)
+        AXUIElementSetMessagingTimeout(root, 2)
         // Electron builds its page tree only when an assistive app asks for it.
         AXUIElementSetAttributeValue(root, "AXManualAccessibility" as CFString, kCFBooleanTrue)
-        if let focused = value(root, kAXFocusedWindowAttribute) { return (focused as! AXUIElement) }
+        if let focused = element(value(root, kAXFocusedWindowAttribute)) { return focused }
         if let windows = value(root, kAXWindowsAttribute) as? [AXUIElement] { return windows.first }
         return nil
+    }
+
+    /// An Accessibility element from a loosely typed attribute. `as?` is not allowed for Core
+    /// Foundation types (the compiler calls it always-true), so the type is checked explicitly.
+    nonisolated static func element(_ value: CFTypeRef?) -> AXUIElement? {
+        guard let value, CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
+        return unsafeBitCast(value, to: AXUIElement.self)
     }
 
     nonisolated static func value(_ element: AXUIElement, _ attribute: String) -> CFTypeRef? {
@@ -243,7 +327,7 @@ enum ClaudeSender {
     }
 
     /// Sidebar chat rows carry their title as text a level or two down (Claude wraps it in a group).
-    private static func labelled(_ element: AXUIElement, _ title: String, depth: Int = 3) -> Bool {
+    nonisolated private static func labelled(_ element: AXUIElement, _ title: String, depth: Int = 3) -> Bool {
         guard depth > 0 else { return false }
         return children(element).contains { child in
             value(child, kAXValueAttribute) as? String == title || labelled(child, title, depth: depth - 1)
@@ -268,8 +352,13 @@ enum ClaudeSender {
         (value(element, kAXChildrenAttribute) as? [AXUIElement]) ?? []
     }
 
+    private nonisolated static func currentChatOffMain(_ window: AXUIElement) async -> ClaudeChat? {
+        let handle = AXHandle(window)
+        return await Task.detached(priority: .userInitiated) { currentChat(in: handle.value) }.value
+    }
+
     /// The page area carries the chat's address (claude.ai/chat/<id>) and "<title> - Claude".
-    static func currentChat(in window: AXUIElement) -> ClaudeChat? {
+    nonisolated static func currentChat(in window: AXUIElement) -> ClaudeChat? {
         var stack = [window]
         var visited = 0
         while let element = stack.popLast(), visited < 3000 {
@@ -324,7 +413,7 @@ enum ClaudeSender {
 
     /// The message box: the text area Claude labels "Напишите запрос…" / "Write your prompt…",
     /// or the last text area in the window.
-    private static func findInput(in window: AXUIElement) -> AXUIElement? {
+    nonisolated private static func findInput(in window: AXUIElement) -> AXUIElement? {
         var stack = [window]
         var visited = 0
         var last: AXUIElement?
@@ -338,6 +427,11 @@ enum ClaudeSender {
             stack.append(contentsOf: children(element).reversed())
         }
         return last
+    }
+
+    private nonisolated static func findInputOffMain(_ window: AXUIElement) async -> AXUIElement? {
+        let handle = AXHandle(window)
+        return await Task.detached(priority: .userInitiated) { findInput(in: handle.value).map { AXHandle($0) } }.value?.value
     }
 
     private static func type(_ text: String, to pid: pid_t) {
@@ -362,4 +456,11 @@ enum ClaudeSender {
             CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: down)?.postToPid(pid)
         }
     }
+}
+
+/// AXUIElement is a Core Foundation object, not marked Sendable; the helper is only moved to one
+/// serial detached task and read there, so this unchecked box is the narrow boundary.
+private final class AXHandle: @unchecked Sendable {
+    let value: AXUIElement
+    init(_ value: AXUIElement) { self.value = value }
 }

@@ -4,7 +4,7 @@
 
 <p align="center"><b>English</b> · <a href="README.ru.md">Русский</a></p>
 
-<p align="center"><b>Your Codex and Claude limits in the macOS menu bar — and work that carries on by itself after a limit resets.</b></p>
+<p align="center"><b>Your Codex and Claude limits in the macOS menu bar — with cards that travel to your iPhone.</b></p>
 
 <p align="center">
   <a href="https://github.com/vitalyor/cooldown/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/vitalyor/cooldown?label=release"></a>
@@ -17,7 +17,8 @@
 Ran out of limit in the middle of a task at night? Cooldown waits for the reset and continues the same
 Codex conversation on its own, so in the morning the task is done. It also shows how much of the
 5-hour and weekly limits is left, what each agent is doing, and brings permission requests to a card
-you can answer from any app. Everything runs locally on your Mac; nothing is ever approved for you.
+you can answer from any app. Monitoring and task control run locally on your Mac; nothing is ever
+approved for you. The optional iPhone connection uses a relay and Apple push notifications.
 
 <p align="center"><img src="docs/images/demo-en.gif" width="380" alt="Cooldown demo: the limit runs out, the task waits and continues after the reset"></p>
 
@@ -66,8 +67,6 @@ Cooldown is signed with a Developer ID certificate and notarized by Apple, so it
 
 **Continuing after a reset**
 - Codex: a task that hit the limit continues by itself, right after the limit resets (built in, nothing else to install).
-- Claude Code: a session continues by itself via `claude --resume`.
-- Claude Desktop chats: Cooldown finds the chat and sends the continuation — only when you press the button.
 - Deferred Codex tasks: start as soon as Codex has limit again.
 
 **Statistics**
@@ -116,13 +115,17 @@ permissions don't mix: `echo 'COOLDOWN_BUNDLE_ID=com.yourname.cooldown' > local.
 
 Cooldown shows what is missing in its Settings window (⌘, or the gear) → General → Readiness:
 - **Notifications** — for cards when you are away from the Mac.
-- **Accessibility** — to see that Claude Desktop is writing an answer, and to continue chats.
+- **Accessibility** — to see what Claude Desktop is writing.
 - **Agent hooks** (optional) — instant events from Codex and Claude Code. Codex asks once to
   approve the new hooks.
 
 ## Privacy
 
-Cooldown sends nothing to servers of its own — there are none. Details: [docs/PRIVACY.md](docs/PRIVACY.md).
+Cooldown has no analytics or telemetry. If you enable the iPhone connection, a relay (by default
+`cooldown.nolim.cloud`) forwards encrypted messages and sends pushes through Apple. Live Activity
+headings, button labels and countdowns are visible to the relay; chat titles, card text and commands
+are encrypted. Cooldown also contacts GitHub for update checks unless you turn them off.
+Details: [docs/PRIVACY.md](docs/PRIVACY.md) and [docs/LINK.md](docs/LINK.md).
 
 ## How it works
 

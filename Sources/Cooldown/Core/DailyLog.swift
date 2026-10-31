@@ -75,7 +75,16 @@ final class DailyLog: ObservableObject {
 
     /// Only reads what is saved (for drawing the window into a picture).
     func load() {
-        if let data = try? Data(contentsOf: url), let saved = try? JSONDecoder().decode([String: Day].self, from: data) { days = saved }
+        guard let data = try? Data(contentsOf: url) else { return }
+        do {
+            days = try JSONDecoder().decode([String: Day].self, from: data)
+        } catch {
+            let stamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
+            let backup = url.deletingLastPathComponent().appendingPathComponent("daily.json.corrupt-\(stamp)")
+            try? FileManager.default.copyItem(at: url, to: backup)
+            AgentActivity.trace("daily log unreadable, kept a copy at \(backup.lastPathComponent)")
+            days = [:]
+        }
     }
 
     func start() {
@@ -95,9 +104,6 @@ final class DailyLog: ObservableObject {
         var fresh: [String: Day] = [:]
         add(model.codex.buckets, provider: .codex, into: &fresh)
         add(model.claude.buckets, provider: .claude, into: &fresh)
-        if let activity = ClaudeWeb.shared.activity {
-            for item in activity.items { fresh[Self.key(item.date), default: Day()].chats += 1 }
-        }
         let codexWeek = Self.weekUse(model.codex.samples.filter { $0.kind == .weekly }.map { ($0.t, $0.used) })
         // Claude: Cooldown's readings plus Claude Desktop's own record, which reaches further back.
         let claudeReadings = model.claude.samples.filter { $0.kind == .weekly }.map { ($0.t, $0.used) }
@@ -106,15 +112,25 @@ final class DailyLog: ObservableObject {
         var merged = days
         for (key, value) in fresh {
             var day = merged[key] ?? Day()
-            day.codexTokens = value.codexTokens
-            day.claudeTokens = value.claudeTokens
-            day.codexDollars = value.codexDollars
-            day.claudeDollars = value.claudeDollars
-            if value.chats > 0 { day.chats = value.chats }
+            // The detailed history is pruned after 45 days; a partially pruned old day must not
+            // replace the permanent total with the few hours that are left.
+            day.codexTokens = max(day.codexTokens, value.codexTokens)
+            day.claudeTokens = max(day.claudeTokens, value.claudeTokens)
+            day.codexDollars = max(day.codexDollars, value.codexDollars)
+            day.claudeDollars = max(day.claudeDollars, value.claudeDollars)
+            if value.chats > 0 { day.chats = max(day.chats, value.chats) }
             merged[key] = day
         }
-        for (key, value) in codexWeek { merged[key, default: Day()].codexWeek = value }
-        for (key, value) in claudeWeek { merged[key, default: Day()].claudeWeek = value }
+        for (key, value) in codexWeek {
+            var day = merged[key] ?? Day()
+            day.codexWeek = max(day.codexWeek, value)
+            merged[key] = day
+        }
+        for (key, value) in claudeWeek {
+            var day = merged[key] ?? Day()
+            day.claudeWeek = max(day.claudeWeek, value)
+            merged[key] = day
+        }
         if merged != days {
             days = merged
             save()

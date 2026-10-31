@@ -78,6 +78,10 @@ final class CodexRequestWatcher: @unchecked Sendable {
         var unavailableNoted = Set<String>()
         var followed: [String: Followed] = [:]
         var states: [String: [String: Any]] = [:]
+        defer {
+            for (id, entry) in followed { try? connection.setFollowing(id, owner: entry.owner, false) }
+            for id in followed.keys { setOpen(id, nil) }
+        }
         connection.onBroadcast = { message in
             guard message["method"] as? String == "thread-stream-state-changed",
                   let params = message["params"] as? [String: Any], params["hostId"] as? String == "local",
@@ -145,8 +149,6 @@ final class CodexRequestWatcher: @unchecked Sendable {
             if ready > 0 { try connection.read(deadline: Date().addingTimeInterval(8)) }
             if ready < 0 && errno != EINTR { throw CodexIPCError.connection(L("Соединение с приложением разорвано")) }
         }
-        for (id, entry) in followed { try? connection.setFollowing(id, owner: entry.owner, false) }
-        for id in followed.keys { setOpen(id, nil) }
     }
 
     static func touchesRequests(_ patches: Any?) -> Bool {
@@ -211,6 +213,7 @@ final class CodexRequestWatcher: @unchecked Sendable {
     private func post(_ card: AgentRequest, request: [String: Any], thread: String, attempt: Int) {
         if RequestCenter.shared.isPending(card.key) {
             // Already on a card; keep its answer bound to the same request.
+            ToastController.shared.dismiss(key: "wait-codex:\(thread)")
             RequestCenter.shared.post(card, open: { CodexApp.open(thread: thread) }, respond: Self.responder(thread, request))
             return
         }
@@ -228,6 +231,7 @@ final class CodexRequestWatcher: @unchecked Sendable {
                 return
             }
         }
+        ToastController.shared.dismiss(key: "wait-codex:\(thread)")
         RequestCenter.shared.post(card, open: { CodexApp.open(thread: thread) }, respond: Self.responder(thread, request))
     }
 

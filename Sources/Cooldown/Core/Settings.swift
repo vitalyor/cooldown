@@ -7,12 +7,15 @@ enum SettingsKey {
     static let claudePath = "claudePath"
     static let showPercent = "showPercent"
     static let menuSource = "menuSource"
+    static let menuWindow = "menuWindow"
     static let notifyThresholds = "notifyThresholds"
     static let notifyReset = "notifyReset"
     static let notifyTasks = "notifyTasks"
     static let claudeAccountUsage = "claudeAccountUsage"
     static let claudeUsageCLI = "claudeUsageCLI"
     static let claudeContinueText = "claudeContinueText"
+    static let claudeAutoContinue = "claudeAutoContinue"
+    static let claudeAutoCode = "claudeAutoCode"
     static let toasts = "toasts"
     static let notifyFinished = "notifyFinished"
     static let notifyAttention = "notifyAttention"
@@ -66,6 +69,8 @@ enum Settings {
     static var showPercent: Bool { bool(SettingsKey.showPercent, true) }
     /// "lowest" across all agents, or one agent's id.
     static var menuSource: String { defaults.string(forKey: SettingsKey.menuSource) ?? "lowest" }
+    /// "session" (5 hours) or "weekly" for the line/number in the menu bar.
+    static var menuWindow: String { defaults.string(forKey: SettingsKey.menuWindow) ?? "session" }
     static var notifyThresholds: Bool { bool(SettingsKey.notifyThresholds, true) }
     static var notifyReset: Bool { bool(SettingsKey.notifyReset, true) }
     static var notifyTasks: Bool { bool(SettingsKey.notifyTasks, true) }
@@ -112,6 +117,10 @@ enum Settings {
     static var quietFrom: Int { UserDefaults.standard.object(forKey: SettingsKey.quietFrom) as? Int ?? 23 * 60 }
     static var quietTo: Int { UserDefaults.standard.object(forKey: SettingsKey.quietTo) as? Int ?? 8 * 60 }
     static var claudeUsageCLI: Bool { bool(SettingsKey.claudeUsageCLI, true) }
+    /// Continue the chosen Claude Desktop chats after the plan window resets, without a press.
+    static var claudeAutoContinue: Bool { bool(SettingsKey.claudeAutoContinue, true) }
+    /// Pick up Claude Code sessions stopped by the plan limit and continue them in the background.
+    static var claudeAutoCode: Bool { bool(SettingsKey.claudeAutoCode, true) }
 
     /// Reset time of a window seen nearly spent; a notification fires once it passes.
     static func pendingReset(_ provider: ProviderID) -> Date? {
@@ -125,7 +134,9 @@ enum Settings {
 
     static var notifiedKeys: [String] {
         get { defaults.stringArray(forKey: SettingsKey.notifiedKeys) ?? [] }
-        set { defaults.set(Array(newValue.suffix(80)), forKey: SettingsKey.notifiedKeys) }
+        // Keys carry the reset time, so many of them are still current. 500 is far more than the
+        // handful of windows alive at once and does not push one out while its card is still open.
+        set { defaults.set(Array(newValue.suffix(500)), forKey: SettingsKey.notifiedKeys) }
     }
 
     /// Cooldown for iPhone: on, notifications even while someone is at the Mac, and the Live

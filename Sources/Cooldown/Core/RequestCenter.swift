@@ -89,17 +89,20 @@ final class RequestCenter: ObservableObject {
 
     private var pending: [String: (request: AgentRequest, respond: Responder, open: () -> Void)] = [:]
     private var shown = Set<String>()
+    private var answering = Set<String>()
     /// Multi-question cards: which question is shown and the options picked so far.
     private var steps: [String: [RequestAnswer]] = [:]
     private var observer: NSObjectProtocol?
 
-    private init() {
+    init() {
         // Leaving the agent's app with a request still open: now is the moment for its card.
         observer = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification,
-                                                                     object: nil, queue: .main) { _ in
-            MainActor.assumeIsolated { RequestCenter.shared.revealWaiting() }
+                                                                     object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.revealWaiting() }
         }
     }
+
+    deinit { if let observer { NSWorkspace.shared.notificationCenter.removeObserver(observer) } }
 
     func isPending(_ key: String) -> Bool { pending[key] != nil }
     func hasPending(prefix: String) -> Bool { pending.keys.contains { $0.hasPrefix(prefix) } }
@@ -189,6 +192,7 @@ final class RequestCenter: ObservableObject {
 
     /// The person pressed a button on the card.
     func answer(_ key: String, _ choice: RequestChoice) {
+        guard !answering.contains(key) else { return }
         guard let entry = pending[key] else { ToastController.shared.dismiss(key: "req-" + key); return }
         if choice.role == .open {
             // The question is in front of you in the chat now: the card steps aside and stays
@@ -216,9 +220,11 @@ final class RequestCenter: ObservableObject {
     }
 
     private func send(_ key: String, entry: (request: AgentRequest, respond: Responder, open: () -> Void), choice: RequestChoice) {
+        guard answering.insert(key).inserted else { return }
         ToastController.shared.setBusy(key: "req-" + key, true)
-        AgentActivity.trace("request \(key): answering «\(choice.title)»")
+        AgentActivity.trace("request \(key): answering")
         Task {
+            defer { self.answering.remove(key) }
             do {
                 try await entry.respond(choice)
                 self.resolved(key)

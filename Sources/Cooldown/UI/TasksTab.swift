@@ -19,6 +19,7 @@ struct TasksTab: View {
     @ObservedObject var tasks: ClaudeTaskManager
     @Binding var screen: Screen
     let render: Bool
+    @AppStorage(SettingsKey.claudeAutoCode) private var autoCode = true
 
     var body: some View {
         let items = self.items
@@ -46,6 +47,9 @@ struct TasksTab: View {
                     SectionTitle(text: L("Claude Code — продолжает сам"))
                     Text(L("Сессии Claude Code в терминале или во вкладке Code. После сброса лимита Cooldown продолжит их сам, без вашего нажатия."))
                         .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 4)
+                    Toggle(L("Подхватывать остановленные сессии"), isOn: $autoCode)
+                        .toggleStyle(.switch)
                         .padding(.horizontal, 4)
                 }
             }
@@ -161,65 +165,8 @@ struct TasksTab: View {
     }
 }
 
-/// Claude Desktop chats and Cowork live on the server and are not continued automatically:
-/// Cooldown says when the limit is back and opens Claude.
-private struct ClaudeDesktopCard: View {
-    @AppStorage(SettingsKey.notifyReset) private var notifyReset = true
-    @AppStorage(SettingsKey.claudeContinueText) private var continueText = ""
-    @State private var sending = false
-    @State private var result: String?
-    @State private var failed = false
-
-    var body: some View {
-        Well {
-            Label(L("Чаты Claude — продолжение одним нажатием"), systemImage: "bubble.left.and.text.bubble.right")
-                .font(.system(size: 13, weight: .semibold))
-            Text(L("Когда лимит восстановится, придёт карточка «Продолжить». Нажмёте её, и Cooldown найдёт нужный чат и отправит туда сообщение ниже. Без вашего нажатия ничего не отправляется."))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            Toggle(L("Сообщать, когда лимит восстановился"), isOn: $notifyReset).toggleStyle(.switch)
-            TextField(ClaudeSender.defaultText, text: $continueText, axis: .vertical)
-                .lineLimit(1...3)
-                .textFieldStyle(.roundedBorder)
-            HStack(spacing: 8) {
-                Button { send() } label: {
-                    Label(sending ? L("Отправляю…") : L("Продолжить сейчас"), systemImage: "paperplane").frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.glassProminent)
-                .tint(Theme.coral)
-                .disabled(sending)
-                Button { ClaudeApp.open() } label: { Label(L("Открыть"), systemImage: "arrow.up.forward.app") }
-                    .buttonStyle(.glass)
-            }
-            if !ClaudeSender.hasPermission {
-                Text(L("Для отправки macOS один раз попросит разрешение «Универсальный доступ»."))
-                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            }
-            if let result {
-                Note(symbol: failed ? "exclamationmark.triangle.fill" : "checkmark.circle", text: result,
-                     color: failed ? Theme.amber : Theme.mint)
-            }
-        }
-    }
-
-    private func send() {
-        sending = true
-        result = nil
-        Task {
-            do {
-                try await ClaudeSender.continueChat()
-                failed = false
-                result = L("Отправлено в открытый чат Claude.")
-            } catch {
-                failed = true
-                result = error.localizedDescription
-            }
-            sending = false
-        }
-    }
-}
-
+/// Claude Desktop chats and Cowork live on the server; Cooldown can continue a chosen chat by
+/// typing into it (Accessibility), and says so when that is not possible.
 enum ClaudeApp {
     static let bundleID = "com.anthropic.claudefordesktop"
 
@@ -348,52 +295,6 @@ struct AddTaskScreen: View {
     }
 }
 
-private struct PickerList<Item: Identifiable, Row: View>: View {
-    let items: [Item]
-    let render: Bool
-    let choose: (Item) -> Void
-    @ViewBuilder var row: (Item) -> Row
-
-    var body: some View {
-        let list = LazyVStack(spacing: 2) {
-            ForEach(render ? Array(items.prefix(7)) : items) { item in
-                Button { choose(item) } label: { row(item) }.buttonStyle(.plain)
-            }
-        }
-        .padding(6)
-        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.well))
-        if render { list } else { ScrollView(.vertical, showsIndicators: false) { list } }
-    }
-}
-
-private struct PickerRow: View {
-    let title: String
-    let subtitle: String
-    var badge: String? = nil
-    var badgeColor: Color = .secondary
-    var dimmed = false
-    @State private var hovering = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title).lineLimit(1)
-            HStack(spacing: 6) {
-                Text(subtitle)
-                if let badge { Text(badge).foregroundStyle(badgeColor) }
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-        }
-        .opacity(dimmed ? 0.55 : 1)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(hovering ? Color.primary.opacity(0.07) : .clear))
-        .contentShape(Rectangle())
-        .onHover { hovering = $0 }
-    }
-}
-
 private struct ConsentBlock: View {
     let provider: ProviderID
     @Binding var maxResumes: Int
@@ -435,6 +336,8 @@ private struct CodexAddFlow: View {
     @State private var selected: CodexConversation?
     @State private var result: ResumeCheck?
     @State private var checking = false
+    /// Identifies the latest `check` call: a slower answer for an older selection is dropped.
+    @State private var checkToken = UUID()
     @State private var error: String?
     @State private var maxResumes = 2
     @State private var confirmed = false
@@ -516,14 +419,18 @@ private struct CodexAddFlow: View {
         error = nil
         confirmed = false
         checking = true
+        let token = UUID()
+        checkToken = token
         Task {
             do {
                 let check = try await model.check(thread.id)
+                guard checkToken == token else { return }
                 if selected?.id == thread.id { result = check }
             } catch {
+                guard checkToken == token else { return }
                 if selected?.id == thread.id { self.error = ResumeError.friendly(error) }
             }
-            checking = false
+            if checkToken == token { checking = false }
         }
     }
 
@@ -545,6 +452,7 @@ private struct CodexAddFlow: View {
     }
 
     private func reset() {
+        checkToken = UUID()
         selected = nil
         result = nil
         error = nil
@@ -642,191 +550,4 @@ private struct ClaudeAddFlow: View {
 }
 
 /// Claude Desktop chats chosen for continuing after a reset.
-private struct ClaudeChatsSection: View {
-    @ObservedObject private var list = ClaudeChatList.shared
-    @Binding var screen: Screen
-    @State private var error: String?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                SectionTitle(text: L("Чаты для продолжения"))
-                Spacer()
-                Button {
-                    AddTaskScreen.wantsClaudeCode = false
-                    screen = .addTask
-                } label: { Label(L("Выбрать чат"), systemImage: "plus") }
-                    .buttonStyle(.link).font(.caption)
-            }
-            if list.entries.isEmpty {
-                Text(L("Выберите чаты Claude, которые нужно продолжить, когда лимит восстановится. Если не выбрать, Cooldown сам запомнит чат, в котором кончился лимит."))
-                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 4)
-            } else {
-                Well(padding: 12) {
-                    ForEach(Array(list.entries.enumerated()), id: \.element.id) { index, entry in
-                        if index > 0 { Divider().opacity(0.5) }
-                        HStack(alignment: .top, spacing: 10) {
-                            Image(systemName: "bubble.left.fill").foregroundStyle(Theme.coral).padding(.top, 2)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(entry.chat.title).lineLimit(2)
-                                Text(subtitle(entry)).font(.caption).foregroundStyle(.secondary)
-                            }
-                            Spacer(minLength: 4)
-                            Menu {
-                                Button(L("Продолжить сейчас")) { send(entry) }
-                                Button(L("Убрать")) { list.remove(entry) }
-                            } label: { Image(systemName: "ellipsis") }
-                            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().frame(width: 28, height: 22)
-                        }
-                    }
-                }
-                if list.entries.count >= 2 {
-                    Button {
-                        Task { await list.continueAll(list.entries.map(\.chat)) }
-                    } label: {
-                        Label(list.continuing ? L("Продолжаю…") : L("Продолжить все сейчас"), systemImage: "paperplane").frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.glass)
-                    .disabled(list.continuing)
-                }
-                Text(L("Когда лимит восстановится, придёт карточка «Продолжить» (для нескольких чатов — одна, «Продолжить все»). Нажмёте — Cooldown сам найдёт каждый чат, даже если вы ушли в другой, проверит его и отправит сообщение."))
-                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 4)
-            }
-            if let error { Note(symbol: "exclamationmark.triangle.fill", text: error, color: Theme.amber) }
-        }
-    }
-
-    private func subtitle(_ entry: ClaudeChatList.Entry) -> String {
-        var parts: [String] = [entry.automatic ? L("запомнен при исчерпании лимита") : L("выбран вами")]
-        if let sent = entry.lastSent { parts.append(L("продолжен %@", "\(Format.relative(sent))")) }
-        return parts.joined(separator: " · ")
-    }
-
-    private func send(_ entry: ClaudeChatList.Entry) {
-        error = nil
-        Task {
-            do { try await ClaudeSender.continueChat(entry.chat) } catch { self.error = error.localizedDescription }
-        }
-    }
-}
-
 /// Pick chats from Claude's sidebar.
-private struct ClaudeChatPicker: View {
-    @ObservedObject private var list = ClaudeChatList.shared
-    @ObservedObject private var web = ClaudeWeb.shared
-    @Binding var screen: Screen
-    @State private var query = ""
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            TextField(L("Найти чат по названию или проекту"), text: $query)
-                .textFieldStyle(.plain)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .glassEffect(.regular, in: .capsule)
-            if list.availableSource != .web && !ClaudeSender.hasPermission {
-                Note(symbol: "exclamationmark.triangle.fill", text: L("Чтобы видеть чаты Claude, нужен «Универсальный доступ» для Cooldown (Настройки → Готовность) или вход в claude.ai."), color: Theme.amber)
-            } else if list.available.isEmpty && !list.loadingAvailable {
-                Well {
-                    Text(L("Откройте Claude Desktop — Cooldown возьмёт список чатов из его боковой панели."))
-                        .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                    Button(L("Обновить")) { list.refreshAvailable() }.buttonStyle(.glass)
-                }
-            }
-            if list.availableSource == .window && !web.isConnected {
-                Text(L("Здесь чаты из боковой панели Claude и те, что Cooldown уже видел открытыми. Полный список со всеми проектами — после входа в claude.ai в настройках."))
-                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 4)
-            }
-            if let current = list.current, !list.entries.contains(where: { $0.chat.matches(current) }), query.isEmpty {
-                Button {
-                    list.add(current)
-                    screen = .home
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "scope").foregroundStyle(Theme.coral)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(current.title).lineLimit(1)
-                            Text(L("Открыт сейчас в Claude"))
-                                .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    .padding(12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.well))
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
-            if list.loadingAvailable && list.available.isEmpty {
-                ProgressView().controlSize(.small).frame(maxWidth: .infinity)
-            }
-            PickerList(items: candidates, render: false, choose: { item in
-                list.add(item)
-                screen = .home
-            }) { item in
-                PickerRow(title: item.chat.title, subtitle: subtitle(item))
-            }
-        }
-        .onAppear { list.refreshAvailable() }
-    }
-
-    private func subtitle(_ item: ClaudeChatList.Known) -> String {
-        var parts: [String] = []
-        if let project = item.project { parts.append(project) }
-        if let updated = item.updated { parts.append(Format.relative(updated)) }
-        else if !item.chat.id.isEmpty { parts.append(L("открывался %@", "\(Format.relative(item.chat.seen))")) }
-        else { parts.append(L("из боковой панели")) }
-        return parts.joined(separator: " · ")
-    }
-
-    private var candidates: [ClaudeChatList.Known] {
-        var chosen = list.entries.map(\.chat)
-        if query.isEmpty, let current = list.current { chosen.append(current) }   // shown on top already
-        let term = query.trimmingCharacters(in: .whitespaces).lowercased()
-        return list.available.filter { item in
-            !chosen.contains { $0.matches(item.chat) }
-                && (term.isEmpty || item.chat.title.lowercased().contains(term) || (item.project?.lowercased().contains(term) ?? false))
-        }
-        .prefix(300).map { $0 }
-    }
-}
-
-
-/// What an agent is doing right now (from hooks, session files and Claude's window).
-private struct AgentNowSection: View {
-    @ObservedObject private var activity = AgentActivity.shared
-    let provider: ProviderID
-
-    var body: some View {
-        let items = activity.waiting(provider) + activity.working(provider)
-        if !items.isEmpty {
-            VStack(alignment: .leading, spacing: 6) {
-                SectionTitle(text: L("Сейчас в %@", "\(provider.displayName)"))
-                Well(padding: 12) {
-                    ForEach(Array(items.enumerated()), id: \.element.id) { index, session in
-                        if index > 0 { Divider().opacity(0.5) }
-                        HStack(spacing: 10) {
-                            Circle().fill(session.state == .waiting ? Theme.amber : Theme.mint).frame(width: 7, height: 7)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(session.title.isEmpty ? L("Без названия") : session.title).lineLimit(1)
-                                Text(detail(session)).font(.caption).foregroundStyle(.secondary).lineLimit(2)
-                            }
-                            Spacer(minLength: 0)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private func detail(_ session: AgentActivity.Session) -> String {
-        let place = session.source == .window ? "Claude Desktop" : session.key.hasPrefix("chat:") ? "Claude Desktop" : provider == .claude ? "Claude Code" : "Codex"
-        if session.state == .waiting { return L("%@ · ждёт вашего решения", "\(place)") + (session.reason.map { ": \($0)" } ?? "") }
-        let minutes = Int(Date().timeIntervalSince(session.started) / 60)
-        return L("%@ · работает", "\(place)") + (minutes > 0 ? L(" %@ мин", "\(minutes)") : "")
-    }
-}

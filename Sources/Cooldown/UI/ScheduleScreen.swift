@@ -8,6 +8,7 @@ struct ScheduleScreen: View {
     @State private var prompt = ""
     @State private var folder = UserDefaults.standard.string(forKey: "scheduleFolder") ?? ""
     @State private var canEdit = true
+    @State private var problem: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -42,9 +43,13 @@ struct ScheduleScreen: View {
                         }
                     }
                     Button {
-                        ScheduledRunner.shared.add(prompt: prompt.trimmingCharacters(in: .whitespacesAndNewlines), folder: folder, canEdit: canEdit)
-                        UserDefaults.standard.set(folder, forKey: "scheduleFolder")
-                        screen = .home
+                        do {
+                            try ScheduledRunner.shared.add(prompt: prompt.trimmingCharacters(in: .whitespacesAndNewlines), folder: folder, canEdit: canEdit)
+                            UserDefaults.standard.set(folder, forKey: "scheduleFolder")
+                            screen = .home
+                        } catch {
+                            problem = L("Не сохранилось: %@", error.localizedDescription)
+                        }
                     } label: {
                         Label(L("Запланировать"), systemImage: "clock.arrow.circlepath").frame(maxWidth: .infinity)
                     }
@@ -52,6 +57,9 @@ struct ScheduleScreen: View {
                     .tint(Theme.tint(for: .codex))
                     .controlSize(.large)
                     .disabled(prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || folder.isEmpty)
+                    if let problem {
+                        Text(problem).font(.caption).foregroundStyle(Theme.amber).fixedSize(horizontal: false, vertical: true)
+                    }
                 }
                 .padding(.bottom, 16)
             }
@@ -118,12 +126,18 @@ struct ScheduledSection: View {
             Spacer(minLength: 4)
             switch task.state {
             case .waiting, .running:
-                Button(task.state == .running ? L("Остановить") : L("Отменить")) { runner.cancel(task.id) }
+                Button(task.state == .running ? L("Остановить") : L("Отменить")) {
+                    do { try runner.cancel(task.id) }
+                    catch { ToastController.shared.show(ToastCatalog.failure(L("Не удалось"), error.localizedDescription)) }
+                }
                     .buttonStyle(.link).font(.caption)
             default:
                 Menu {
                     Button(L("Открыть журнал")) { NSWorkspace.shared.open(runner.logURL(task)) }
-                    Button(L("Убрать из списка")) { runner.remove(task.id) }
+                    Button(L("Убрать из списка")) {
+                        do { try runner.remove(task.id) }
+                        catch { ToastController.shared.show(ToastCatalog.failure(L("Не удалось"), error.localizedDescription)) }
+                    }
                 } label: { Image(systemName: "ellipsis") }
                 .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().frame(width: 28, height: 22)
             }

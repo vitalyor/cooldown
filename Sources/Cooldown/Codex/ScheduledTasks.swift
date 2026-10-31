@@ -27,14 +27,15 @@ final class ScheduledRunner: ObservableObject {
 
     @Published private(set) var tasks: [ScheduledTask] = []
     private var processes: [UUID: Process] = [:]
-    private let url = Settings.appSupport.appendingPathComponent("scheduled.json")
+    private let url: URL
     private var logs: URL {
         let folder = Settings.appSupport.appendingPathComponent("logs", isDirectory: true)
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         return folder
     }
 
-    init() {
+    init(url: URL = Settings.appSupport.appendingPathComponent("scheduled.json")) {
+        self.url = url
         if let data = try? Data(contentsOf: url), let saved = try? JSONDecoder().decode([ScheduledTask].self, from: data) {
             // A run interrupted by quitting Cooldown is not resumed silently.
             tasks = saved.map { task in
@@ -48,23 +49,24 @@ final class ScheduledRunner: ObservableObject {
     var waiting: [ScheduledTask] { tasks.filter { $0.state == .waiting || $0.state == .running } }
     var recent: [ScheduledTask] { tasks.filter { $0.state != .waiting && $0.state != .running }.prefix(3).map { $0 } }
 
-    func add(prompt: String, folder: String, canEdit: Bool) {
-        tasks.insert(ScheduledTask(prompt: prompt, folder: folder, canEdit: canEdit), at: 0)
-        save()
+    func add(prompt: String, folder: String, canEdit: Bool) throws {
+        var updated = tasks
+        updated.insert(ScheduledTask(prompt: prompt, folder: folder, canEdit: canEdit), at: 0)
+        try commit(updated)
         tick(limits: AppModel.shared.codex.snapshot)
     }
 
-    func cancel(_ id: UUID) {
+    func cancel(_ id: UUID) throws {
         guard let index = tasks.firstIndex(where: { $0.id == id }) else { return }
+        var updated = tasks
+        updated[index].state = .cancelled
+        updated[index].finished = Date()
+        try commit(updated)
         processes[id]?.terminate()
-        tasks[index].state = .cancelled
-        tasks[index].finished = Date()
-        save()
     }
 
-    func remove(_ id: UUID) {
-        tasks.removeAll { $0.id == id && $0.state != .running }
-        save()
+    func remove(_ id: UUID) throws {
+        try commit(tasks.filter { $0.id != id || $0.state == .running })
     }
 
     /// Starts waiting tasks once Codex has room again in both windows; one at a time.
@@ -105,21 +107,23 @@ final class ScheduledRunner: ObservableObject {
         }
         process.standardInput = FileHandle.nullDevice
         let id = task.id
-        process.terminationHandler = { finished in
+        process.terminationHandler = { [weak self] finished in
             let status = finished.terminationStatus
-            Task { @MainActor in ScheduledRunner.shared.finished(id, status: status, answer: last) }
+            Task { @MainActor in self?.finished(id, status: status, answer: last) }
         }
         do {
+            // A crash after launch must leave a running record, never a second queued launch.
+            task.state = .running
+            task.started = Date()
+            var starting = tasks
+            starting[index] = task
+            try commit(starting)
             try process.run()
         } catch {
             fail(index, L("Не удалось запустить codex: %@", "\(error.localizedDescription)"))
             return
         }
         processes[id] = process
-        task.state = .running
-        task.started = Date()
-        tasks[index] = task
-        save()
         let detail = L("Лимит Codex восстановился, задача запущена в папке %@.", "\(Stats.projectName(task.folder))")
         Notifier.shared.post(id: "scheduled-start-\(id)", title: L("Запланированная задача запущена"), body: "«\(task.title)». \(detail)",
                              toast: ToastContent(key: "scheduled-\(id)", kind: .reset, provider: .codex,
@@ -157,6 +161,28 @@ final class ScheduledRunner: ObservableObject {
     func logURL(_ task: ScheduledTask) -> URL { logs.appendingPathComponent("scheduled-\(task.id.uuidString).log") }
 
     private func save() {
-        try? JSONEncoder().encode(Array(tasks.prefix(30))).write(to: url, options: .atomic)
+        do { try Self.persist(tasks, to: url) }
+        catch {
+            AgentActivity.trace("scheduled tasks: save failed: \(error.localizedDescription)")
+            ToastController.shared.show(ToastCatalog.failure(L("Не удалось"), L("Не сохранилось: %@", error.localizedDescription)))
+        }
+    }
+
+    private func commit(_ updated: [ScheduledTask]) throws {
+        try Self.persist(updated, to: url)
+        tasks = updated
+    }
+
+    static func persist(_ tasks: [ScheduledTask], to url: URL) throws {
+        try JSONEncoder().encode(savedTasks(tasks)).write(to: url, options: .atomic)
+    }
+
+    static func savedTasks(_ tasks: [ScheduledTask]) -> [ScheduledTask] {
+        var finished = 0
+        return tasks.filter { task in
+            if task.state == .waiting || task.state == .running { return true }
+            finished += 1
+            return finished <= 30
+        }
     }
 }

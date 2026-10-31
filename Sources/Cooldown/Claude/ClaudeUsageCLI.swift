@@ -29,7 +29,9 @@ actor ClaudeUsageCLI {
     /// not after the full pause, so a hiccup does not leave old numbers on screen for long.
     private var failuresInRow = 0
     /// Set when Claude just finished an answer: the share used has moved, so a minute's pause is enough.
-    nonisolated(unsafe) static var turnFinished = false
+    private(set) var turnFinished = false
+
+    func noteTurnFinished() { turnFinished = true }
     private var running: Task<LimitSnapshot, Error>?
 
     /// How often Claude Code is started for /usage. Starting it costs a second of CPU and a
@@ -59,7 +61,7 @@ actor ClaudeUsageCLI {
     func read(binary: URL, force: Bool = false, pace: Pace = Pace()) async throws -> LimitSnapshot {
         var pause = Self.interval(pace)
         if failuresInRow > 0 { pause = min(pause, 60 * pow(2, Double(min(failuresInRow, 4) - 1))) }
-        if Self.turnFinished { pause = min(pause, 60) }
+        if turnFinished { pause = min(pause, 60) }
         if !force, Date().timeIntervalSince(lastAttempt) < pause {
             if let last { return last }
             if let lastError { throw lastError }
@@ -77,7 +79,7 @@ actor ClaudeUsageCLI {
             last = snapshot
             lastError = nil
             failuresInRow = 0
-            Self.turnFinished = false
+            turnFinished = false
             await MainActor.run {
                 ClaudeUsageStatus.shared.needsPermission = false
                 ClaudeUsageStatus.shared.problem = nil
@@ -173,7 +175,6 @@ actor ClaudeUsageCLI {
         var bytes = Data()
         var chunk = [UInt8](repeating: 0, count: 65536)
         var deadline = Date().addingTimeInterval(25)
-        var settleUntil: Date?
         // "Failed to load usage data" is usually a passing server hiccup: press "r" like a person.
         var retries = 0
         var retryAt: Date?
@@ -184,7 +185,6 @@ actor ClaudeUsageCLI {
         var sawLimits: Date?
         var redrawFrom: Int?
         while Date() < deadline {
-            if let settleUntil, Date() > settleUntil { break }
             var descriptor = pollfd(fd: master, events: Int16(POLLIN), revents: 0)
             if poll(&descriptor, 1, 100) > 0 {
                 let count = Darwin.read(master, &chunk, chunk.count)
@@ -207,7 +207,7 @@ actor ClaudeUsageCLI {
                 }
                 continue
             }
-            if settleUntil == nil {
+            do {
                 let text = plain(bytes)
                 let flat = text.replacingOccurrences(of: " ", with: "")
                 if flat.localizedCaseInsensitiveContains("trustthisfolder") { break }
@@ -301,8 +301,9 @@ actor ClaudeUsageCLI {
             let zone = firstMatch(#"Resets[^\n(]*\(([A-Za-z_]+/[A-Za-z_]+)"#, in: block).flatMap(TimeZone.init(identifier:))
             let lower = header.lowercased().replacingOccurrences(of: " ", with: "")
             let kind: WindowKind = lower.hasPrefix("session") ? .session : .weekly
-            let fallback = now.addingTimeInterval(Double(kind.defaultMinutes) * 60)
-            let resets = resetText.flatMap { resetDate($0, zone: zone ?? .current, now: now) } ?? fallback
+            // Never invent a reset time. A made-up five-hour or weekly reset would win the merge
+            // against a real reading and send auto-continue at the wrong moment.
+            guard let resetText, let resets = resetDate(resetText, zone: zone ?? .current, now: now) else { continue }
             var window = LimitWindow(kind: kind, usedPercent: min(100, max(0, used)),
                                      durationMinutes: kind.defaultMinutes, resetsAt: resets)
             if kind == .session {

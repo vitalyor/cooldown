@@ -11,14 +11,14 @@ A Swift package, SwiftUI + AppKit, no third-party dependencies. The window is a 
 |---|---|
 | `Core/` | `AppModel` (state, timers), `AgentActivity` (who is working, waiting, finished), stores (`HistoryStore`, `DailyLog`, `TurnLog`, `EventLog`), forecast and pace, hooks, file watching |
 | `Codex/` | limits via `codex app-server`, history from session files, the conversation index (`state_*.sqlite`), the finish watcher, deferred tasks |
-| `Claude/` | limits (`/usage`, status line, Claude Desktop, claude.ai), the Claude Desktop window via Accessibility, chats to continue, Claude Code sessions |
+| `Claude/` | limits (`/usage`, status line, Claude Desktop), the Claude Desktop window via Accessibility, Claude Code sessions |
 | `AutoResume/` | Codex auto-continue: the app's local socket (follower only), the decision policy, the send ledger, the per-task watcher |
 | `UI/` | the panel, tabs, cards, settings, the menu bar icon |
 
 ## One coordinator for events
 
-Every source reports to `AgentActivity`: Codex session files, hooks, the Claude Desktop window,
-claude.ai. It decides what to show: the same end of work seen by two sources is announced once; short
+Every source reports to `AgentActivity`: Codex session files, hooks, the Claude Desktop window.
+It decides what to show: the same end of work seen by two sources is announced once; short
 turns are not announced; duration and the share of the limit are counted from the start of the turn.
 
 ## Claude limits

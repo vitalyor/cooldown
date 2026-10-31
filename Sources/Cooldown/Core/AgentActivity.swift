@@ -154,11 +154,12 @@ final class AgentActivity: ObservableObject {
     /// the reviewer worked or the turn moved on, nobody needed to be asked.
     func permissionAsked(_ provider: ProviderID, key: String, title: String, reason: String, opener: Opener, at date: Date) {
         let id = "\(provider.rawValue):\(key)"
-        Self.trace("permission \(id) — checking in 20 s")
+        let delay = Self.permissionDelay(provider, openRequests: CodexRequestWatcher.shared.openCount(key))
+        Self.trace("permission \(id) — checking in \(Int(delay)) s")
         // A question proves the turn is on, even if its start was missed (Cooldown started during it):
         // without a session the conversation would not be followed and its question never shown.
         if sessions[id] == nil { started(provider, key: key, title: title, source: .hook, at: date) }
-        check(after: 20, reviewerMayDecide: true)
+        check(after: delay, reviewerMayDecide: delay > 0)
         // Codex's reviewer ("approve for me") looks first; when it hands the question to the person
         // nothing moves on, so a second look later still asks.
         func check(after delay: TimeInterval, reviewerMayDecide: Bool) {
@@ -181,6 +182,10 @@ final class AgentActivity: ObservableObject {
                              announce: !(provider == .codex && RequestCenter.shared.hasPending(prefix: CodexRequestWatcher.prefix(key))))
           }
         }
+    }
+
+    static func permissionDelay(_ provider: ProviderID, openRequests: Int?) -> TimeInterval {
+        provider == .codex && openRequests == nil ? 0 : 20
     }
 
     /// The agent stopped to ask the person (permission, a question).
@@ -217,7 +222,7 @@ final class AgentActivity: ObservableObject {
         changed()
         if provider == .claude {
             // The answer has used some of the limit: read it again shortly (the server counts it in a moment).
-            ClaudeUsageCLI.turnFinished = true
+            Task { await ClaudeUsageCLI.shared.noteTurnFinished() }
             DispatchQueue.main.asyncAfter(deadline: .now() + 8) { Task { await AppModel.shared.claude.refreshLimits(force: true) } }
         }
         let length = startUnknown ? nil : (duration ?? session.map { date.timeIntervalSince($0.started) })

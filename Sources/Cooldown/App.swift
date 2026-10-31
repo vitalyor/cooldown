@@ -6,6 +6,7 @@ enum Entry {
     @MainActor
     static func main() {
         let arguments = CommandLine.arguments
+        if arguments.contains("--mcp") { CooldownMCP.run() }
         if arguments.contains(ClaudeStatusLine.flag) { ClaudeStatusLine.run() }
         if let index = arguments.firstIndex(of: "--menu-icon"), index + 1 < arguments.count {
             // Diagnostic: draws the menu bar item for a few levels on dark and light bars.
@@ -15,21 +16,22 @@ enum Entry {
             let canvas = NSImage(size: NSSize(width: 2 * 110 * scale, height: CGFloat(samples.count) * rowHeight * scale))
             canvas.lockFocus()
             for (column, appearance) in [NSAppearance(named: .darkAqua)!, NSAppearance(named: .aqua)!].enumerated() {
-                NSAppearance.current = appearance
-                (column == 0 ? NSColor(white: 0.16, alpha: 1) : NSColor(white: 0.93, alpha: 1)).setFill()
-                NSRect(x: CGFloat(column) * 110 * scale, y: 0, width: 110 * scale, height: canvas.size.height).fill()
-                // Rows: idle; Claude working (two moments of the animation); Codex waiting; reduced motion.
-                let activities: [(MenuLine.Activity, MenuLine.Activity, Double, Bool)] = [
-                    (.idle, .idle, 0, false), (.idle, .working, 0.1, false), (.idle, .working, 0.55, false),
-                    (.waiting, .idle, 0, false), (.working, .working, 0, true)]
-                for (row, sample) in samples.enumerated() {
-                    let a = activities[row]
-                    let icon = GaugeIcon.image(lines: [MenuLine(remaining: sample.0, color: GaugeIcon.codex, mark: GaugeIcon.codexMark, glyph: GaugeIcon.codexGlyph, activity: a.0),
-                                                       MenuLine(remaining: sample.1, color: GaugeIcon.claude, mark: GaugeIcon.claudeMark, glyph: GaugeIcon.claudeGlyph, activity: a.1)],
-                                               attention: false, showText: true, still: a.3)
-                    let y = canvas.size.height - CGFloat(row + 1) * rowHeight * scale + 2 * scale
-                    icon.draw(in: NSRect(x: CGFloat(column) * 110 * scale + 10 * scale, y: y,
-                                         width: icon.size.width * scale, height: icon.size.height * scale))
+                appearance.performAsCurrentDrawingAppearance {
+                    (column == 0 ? NSColor(white: 0.16, alpha: 1) : NSColor(white: 0.93, alpha: 1)).setFill()
+                    NSRect(x: CGFloat(column) * 110 * scale, y: 0, width: 110 * scale, height: canvas.size.height).fill()
+                    // Rows: idle; Claude working (two moments of the animation); Codex waiting; reduced motion.
+                    let activities: [(MenuLine.Activity, MenuLine.Activity, Double, Bool)] = [
+                        (.idle, .idle, 0, false), (.idle, .working, 0.1, false), (.idle, .working, 0.55, false),
+                        (.waiting, .idle, 0, false), (.working, .working, 0, true)]
+                    for (row, sample) in samples.enumerated() {
+                        let a = activities[row]
+                        let icon = GaugeIcon.image(lines: [MenuLine(remaining: sample.0, color: GaugeIcon.codex, mark: GaugeIcon.codexMark, glyph: GaugeIcon.codexGlyph, activity: a.0),
+                                                           MenuLine(remaining: sample.1, color: GaugeIcon.claude, mark: GaugeIcon.claudeMark, glyph: GaugeIcon.claudeGlyph, activity: a.1)],
+                                                   attention: false, showText: true, still: a.3)
+                        let y = canvas.size.height - CGFloat(row + 1) * rowHeight * scale + 2 * scale
+                        icon.draw(in: NSRect(x: CGFloat(column) * 110 * scale + 10 * scale, y: y,
+                                            width: icon.size.width * scale, height: icon.size.height * scale))
+                    }
                 }
             }
             canvas.unlockFocus()
@@ -100,6 +102,15 @@ enum Entry {
                     print(agent.rawValue, AgentHooks.status(agent))
                 } catch { print(agent.rawValue, "error:", error.localizedDescription) }
             }
+            exit(0)
+        }
+        if arguments.contains("--mcp-install") || arguments.contains("--mcp-uninstall") {
+            // Diagnostic: changes only the config named by COOLDOWN_CLAUDE_CONFIG (or Claude's real
+            // config when that variable is unset). The app's Settings button uses the same code.
+            do {
+                if arguments.contains("--mcp-install") { try CooldownMCP.install() } else { try CooldownMCP.uninstall() }
+                print(CooldownMCP.isInstalled ? "mcp: on" : "mcp: off")
+            } catch { print("mcp: error:", error.localizedDescription) }
             exit(0)
         }
         if arguments.contains("--diagnostics") {

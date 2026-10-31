@@ -168,7 +168,10 @@ final class StatusController: NSObject {
         item.menu = nil
     }
 
-    @objc private func menuRefresh() { Task { await model.refreshLimits() } }
+    @objc private func menuRefresh() {
+        guard !model.codex.isRefreshing, !model.claude.isRefreshing else { return }
+        Task { await model.refreshLimits() }
+    }
     @objc private func menuFeed() { open(to: .feed) }
     @objc private func menuSchedule() { open(to: .schedule) }
     @objc private func menuSettings() { SettingsWindow.shared.show() }

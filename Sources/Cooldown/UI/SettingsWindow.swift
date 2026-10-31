@@ -236,7 +236,7 @@ private struct PaneView: View {
 }
 
 /// A switch with a line of explanation under its title, the way System Settings writes them.
-private struct OptionToggle: View {
+struct OptionToggle: View {
     let title: String
     var detail: String? = nil
     @Binding var isOn: Bool
@@ -250,7 +250,7 @@ private struct OptionToggle: View {
     }
 }
 
-private struct Footnote: View {
+struct Footnote: View {
     let text: String
     var body: some View {
         Text(text).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
@@ -368,6 +368,7 @@ private struct MenuBarPane: View {
     @EnvironmentObject private var model: AppModel
     @AppStorage(SettingsKey.showPercent) private var showPercent = true
     @AppStorage(SettingsKey.menuSource) private var menuSource = "lowest"
+    @AppStorage(SettingsKey.menuWindow) private var menuWindow = "session"
     @AppStorage(SettingsKey.showActivity) private var showActivity = true
     @State private var image: NSImage?
 
@@ -390,7 +391,7 @@ private struct MenuBarPane: View {
             }
             .padding(.vertical, 10)
         } footer: {
-            Footnote(text: L("Так значок выглядит сейчас. Верхняя линия — Codex, нижняя — Claude; длина — сколько осталось на 5 часов."))
+            Footnote(text: L("Так значок выглядит сейчас. Верхняя линия — Codex, нижняя — Claude; длина — сколько осталось в выбранном окне."))
         }
         Section {
             OptionToggle(title: L("Проценты рядом с линиями"), isOn: $showPercent)
@@ -399,12 +400,17 @@ private struct MenuBarPane: View {
                 Text(L("Только Codex")).tag("codex")
                 Text(L("Только Claude")).tag("claude")
             }
+            Picker(L("Окно в строке меню"), selection: $menuWindow) {
+                Text(L("5 часов")).tag("session")
+                Text(L("Неделя")).tag("weekly")
+            }
             OptionToggle(title: L("Показывать, когда агент работает"),
                          detail: L("По линии работающего агента пробегает мягкий свет; оранжевая точка — агент ждёт вашего решения."),
                          isOn: $showActivity)
         }
         .onChange(of: showPercent) { _, _ in model.updateMenuImage(animated: false) }
         .onChange(of: menuSource) { _, _ in model.updateMenuImage(animated: true) }
+        .onChange(of: menuWindow) { _, _ in model.updateMenuImage(animated: true) }
         .onChange(of: showActivity) { _, _ in model.activityChanged() }
         .onAppear { image = model.menuImage }
         .onReceive(model.menuImageChanges.throttle(for: .milliseconds(200), scheduler: RunLoop.main, latest: true)) { image = $0 }
@@ -547,6 +553,7 @@ private struct ClaudePane: View {
     @AppStorage(SettingsKey.watchClaudeWindow) private var watchClaudeWindow = true
     @AppStorage(SettingsKey.claudePath) private var claudePath = ""
     @State private var statusLine = ClaudeStatusLine.isInstalled
+    @State private var mcp = CooldownMCP.isInstalled
     @State private var message: String?
 
     var body: some View {
@@ -555,7 +562,6 @@ private struct ClaudePane: View {
                          detail: L("Cooldown открывает экран /usage в Claude Code и сразу закрывает. Запросов к модели нет, токены не тратятся; лимиты общие для всей подписки."),
                          isOn: $claudeUsageCLI)
                 .onChange(of: claudeUsageCLI) { _, _ in Task { await model.refreshLimits() } }
-            ClaudeAccountRow(web: ClaudeWeb.shared)
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(L("Строка статуса Claude Code"))
@@ -570,6 +576,15 @@ private struct ClaudePane: View {
             OptionToggle(title: L("Следить за ответами в чатах"),
                          detail: L("Через «Универсальный доступ» Cooldown видит, что Claude пишет ответ или просит разрешение. Ничего не уходит в сеть."),
                          isOn: $watchClaudeWindow)
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L("MCP-мост"))
+                    Footnote(text: mcp ? L("Подключён: Claude может сообщать о готовом ответе и читать лимиты.")
+                                         : L("Даёт Claude официальный способ сообщать Cooldown о готовом ответе. Перезапустите Claude после подключения."))
+                }
+                Spacer()
+                Button(mcp ? L("Отключить") : L("Подключить")) { toggleMCP() }
+            }
         } header: { Text("Claude Desktop") }
         Section {
             HookRow(agent: .claude)
@@ -590,163 +605,15 @@ private struct ClaudePane: View {
             message = L("Не получилось: %@", "\(error.localizedDescription)")
         }
     }
-}
 
-private struct ClaudeAccountRow: View {
-    @EnvironmentObject private var model: AppModel
-    @ObservedObject var web: ClaudeWeb
-
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(L("Аккаунт claude.ai"))
-                Footnote(text: status)
-            }
-            Spacer()
-            if web.isConnected {
-                Button(L("Выйти")) { Task { await web.signOut(); await model.refreshLimits() } }
-            } else {
-                Button(L("Войти")) { web.showLogin() }
-            }
-        }
-    }
-
-    private var status: String {
-        switch web.state {
-        case .connected(let plan): return plan.map { L("Подключён, план %@.", "\($0)") } ?? L("Подключён.")
-        case .connecting: return L("Жду входа в окне claude.ai.")
-        case .signedOut: return L("Вход истёк, войдите снова.")
-        case .disconnected: return L("Необязательно: добавляет лимиты по моделям и список чатов.")
-        }
-    }
-}
-
-// MARK: Обновления
-
-private struct UpdatesPane: View {
-    @AppStorage(SettingsKey.updateMode) private var updateMode = Settings.updateMode
-    @ObservedObject private var updater = GitHubUpdater.shared
-
-    var body: some View {
-        Section {
-            HStack(spacing: 12) {
-                Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 40, height: 40)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Cooldown \(GitHubUpdater.current)").font(.headline)
-                    if let available = updater.available {
-                        Text(updater.readyVersion == available.version ? L("Версия %@ загружена и готова", "\(available.version)") : L("Доступна версия %@", "\(available.version)"))
-                            .font(.callout).foregroundStyle(Theme.mint)
-                    } else {
-                        Text(updater.state ?? L("Установлена эта версия")).font(.callout).foregroundStyle(.secondary)
-                    }
-                }
-                Spacer()
-                if updater.available != nil {
-                    Button(L("Обновить")) { Task { await updater.install() } }.buttonStyle(.borderedProminent)
-                } else {
-                    Button(updater.checking ? L("Проверяю…") : L("Проверить")) { Task { await updater.check(manual: true) } }
-                        .disabled(updater.checking)
-                }
-            }
-            .padding(.vertical, 2)
-        }
-        Section {
-            Picker(L("Новые версии"), selection: $updateMode) {
-                Text(L("Не проверять")).tag("off")
-                Text(L("Только скачивать")).tag("download")
-                Text(L("Скачивать и ставить")).tag("auto")
-            }
-            .pickerStyle(.radioGroup)
-            .onChange(of: updateMode) { _, _ in updater.modeChanged() }
-        } footer: {
-            Footnote(text: updateMode == "off"
-                     ? L("Cooldown сам не проверяет новые версии; кнопка «Проверить» работает всегда.")
-                     : updateMode == "download"
-                     ? L("Новая версия загружается и проверяется заранее, а ставится одним нажатием — на карточке или здесь.")
-                     : L("Новая версия ставится сама, когда Mac пару минут без дела. Перед установкой проверяются контрольная сумма и подпись тем же сертификатом."))
-        }
-        if let release = updater.available, !release.notes.isEmpty {
-            Section(L("Что нового в %@", "\(release.version)")) {
-                Text(release.notes.components(separatedBy: "\n---").first ?? release.notes)
-                    .font(.callout).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
-                Button(L("Открыть на GitHub")) { updater.openReleasePage() }.buttonStyle(.link)
-            }
-        }
-    }
-}
-
-// MARK: Статистика
-
-private struct DataPane: View {
-    @EnvironmentObject private var model: AppModel
-    @State private var message: String?
-    @State private var rebuilding = false
-
-    var body: some View {
-        Section {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(L("Таблица по дням"))
-                    Footnote(text: L("Токены, деньги и доля недели для Codex и Claude — CSV для Numbers или Excel."))
-                }
-                Spacer()
-                Button(L("Сохранить…")) { exportCSV() }
-            }
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(L("Пересобрать статистику"))
-                    Footnote(text: L("Заново прочитать историю сессий, если цифры кажутся неверными."))
-                }
-                Spacer()
-                Button(rebuilding ? L("Читаю…") : L("Пересобрать")) {
-                    rebuilding = true
-                    Task {
-                        await model.codex.scan(fullRebuild: true)
-                        await model.claude.scan(fullRebuild: true)
-                        rebuilding = false
-                        message = L("Статистика пересобрана.")
-                    }
-                }
-                .disabled(rebuilding)
-            }
-            if let message { Footnote(text: message) }
-        } header: { Text(L("История")) } footer: {
-            Footnote(text: L("Подробности — из сессий Codex и Claude Code за 45 дней; итоги по дням для «Года работы» хранятся дольше. Всё только на этом Mac."))
-        }
-        Section {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(L("Демо"))
-                    Footnote(text: L("За минуту по шагам на выдуманных данных: лимит кончается, задача ждёт и продолжается. Ваши данные потом вернутся."))
-                }
-                Spacer()
-                Button(L("Показать")) {
-                    StatusController.shared?.open()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { DemoController.shared.start() }
-                }
-            }
-        }
-        if HomeAssistant.featureEnabled {
-            Section(L("iPhone через Home Assistant")) { HomeAssistantRow() }
-        }
-    }
-
-    private func exportCSV() {
-        let panel = NSSavePanel()
-        panel.nameFieldStringValue = "cooldown-\(DailyLog.key(Date())).csv"
-        panel.allowedContentTypes = [.commaSeparatedText]
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        var rows = ["date,codex_tokens,codex_usd,codex_week_percent,codex_done,claude_tokens,claude_usd,claude_week_percent,claude_done,claude_chats"]
-        for (key, day) in DailyLog.shared.days.sorted(by: { $0.key < $1.key }) {
-            rows.append([key, "\(day.codexTokens)", String(format: "%.2f", day.codexDollars), String(format: "%.1f", day.codexWeek), "\(day.codexDone)",
-                         "\(day.claudeTokens)", String(format: "%.2f", day.claudeDollars), String(format: "%.1f", day.claudeWeek), "\(day.claudeDone)",
-                         "\(day.chats)"].joined(separator: ","))
-        }
+    private func toggleMCP() {
         do {
-            try (rows.joined(separator: "\n") + "\n").write(to: url, atomically: true, encoding: .utf8)
-            message = L("Сохранено: %@", "\(url.lastPathComponent)")
+            if mcp { try CooldownMCP.uninstall() } else { try CooldownMCP.install() }
+            mcp = CooldownMCP.isInstalled
+            message = mcp ? L("MCP-мост подключён. Перезапустите Claude Desktop, чтобы он его увидел.")
+                          : L("MCP-мост отключён. Конфигурация Claude сохранена без него.")
         } catch {
-            message = L("Не сохранилось: %@", "\(error.localizedDescription)")
+            message = L("Не получилось: %@", "\(error.localizedDescription)")
         }
     }
 }
@@ -898,6 +765,7 @@ private struct PathRow: View {
 private struct HookRow: View {
     let agent: AgentHooks.Agent
     @State private var status: AgentHooks.Status = .off
+    @State private var foreign: String?
     @State private var error: String?
     private let timer = Timer.publish(every: 3, on: .main, in: .common).autoconnect()
 
@@ -917,13 +785,22 @@ private struct HookRow: View {
             if case .needsTrust = status {
                 Footnote(text: L("Откройте Codex: он попросит проверить новые хуки — разрешите хуки Cooldown. В терминале то же делает команда /hooks."))
             }
+            if let foreign {
+                Footnote(text: L("Разрешения также обрабатывает другая программа: %@. Она может ответить раньше Cooldown; оставьте один обработчик, если карточки дублируются.", "\(foreign)"))
+            }
             if let error { Footnote(text: error) }
         }
-        .onAppear { status = AgentHooks.status(agent) }
+        .onAppear { refresh() }
         .onReceive(timer) { _ in
             let fresh = AgentHooks.status(agent)
             if fresh != status { status = fresh }
+            foreign = AgentHooks.foreignPermissionHook(agent)
         }
+    }
+
+    private func refresh() {
+        status = AgentHooks.status(agent)
+        foreign = AgentHooks.foreignPermissionHook(agent)
     }
 
     private var dot: Color {
@@ -949,226 +826,6 @@ private struct HookRow: View {
         } catch {
             self.error = error.localizedDescription
         }
-        status = AgentHooks.status(agent)
-    }
-}
-
-private struct HomeAssistantRow: View {
-    @ObservedObject private var ha = HomeAssistant.shared
-    @AppStorage(SettingsKey.haURL) private var url = ""
-    @AppStorage(SettingsKey.haDevice) private var device = ""
-    @AppStorage(SettingsKey.haLive) private var live = true
-    @AppStorage(SettingsKey.haNotify) private var notify = true
-    @State private var token = ""
-    @State private var hasToken = !(HomeAssistant.token ?? "").isEmpty
-    @State private var busy = false
-
-    var body: some View {
-        TextField(L("Адрес"), text: $url, prompt: Text("http://localhost:8123"))
-        HStack {
-            SecureField(L("Токен"), text: $token, prompt: Text(hasToken ? L("Сохранён в Связке ключей") : L("Долгосрочный токен")))
-            Button(L("Сохранить")) {
-                HomeAssistant.token = token.trimmingCharacters(in: .whitespacesAndNewlines)
-                token = ""
-                hasToken = !(HomeAssistant.token ?? "").isEmpty
-                run()
-            }
-            .disabled(token.isEmpty)
-        }
-        if !ha.devices.isEmpty {
-            Picker("iPhone", selection: $device) {
-                ForEach(ha.devices, id: \.self) { Text($0.replacingOccurrences(of: "mobile_app_", with: "")).tag($0) }
-            }
-        }
-        OptionToggle(title: L("Live Activity с лимитами"), isOn: $live)
-        OptionToggle(title: L("Уведомления, когда вы не за Mac"), isOn: $notify)
-        HStack {
-            Spacer()
-            Button(busy ? L("Отправляю…") : L("Проверить на iPhone")) { run() }.disabled(busy || !hasToken)
-            Button(L("Виджет в Scriptable")) {
-                do {
-                    let address = try HomeAssistant.shared.installWidget()
-                    ha.status = L("Скрипт «Cooldown» добавлен в Scriptable через iCloud (адрес %@).", "\(address)")
-                } catch { ha.status = error.localizedDescription }
-            }
-            .disabled(!hasToken)
-        }
-        if let status = ha.status { Footnote(text: status) }
-    }
-
-    private func run() {
-        busy = true
-        Task {
-            await HomeAssistant.shared.test()
-            busy = false
-        }
-    }
-}
-
-// MARK: iPhone
-
-private struct PhonePane: View {
-    @ObservedObject private var link = PhoneLink.shared
-    @AppStorage(SettingsKey.phoneLink) private var enabled = false
-    @AppStorage(SettingsKey.phoneAlways) private var always = false
-    @AppStorage(SettingsKey.phoneLive) private var live = true
-    @AppStorage(SettingsKey.phoneKeepAlive) private var keepAlive = true
-
-    var body: some View {
-        Section {
-            Toggle(isOn: Binding(get: { enabled && link.account != nil || link.busy }, set: { on in
-                Task { if on { await link.enable() } else { await link.disable() } }
-            })) {
-                Text(L("Cooldown для iPhone"))
-                Text(L("Карточки с кнопками, лимиты, задачи и Live Activity на телефоне. Нажатое там выполняет этот Mac."))
-            }
-            .toggleStyle(.switch)
-            .disabled(link.busy)
-            if link.account != nil {
-                HStack(spacing: 6) {
-                    Circle().fill(statusColor).frame(width: 7, height: 7)
-                    Text(statusText).font(.callout).foregroundStyle(.secondary)
-                }
-            }
-            if let message = link.message { Footnote(text: message) }
-        } footer: {
-            Footnote(text: L("Карточки, названия чатов и ответы шифруются на Mac и открываются только на вашем iPhone. Сервер Cooldown передаёт их, не читая; для Live Activity он видит только общие строки вроде «Claude работает» и время сброса."))
-        }
-        if link.account != nil {
-            Section(L("Устройства")) {
-                ForEach(link.devices) { device in
-                    HStack {
-                        Image(systemName: "iphone").foregroundStyle(.secondary)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(device.name)
-                            Text(device.online ? L("На связи") : L("Был на связи %@", "\(Format.relative(Date(timeIntervalSince1970: TimeInterval(device.seen))))"))
-                                .font(.caption).foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Button(L("Отключить")) { Task { await link.unpair(device.id) } }
-                    }
-                }
-                if let invite = link.invite {
-                    InviteView(invite: invite, expires: link.inviteExpires ?? Date())
-                } else {
-                    HStack {
-                        Text(link.devices.isEmpty ? L("Пока ни одного iPhone") : L("Ещё один iPhone"))
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Button(L("Добавить iPhone")) { Task { await link.makeInvite() } }.disabled(link.busy)
-                    }
-                }
-            }
-            Section(L("Что приходит на iPhone")) {
-                OptionToggle(title: L("Уведомлять, даже когда я за Mac"),
-                             detail: L("Обычно телефон молчит, пока вы за Mac, и включается, когда Mac заблокирован или вас нет у него пару минут."),
-                             isOn: $always)
-                OptionToggle(title: L("Кнопки на экране блокировки"),
-                             detail: L("Live Activity: пока агент работает — сколько он уже работает; ответы агентам и «Продолжить» — с кнопками; когда лимит кончился — отсчёт до сброса. Без лишних цифр."),
-                             isOn: $live)
-            }
-            Section {
-                OptionToggle(title: L("Держать связь с iPhone"),
-                             detail: L("На мобильном интернете iPhone теряет связь с сервисом уведомлений Apple и получает уведомления пачкой раз в 10 минут. Пока агенты работают, Cooldown шлёт тихий сигнал: на мобильном интернете раз в 2,5 минуты — и уведомления приходят сразу, на Wi‑Fi раз в 10 минут, только чтобы заметить, что вы ушли. На телефоне его не видно."),
-                             isOn: $keepAlive)
-            }
-            Section(L("Доставка")) {
-                if let last = link.lastDelivery {
-                    HStack(spacing: 6) {
-                        Image(systemName: last.ok ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                            .foregroundStyle(last.ok ? .green : .orange)
-                        Text(last.ok
-                             ? L("Последнее уведомление дошло за %@ с · %@", (last.seconds ?? 0).formatted(.number.precision(.fractionLength(1))), Format.relative(last.at))
-                             : L("Последнее уведомление iPhone не подтвердил · %@", Format.relative(last.at)))
-                            .font(.callout).foregroundStyle(.secondary)
-                    }
-                }
-                if let summary = link.historySummary {
-                    Text(summary).font(.callout).foregroundStyle(.secondary)
-                }
-                if let hint = link.slowHint {
-                    Label(hint, systemImage: "antenna.radiowaves.left.and.right.slash").font(.callout).foregroundStyle(.orange)
-                }
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(L("Проверить доставку"))
-                        Text(L("Пришлёт на iPhone уведомление и покажет, за сколько оно дошло. Каждое уведомление iPhone подтверждает; неподтверждённое сервер отправит ещё раз."))
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    if link.checking { ProgressView().controlSize(.small) }
-                    Button(L("Проверить")) { link.checkDelivery() }.disabled(link.checking || link.devices.isEmpty)
-                }
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(L("Пробный прогон"))
-                        Text(L("Как будто агент поработал, пока вас нет: на iPhone Live Activity «работает» с таймером, через 40 секунд — уведомление «готово», и Live Activity закрывается. На Mac ничего не запускается."))
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    if link.rehearsing { ProgressView().controlSize(.small) }
-                    Button(L("Запустить")) { link.rehearse() }.disabled(link.rehearsing || link.devices.isEmpty)
-                }
-                HStack {
-                    Text(L("Журналы доставки: Mac и iPhone")).foregroundStyle(.secondary)
-                    Spacer()
-                    Button(L("Показать")) {
-                        let folder = Settings.appSupport
-                        let files = ["activity.log", "phone-delivery.log"].map { folder.appendingPathComponent($0) }
-                            .filter { FileManager.default.fileExists(atPath: $0.path) }
-                        if files.isEmpty { NSWorkspace.shared.open(folder) } else { NSWorkspace.shared.activateFileViewerSelecting(files) }
-                    }
-                }
-                if let result = link.checkResult {
-                    Label(result.text, systemImage: result.ok ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                        .font(.callout).foregroundStyle(result.ok ? .green : .orange)
-                }
-            }
-        }
-    }
-
-    private var statusColor: Color {
-        switch link.status {
-        case .online: return .green
-        case .connecting: return .orange
-        default: return .secondary
-        }
-    }
-
-    private var statusText: String {
-        switch link.status {
-        case .online: return L("Подключено к серверу Cooldown")
-        case .connecting: return L("Подключаюсь…")
-        case .offline: return L("Нет связи с сервером — повторю сам")
-        case .off: return L("Выключено")
-        }
-    }
-}
-
-private struct InviteView: View {
-    let invite: PairingInvite
-    let expires: Date
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 16) {
-            if let image = PhoneLink.qr(invite.url) {
-                Image(nsImage: image).interpolation(.none).resizable().frame(width: 168, height: 168)
-                    .padding(8).background(.white, in: RoundedRectangle(cornerRadius: 12))
-            }
-            VStack(alignment: .leading, spacing: 8) {
-                Text(L("Отсканируйте камерой iPhone")).font(.headline)
-                Footnote(text: L("Откройте Cooldown на iPhone или просто наведите камеру на код. Код одноразовый и действует 5 минут."))
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    let left = max(0, expires.timeIntervalSince(context.date))
-                    Text(left > 0 ? L("Осталось %@", "\(Int(left) / 60):\(String(format: "%02d", Int(left) % 60))") : L("Код истёк"))
-                        .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                }
-                HStack {
-                    Button(L("Новый код")) { Task { await PhoneLink.shared.makeInvite() } }
-                    Button(L("Отмена")) { PhoneLink.shared.cancelInvite() }
-                }
-            }
-        }
-        .padding(.vertical, 6)
+        refresh()
     }
 }

@@ -96,6 +96,14 @@ enum CodexApp {
         NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
     }
 
+    /// Starts Codex without stealing focus: used by startup recovery while the person is elsewhere.
+    static func openInBackground() {
+        guard let url else { return }
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = false
+        NSWorkspace.shared.openApplication(at: url, configuration: configuration)
+    }
+
     /// Shows a conversation in the app.
     static func open(thread: String) {
         guard let link = URL(string: "codex://threads/\(thread.lowercased())") else { return }

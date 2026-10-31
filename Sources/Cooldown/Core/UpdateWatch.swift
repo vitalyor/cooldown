@@ -42,12 +42,15 @@ enum UpdateWatch {
     /// Quits, swaps the app for the new build (the same way build.sh --install does) and opens it.
     static func install() {
         guard let source else { return }
-        let target = Bundle.main.bundlePath
-        let script = "sleep 1; rm -rf \"\(target)\" && cp -R \"\(source.path)\" \"\(target)\"; open \"\(target)\""
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/sh")
-        process.arguments = ["-c", script]
-        try? process.run()
-        NSApp.terminate(nil)
+        guard GitHubUpdater.signedLikeMe(source) else {
+            ToastController.shared.show(ToastCatalog.failure(L("Новая сборка не установлена"),
+                L("Новая версия подписана не тем же сертификатом — не устанавливаю.")))
+            return
+        }
+        do {
+            try GitHubUpdater.replaceApp(with: source)
+        } catch {
+            ToastController.shared.show(ToastCatalog.failure(L("Новая сборка не установлена"), error.localizedDescription))
+        }
     }
 }

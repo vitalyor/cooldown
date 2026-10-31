@@ -39,7 +39,7 @@ struct LimitsTab: View {
                 SourceLine(snapshot: snapshot, error: store.limitError, now: now)
             }
         } else if store.id == .claude, store.limitError == ClaudeError.notConnected.localizedDescription || store.limitError == nil {
-            ClaudeConnect(screen: $screen)
+            ClaudeConnect()
         } else if store.id == .claude, usage.needsPermission {
             EmptyView()
         } else if let error = store.limitError {
@@ -130,7 +130,7 @@ private struct HeroRings: View {
                     Text(Format.percent(main))
                         .font(Theme.number(32))
                         .contentTransition(.numericText(value: main))
-                    Text(showWeek && session != nil ? L("неделя") : L("осталось"))
+                    Text(showWeek ? L("неделя") : L("осталось"))
                         .font(.caption)
                         .foregroundStyle(showWeek && session != nil ? weeklyColor : .secondary)
                         .contentTransition(.opacity)
@@ -154,6 +154,10 @@ private struct HeroRings: View {
                     Legend(color: weeklyColor, title: L("Неделя"), value: window.remaining(at: now), window: window, now: now)
                         .contentShape(Rectangle())
                         .onHover { setWeekFocus($0) }
+                    if snapshot.session == nil {
+                        Text(L("Пятичасовое окно начнётся с первым запросом."))
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                 }
                 if let credits = snapshot.resetCredits, credits > 0 {
                     Label(L("%@ в запасе", "\(Format.count(credits, L("сброс|сброса|сбросов")))"), systemImage: "arrow.counterclockwise")
@@ -481,8 +485,6 @@ private struct SourceLine: View {
 /// Shown on the Claude side until its limits have a source.
 private struct ClaudeConnect: View {
     @EnvironmentObject private var model: AppModel
-    @ObservedObject private var web = ClaudeWeb.shared
-    @Binding var screen: Screen
     @State private var message: String?
     @State private var failed = false
 
@@ -490,28 +492,22 @@ private struct ClaudeConnect: View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(L("Подключите Claude")).font(.system(size: 17, weight: .semibold))
-                Text(L("Чаты, Cowork и вкладка Code в Claude Desktop считаются в лимитах вашего аккаунта claude.ai. Cooldown прочитает их оттуда, как страница «Использование» в настройках Claude."))
+                Text(L("Лимиты Claude читаются из Claude Code: его экран «Использование» и строка статуса. Вход в claude.ai не нужен, и Cooldown туда не ходит."))
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Well {
-                Label(L("Аккаунт claude.ai"), systemImage: "person.crop.circle").font(.system(size: 13, weight: .semibold))
+                Label(L("Claude Code"), systemImage: "terminal").font(.system(size: 13, weight: .semibold))
                 VStack(alignment: .leading, spacing: 4) {
-                    point(L("Лимиты на 5 часов и неделю, отдельно по моделям"))
-                    point(L("Активность: диалоги по дням, модели и проекты"))
-                    point(L("Только чтение: Cooldown ничего не пишет в чаты"))
+                    point(L("Лимиты на 5 часов и неделю, общие для всей подписки"))
+                    point(L("Запросов к модели нет: открывается только экран /usage"))
+                    point(L("Строка статуса даёт самые свежие цифры, пока Claude Code работает"))
                 }
-                Text(L("Откроется окно claude.ai: войдите так же, как в браузере. Если вход через Google не пустит, выберите вход по почте."))
+                Text(L("Оба источника — официальные интерфейсы Claude Code. Cooldown не читает cookies и не обращается к claude.ai."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                Button { web.showLogin() } label: {
-                    Text(web.state == .connecting ? L("Жду входа в открытом окне…") : L("Войти в claude.ai")).frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.glassProminent)
-                .tint(Theme.coral)
-                .controlSize(.large)
             }
             if !ClaudeStatusLine.isInstalled {
                 Well {

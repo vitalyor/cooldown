@@ -35,6 +35,8 @@ final class LiveRelayTests: XCTestCase {
         }
         try await wait("state") { boxes.contains { $0.m == .state } }
         let state = try XCTUnwrap(boxes.last { $0.m == .state }?.state)
+        XCTAssertFalse(state.mac.name.isEmpty)
+        XCTAssertFalse(state.limits.isEmpty, "the Mac sent a state without any limit")
         print("STATE limits:", state.limits.map { "\($0.provider) \($0.session ?? -1)% week \($0.week ?? -1)%" },
               "agents:", state.agents.filter(\.working).map(\.provider), "watches:", state.watches.count, "cards:", state.cards.count,
               "mac:", state.mac)
@@ -44,6 +46,8 @@ final class LiveRelayTests: XCTestCase {
             client.send(try session.envelope(.command(cmd), to: c.mac))
             try await wait("chats \(provider)", 40) { boxes.contains { $0.result?.cmd == cmd.id } }
             let result = try XCTUnwrap(boxes.first { $0.result?.cmd == cmd.id }?.result)
+            XCTAssertEqual(result.code, "ok", "chats \(provider) failed: \(result.text)")
+            XCTAssertNotNil(result.chats)
             print("CHATS \(provider): \(result.code) \(result.chats?.count ?? 0)", result.chats?.prefix(3).map(\.title) ?? [], result.text)
         }
         // A press on a card that doesn't exist must be refused, not guessed.

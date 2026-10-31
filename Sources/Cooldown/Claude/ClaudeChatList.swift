@@ -12,6 +12,11 @@ final class ClaudeChatList: ObservableObject {
         var added = Date()
         var automatic = false     // remembered by Cooldown when the limit ran out
         var lastSent: Date?
+        /// The reset this entry was already tried for automatically. A second look at the same
+        /// reset (a restart, a repeated check) must not send a second message.
+        var lastAutoReset: Date?
+        var lastAttempt: Date?
+        var lastOutcome: String?
         var id: String { chat.id.isEmpty ? chat.title : chat.id }
     }
 
@@ -23,7 +28,7 @@ final class ClaudeChatList: ObservableObject {
         var id: String { chat.id.isEmpty ? "title:" + chat.title : chat.id }
     }
 
-    enum ListSource { case none, window, web }
+    enum ListSource { case none, window }
 
     @Published private(set) var entries: [Entry] = []
     @Published private(set) var available: [Known] = []
@@ -32,14 +37,17 @@ final class ClaudeChatList: ObservableObject {
     /// Chats seen open in Claude's window, by id: grows by itself, no network needed.
     private var known: [String: Known] = [:]
     private var knownDirty = false
-    private let knownURL = Settings.appSupport.appendingPathComponent("claude-known-chats.json")
+    private let knownURL: URL
     var cardsWaiting: Bool {
         get { UserDefaults.standard.bool(forKey: "claudeCardsWaiting") }
         set { UserDefaults.standard.set(newValue, forKey: "claudeCardsWaiting") }
     }
-    private let url = Settings.appSupport.appendingPathComponent("claude-chats.json")
+    private let url: URL
 
-    init() {
+    init(url: URL = Settings.appSupport.appendingPathComponent("claude-chats.json"),
+         knownURL: URL = Settings.appSupport.appendingPathComponent("claude-known-chats.json")) {
+        self.url = url
+        self.knownURL = knownURL
         if let data = try? Data(contentsOf: url), let saved = try? JSONDecoder().decode([Entry].self, from: data) { entries = saved }
         if let data = try? Data(contentsOf: knownURL), let saved = try? JSONDecoder().decode([Known].self, from: data) {
             known = Dictionary(saved.map { ($0.chat.id, $0) }, uniquingKeysWith: { a, _ in a })
@@ -58,26 +66,18 @@ final class ClaudeChatList: ObservableObject {
         saveKnownSoon()
     }
 
-    /// Builds the picker list. With claude.ai connected: every chat, with its project and date.
-    /// Without: the chats in Claude's sidebar, plus every chat Cooldown has seen open before.
+    /// Builds the picker list from Claude's sidebar, plus every chat Cooldown has seen open before.
+    /// Nothing is fetched from claude.ai: the app's own window is the only source.
     func refreshAvailable() {
-        current = ClaudeSender.observe()
         loadingAvailable = true
         Task { @MainActor in
             defer { loadingAvailable = false }
-            if ClaudeWeb.shared.isConnected, let list = try? await ClaudeWeb.shared.conversations(), !list.isEmpty {
-                for item in list where !item.chat.id.isEmpty { known[item.chat.id] = item }
-                knownDirty = true
-                saveKnownSoon()
-                available = list
-                availableSource = .web
-                return
-            }
-            var titles = ClaudeSender.sidebarTitles()
+            current = await ClaudeSender.observeOffMain()
+            var titles = await ClaudeSender.sidebarTitlesOffMain()
             // Electron builds its accessibility tree on first request; ask again shortly.
             for _ in 0..<4 where titles.isEmpty && ClaudeSender.claudeApp != nil {
                 try? await Task.sleep(for: .milliseconds(700))
-                titles = ClaudeSender.sidebarTitles()
+                titles = await ClaudeSender.sidebarTitlesOffMain()
             }
             let byTitle = Dictionary(known.values.map { ($0.chat.title, $0) }, uniquingKeysWith: { a, b in
                 (a.chat.seen > b.chat.seen) ? a : b
@@ -142,8 +142,42 @@ final class ClaudeChatList: ObservableObject {
     func sent(to chat: ClaudeChat, now open: ClaudeChat) {
         guard let index = entries.firstIndex(where: { $0.chat.matches(chat) }) else { return }
         entries[index].lastSent = Date()
+        entries[index].lastOutcome = "sent"
         if entries[index].chat.id.isEmpty, open.title == chat.title { entries[index].chat.id = open.id }
         save()
+    }
+
+    /// The automatic path is about to touch this chat for `reset`. Written before sending, so a
+    /// crash between the write and the confirmation can never cause a second message.
+    func markAutoAttempt(_ chat: ClaudeChat, reset: Date) throws {
+        guard let index = entries.firstIndex(where: { $0.chat.matches(chat) }) else {
+            throw ResumeError.refused(L("Уже не актуально."))
+        }
+        var updated = entries
+        updated[index].lastAutoReset = reset
+        updated[index].lastAttempt = Date()
+        updated[index].lastOutcome = "trying"
+        try JSONEncoder().encode(updated).write(to: url, options: .atomic)
+        entries = updated
+    }
+
+    /// What came of the automatic attempt: "sent", "failed" or "uncertain". The reset stays on
+    /// the entry, so this reset is not tried again automatically.
+    func markAutoResult(_ chat: ClaudeChat, outcome: String) {
+        guard let index = entries.firstIndex(where: { $0.chat.matches(chat) }) else { return }
+        entries[index].lastOutcome = outcome
+        entries[index].lastAttempt = Date()
+        if outcome == "sent" { entries[index].lastSent = Date() }
+        save()
+    }
+
+    /// Whether this reset was already handled for the chat (including an attempt with an unknown
+    /// outcome). The times wobble between readings, so half an hour counts as the same reset.
+    func autoTried(_ chat: ClaudeChat, reset: Date) -> Bool {
+        guard let entry = entries.first(where: { $0.chat.matches(chat) }) else { return false }
+        if let sent = entry.lastSent, sent >= reset.addingTimeInterval(-30 * 60) { return true }
+        guard let tried = entry.lastAutoReset else { return false }
+        return abs(tried.timeIntervalSince(reset)) < 30 * 60
     }
 
     /// The Claude limit is back. One chat: a card for it. Several: one card that continues them
@@ -193,13 +227,17 @@ final class ClaudeChatList: ObservableObject {
                 body: L("Ждут продолжения: %@. Cooldown откроет их по очереди и отправит «%@».", "\(names)", "\(ClaudeSender.text)"),
                 actions: [.continueAllClaude(chats), .openPanel], life: .sticky)]
         }
-        return entries.prefix(1).map { entry in
-            ToastContent(
-                key: "claude-chat-\(entry.id)", kind: .reset, provider: .claude,
-                title: L("Продолжить «%@»?", "\(entry.chat.title)"),
-                body: L("Лимит Claude восстановился. Cooldown откроет этот чат и отправит «%@».", "\(ClaudeSender.text)"),
-                actions: [.continueClaudeChat(entry.chat), .openClaude], life: .sticky)
-        }
+        return entries.prefix(1).map(card(for:))
+    }
+
+    /// One chat's "Продолжить" card: used for a single reset and for the chats the automatic
+    /// path could not finish.
+    func card(for entry: Entry) -> ToastContent {
+        ToastContent(
+            key: "claude-chat-\(entry.id)", kind: .reset, provider: .claude,
+            title: L("Продолжить «%@»?", "\(entry.chat.title)"),
+            body: L("Лимит Claude восстановился. Cooldown откроет этот чат и отправит «%@».", "\(ClaudeSender.text)"),
+            actions: [.continueClaudeChat(entry.chat), .openClaude], life: .sticky)
     }
 
     @Published private(set) var continuing = false

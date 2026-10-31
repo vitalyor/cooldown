@@ -26,6 +26,8 @@ final class GitHubUpdater: ObservableObject {
     /// A downloaded and verified new version, ready to be put in place.
     private var prepared: (version: String, app: URL)?
     @Published private(set) var readyVersion: String?
+    /// One install at a time: the button, the card and the automatic path may all ask at once.
+    @Published private(set) var installing = false
 
     static var repo: String? { Bundle.main.object(forInfoDictionaryKey: "CooldownUpdateRepo") as? String }
     static var current: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0" }
@@ -117,10 +119,11 @@ final class GitHubUpdater: ObservableObject {
     // MARK: Installing
 
     enum UpdateError: LocalizedError {
-        case checksum, signature, unpack
+        case checksum, checksumMissing, signature, unpack
         var errorDescription: String? {
             switch self {
             case .checksum: return L("Файл повреждён при загрузке (не совпала контрольная сумма).")
+            case .checksumMissing: return L("В релизе нет SHA256SUMS.txt — обновление не установлено.")
             case .signature: return L("Новая версия подписана не тем же сертификатом — не устанавливаю.")
             case .unpack: return L("Не удалось распаковать новую версию.")
             }
@@ -129,7 +132,9 @@ final class GitHubUpdater: ObservableObject {
 
     /// `dryRun`: download and check everything, but do not replace the app (for diagnostics).
     func install(dryRun: Bool = false) async {
-        guard let release = available else { return }
+        guard !installing, let release = available else { return }
+        installing = true
+        defer { installing = false }
         do {
             let app: URL
             if let prepared, prepared.version == release.version, FileManager.default.fileExists(atPath: prepared.app.path),
@@ -140,7 +145,7 @@ final class GitHubUpdater: ObservableObject {
             }
             if dryRun { state = L("Проверено: %@ готова к установке.", "\(release.version)"); return }
             state = L("Устанавливаю %@…", "\(release.version)")
-            Self.swap(to: app)
+            try Self.replaceApp(with: app)
         } catch {
             state = L("Обновление не установлено: %@", "\(error.localizedDescription)")
             ToastController.shared.show(ToastCatalog.failure(L("Обновление не установлено"), error.localizedDescription))
@@ -157,13 +162,12 @@ final class GitHubUpdater: ObservableObject {
             let zip = folder.appendingPathComponent(release.zip.lastPathComponent)
             try FileManager.default.moveItem(at: downloaded, to: zip)
 
-            if let sums = release.sums {
-                let (data, _) = try await URLSession.shared.data(from: sums)
-                let text = String(decoding: data, as: UTF8.self)
-                let digest = SHA256.hash(data: try Data(contentsOf: zip)).map { String(format: "%02x", $0) }.joined()
-                guard text.split(separator: "\n").contains(where: { $0.hasPrefix(digest) && $0.hasSuffix(zip.lastPathComponent) }) else {
-                    throw UpdateError.checksum
-                }
+            guard let sums = release.sums else { throw UpdateError.checksumMissing }
+            let (data, _) = try await URLSession.shared.data(from: sums)
+            let text = String(decoding: data, as: UTF8.self)
+            let digest = SHA256.hash(data: try Data(contentsOf: zip)).map { String(format: "%02x", $0) }.joined()
+            guard text.split(separator: "\n").contains(where: { $0.hasPrefix(digest) && $0.hasSuffix(zip.lastPathComponent) }) else {
+                throw UpdateError.checksum
             }
             try run("/usr/bin/ditto", ["-x", "-k", zip.path, folder.path])
             let app = folder.appendingPathComponent("Cooldown.app")
@@ -208,18 +212,59 @@ final class GitHubUpdater: ObservableObject {
     }
 
     /// Quits, then (in a small shell step) replaces this app with the new one and opens it.
-    private static func swap(to app: URL) {
+    /// The new bundle is copied next to the old one first; the old one is kept until the move back
+    /// would still be possible, so a failed copy never leaves a Mac without Cooldown.
+    /// Replaces the running app with `app` and opens it. Also used by the local-build switch.
+    static func replaceApp(with app: URL) throws {
         let target = Bundle.main.bundlePath
+        let staged = target + ".new"
+        let backup = target + ".previous"
+        let parent = (target as NSString).deletingLastPathComponent
+        guard FileManager.default.isWritableFile(atPath: parent) else { throw UpdateError.unpack }
+
+        // Copy before quitting: a slow disk must not leave the app installed halfway.
+        try? FileManager.default.removeItem(atPath: staged)
+        let copy = Process()
+        copy.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+        copy.arguments = [app.path, staged]
+        try copy.run()
+        copy.waitUntilExit()
+        guard copy.terminationStatus == 0, FileManager.default.fileExists(atPath: staged) else {
+            try? FileManager.default.removeItem(atPath: staged)
+            throw UpdateError.unpack
+        }
+
         let pid = ProcessInfo.processInfo.processIdentifier
         UserDefaults.standard.set(current, forKey: "updatedFrom")
+        // Paths travel as arguments, never interpolated into shell code: a path with a quote or a
+        // semicolon must not become a command.
         let script = """
-        while kill -0 \(pid) 2>/dev/null; do sleep 0.2; done
-        rm -rf "\(target)" && /usr/bin/ditto "\(app.path)" "\(target)" && open "\(target)"
+        #!/bin/sh
+        set -u
+        target="$1"
+        staged="$2"
+        backup="$3"
+        pid="$4"
+        while kill -0 "$pid" 2>/dev/null; do sleep 0.2; done
+        rm -rf "$backup"
+        if ! mv "$target" "$backup"; then exit 1; fi
+        if mv "$staged" "$target"; then
+          rm -rf "$backup"
+          open "$target"
+        else
+          rm -rf "$target"
+          mv "$backup" "$target"
+          rm -rf "$staged"
+          open "$target"
+          exit 1
+        fi
         """
+        let scriptURL = FileManager.default.temporaryDirectory.appendingPathComponent("cooldown-swap-\(UUID().uuidString).sh")
+        try Data(script.utf8).write(to: scriptURL, options: .atomic)
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/sh")
-        process.arguments = ["-c", script]
-        try? process.run()
+        process.arguments = [scriptURL.path, target, staged, backup, String(pid)]
+        try process.run()
         NSApp.terminate(nil)
     }
 

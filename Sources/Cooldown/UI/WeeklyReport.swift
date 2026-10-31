@@ -57,6 +57,12 @@ enum WeeklyReport {
     static func render(now: Date = Date()) -> URL? {
         let summary = summary(now: now)
         guard !summary.isEmpty else { return nil }
+        return draw(summary)
+    }
+
+    /// Draws a summary that is known not to be empty. nil means drawing or writing failed, which
+    /// is not the same as an empty week and must not be reported as one.
+    private static func draw(_ summary: Summary) -> URL? {
         let renderer = ImageRenderer(content: WeeklyReportView(summary: summary).environment(\.colorScheme, .dark))
         renderer.scale = 2
         guard let image = renderer.nsImage, let png = RenderMode.pngData(image) else { return nil }
@@ -68,9 +74,14 @@ enum WeeklyReport {
 
     /// Makes the report and opens it in Preview.
     static func show() {
-        guard let url = render() else {
+        let summary = summary()
+        guard !summary.isEmpty else {
             ToastController.shared.show(ToastContent(key: "report-empty", kind: .info, provider: nil, title: L("Неделя пока пустая"),
                                                      body: L("За последние семь дней работы Codex и Claude Code не было."), life: .auto(6)))
+            return
+        }
+        guard let url = draw(summary) else {
+            ToastController.shared.show(ToastCatalog.failure(L("Не получилось"), L("Попробуйте ещё раз.")))
             return
         }
         NSWorkspace.shared.open(url)
@@ -86,7 +97,7 @@ struct WeeklyReportView: View {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(L("Итоги недели")).font(.system(size: 30, weight: .bold))
-                    Text("\(summary.start.formatted(.dateTime.day().month(.wide))) — \(summary.end.formatted(.dateTime.day().month(.wide)))")
+                    Text("\(summary.start.formatted(.dateTime.day().month(.wide).locale(AppLanguage.locale))) — \(summary.end.formatted(.dateTime.day().month(.wide).locale(AppLanguage.locale)))")
                         .font(.system(size: 15)).foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -145,7 +156,7 @@ struct WeeklyReportView: View {
                         Label {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(L("Самый плотный день")).font(.system(size: 13)).foregroundStyle(.secondary)
-                                Text(best.date.formatted(.dateTime.weekday(.wide).day().month(.wide))).font(.system(size: 15, weight: .semibold))
+                                Text(best.date.formatted(.dateTime.weekday(.wide).day().month(.wide).locale(AppLanguage.locale))).font(.system(size: 15, weight: .semibold))
                                 Text(L("%@ токенов", "\(Format.tokens(best.codex + best.claude))")).font(.system(size: 13)).foregroundStyle(.secondary)
                             }
                         } icon: { Image(systemName: "flame.fill").foregroundStyle(Theme.coral) }

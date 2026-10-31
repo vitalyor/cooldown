@@ -25,6 +25,7 @@ final class ClaudeAsks {
     func start() {
         let folder = AgentHooks.asks
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: folder.path)
         // Leftovers of hooks that are gone (Cooldown was quit while they waited).
         for name in (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? [] where !Self.alive(name) {
             try? FileManager.default.removeItem(at: folder.appendingPathComponent(name))
@@ -57,7 +58,9 @@ final class ClaudeAsks {
         let requests = Set(names.filter { $0.hasSuffix(".req") }.map { String($0.dropLast(4)) })
         for id in requests where !seen.contains(id) {
             seen.insert(id)
-            FileManager.default.createFile(atPath: path(id, "ack").path, contents: Data())
+            let ack = path(id, "ack")
+            FileManager.default.createFile(atPath: ack.path, contents: Data())
+            try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: ack.path)
             handle(id)
         }
         // Answered here, or the hook gave up / was stopped.
@@ -74,6 +77,14 @@ final class ClaudeAsks {
         let host = Self.hostApp(of: pid)
         // In the very app that runs this session, with someone at the keyboard: ask as usual there.
         if let host, NSWorkspace.shared.frontmostApplication?.bundleIdentifier == host, ToastController.idleSeconds < 120 {
+            pass(id)
+            return
+        }
+        // Another tool (Coucou/NotchBuddy) also answers permission requests. While the person is
+        // at this Mac, leave the question to it rather than showing a second card; when they are
+        // away or the screen is locked, Cooldown takes it so the phone still gets an answer.
+        if AgentHooks.foreignPermissionHook(.claude) != nil, !ToastController.screenLocked, ToastController.idleSeconds < 120 {
+            AgentActivity.trace("claude ask \(id): left to another permission handler")
             pass(id)
             return
         }
@@ -114,12 +125,21 @@ final class ClaudeAsks {
     }
 
     /// "Ask as usual": an empty answer.
-    private func pass(_ id: String) { write(id, Data()) }
+    private func pass(_ id: String) {
+        do { try write(id, Data()) }
+        catch { AgentActivity.trace("claude ask \(id): could not hand back request: \(error.localizedDescription)") }
+    }
 
-    private func write(_ id: String, _ data: Data) {
-        let temp = path(id, "restmp")
-        try? data.write(to: temp)
-        try? FileManager.default.moveItem(at: temp, to: path(id, "res"))
+    private func write(_ id: String, _ data: Data) throws {
+        try Self.writeResponse(data, to: path(id, "res"))
+    }
+
+    static func writeResponse(_ data: Data, to response: URL) throws {
+        let temp = response.appendingPathExtension(UUID().uuidString + ".tmp")
+        defer { try? FileManager.default.removeItem(at: temp) }
+        try data.write(to: temp)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: temp.path)
+        try FileManager.default.moveItem(at: temp, to: response)
     }
 
     private func respond(_ id: String, input: [String: Any], choice: RequestChoice) async throws {
@@ -145,16 +165,25 @@ final class ClaudeAsks {
                   let label = options[index]["label"] as? String else { throw ResumeError.refused(L("Вариант ответа не найден.")) }
             decision = ["behavior": "allow", "updatedInput": ["questions": toolInput["questions"] ?? [Any](), "answers": [text: label]]]
         case let picks where picks.hasPrefix("answers:") && tool == "AskUserQuestion":
-            let indices = picks.dropFirst("answers:".count).split(separator: ",").compactMap { Int($0) }
             let questions = toolInput["questions"] as? [[String: Any]] ?? []
-            guard indices.count == questions.count else { throw ResumeError.refused(L("Ответы не совпадают с вопросами.")) }
+            guard let choices = RequestAnswer.decode(picks), choices.count == questions.count else {
+                throw ResumeError.refused(L("Ответы не совпадают с вопросами."))
+            }
             var answers: [String: String] = [:]
-            for (question, index) in zip(questions, indices) {
-                guard let text = question["question"] as? String, let options = question["options"] as? [[String: Any]],
-                      options.indices.contains(index), let label = options[index]["label"] as? String else {
-                    throw ResumeError.refused(L("Вариант ответа не найден."))
+            for (question, answer) in zip(questions, choices) {
+                guard let text = question["question"] as? String else { throw ResumeError.refused(L("Вопрос не найден.")) }
+                switch answer {
+                case .option(let index):
+                    guard let options = question["options"] as? [[String: Any]],
+                          options.indices.contains(index), let label = options[index]["label"] as? String else {
+                        throw ResumeError.refused(L("Вариант ответа не найден."))
+                    }
+                    answers[text] = label
+                case .text(let typed):
+                    let trimmed = typed.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !trimmed.isEmpty else { throw ResumeError.refused(L("Пустой ответ.")) }
+                    answers[text] = trimmed
                 }
-                answers[text] = label
             }
             decision = ["behavior": "allow", "updatedInput": ["questions": toolInput["questions"] ?? [Any](), "answers": answers]]
         default:
@@ -162,9 +191,9 @@ final class ClaudeAsks {
         }
         let output: [String: Any] = ["hookSpecificOutput": ["hookEventName": "PermissionRequest", "decision": decision]]
         let data = try JSONSerialization.data(withJSONObject: output)
+        try write(id, data)
         held[id] = nil
-        write(id, data)
-        AgentActivity.trace("claude ask \(id): \(choice.id)")
+        AgentActivity.trace("claude ask \(id): answered")
     }
 
     // MARK: What the card says
@@ -181,7 +210,7 @@ final class ClaudeAsks {
         approve += [RequestChoice(id: "deny", title: L("Отклонить"), role: .decline), open]
         func make(_ headline: String, _ detail: String?, _ choices: [RequestChoice]) -> AgentRequest {
             AgentRequest(key: "claude-code|\(id)", provider: .claude, chat: chat, headline: headline, detail: detail,
-                         choices: choices, appBundleIDs: host.map { [$0] } ?? [], threadId: nil)
+                         choices: choices, appBundleIDs: [], threadId: nil)
         }
         func home(_ path: String?) -> String? { path.map { ($0 as NSString).abbreviatingWithTildeInPath } }
         switch tool {

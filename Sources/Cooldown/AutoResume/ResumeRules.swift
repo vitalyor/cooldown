@@ -258,6 +258,20 @@ enum ResumeRules {
         if !JSON.isNull(bucket["individualLimit"]) {
             return .blocked(L("На аккаунте действует отдельный лимит — нужно ваше решение."))
         }
+        // The schema is explicit: null means "unavailable", and clients must not infer recovery
+        // from percentages or reset times. Only a real true permits an automatic continuation.
+        let ordinaryRaw = bucket["ordinaryUsageAllowed"]
+        let ordinary: Bool?
+        let ordinaryKnown: Bool
+        if ordinaryRaw == nil || ordinaryRaw is NSNull {
+            ordinary = nil
+            ordinaryKnown = ordinaryRaw is NSNull
+        } else if let flag = JSON.bool(ordinaryRaw) {
+            ordinary = flag
+            ordinaryKnown = true
+        } else {
+            return .blocked(L("Codex прислал непонятный ответ о доступности работы."))
+        }
         // Only the ordinary window limit may be waited out; any other kind needs the person.
         let flaggedAsReached: Bool
         switch bucket["rateLimitReachedType"] {
@@ -278,14 +292,45 @@ enum ResumeRules {
             }
             windows.append((used, Date(timeIntervalSince1970: resets)))
         }
+        // Wait for the nearest window to turn over, then read again: a weekly window may still be
+        // full when the five-hour one has just reset.
+        let nextReset = windows.map(\.resets).filter { $0 > now }.min()
         let full = windows.filter { $0.used >= 100 }
-        if let reset = full.map(\.resets).max() {
+        if full.contains(where: { $0.resets <= now }) {
+            return .notYet(now.addingTimeInterval(60))
+        }
+        if let reset = full.map(\.resets).filter({ $0 > now }).min() {
             return .notYet(max(reset.addingTimeInterval(5), now.addingTimeInterval(60)))
         }
-        if flaggedAsReached || windows.contains(where: { $0.resets <= now }) {
+        if ordinary == false {
+            if let reset = nextReset {
+                return .notYet(max(reset.addingTimeInterval(5), now.addingTimeInterval(60)))
+            }
+            return .stale(now.addingTimeInterval(60))
+        }
+        if ordinaryKnown && ordinary == nil {
+            // The field was null: Codex says it cannot tell yet. Wait for a fresh reading rather
+            // than treating percentages as permission.
+            return .stale(now.addingTimeInterval(60))
+        }
+        if flaggedAsReached {
+            if let reset = nextReset {
+                return .notYet(max(reset.addingTimeInterval(5), now.addingTimeInterval(60)))
+            }
+            return .stale(now.addingTimeInterval(60))
+        }
+        if windows.contains(where: { $0.resets <= now }) {
             return .stale(now.addingTimeInterval(60))
         }
         return .available
+    }
+
+    /// Whether a message the person wrote may be put into the conversation now: only when Codex is
+    /// explicitly idle or was interrupted. "Connecting", "unknown" and "waiting for an answer" are
+    /// not an invitation to start a turn behind the app's back.
+    static func canReply(_ state: [String: Any], thread: String) -> Bool {
+        let verdict = decide(state, thread: thread)
+        return verdict.taskState == "idle" || verdict.taskState == "interrupted"
     }
 
     // MARK: Never twice

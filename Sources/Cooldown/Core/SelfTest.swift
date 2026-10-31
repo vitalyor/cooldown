@@ -48,6 +48,21 @@ enum SelfTest {
         expect(ClaudeLimits.merge([reading(40, at: 1, reset: reset), reading(38, at: 0, reset: reset)], now: now)?.session?.usedPercent == 40,
                "readings taken together: the highest wins")
 
+        // Claude auto-continue: only a fresh reading with every window below the cap.
+        func auto(_ session: Double, _ weekly: Double, age: Double = 60, weeklyReset: Date? = nil) -> LimitSnapshot {
+            LimitSnapshot(provider: .claude, plan: nil,
+                          session: LimitWindow(kind: .session, usedPercent: session, durationMinutes: 300, resetsAt: now.addingTimeInterval(3600)),
+                          weekly: LimitWindow(kind: .weekly, usedPercent: weekly, durationMinutes: 10080, resetsAt: weeklyReset ?? now.addingTimeInterval(86400)),
+                          fetchedAt: now.addingTimeInterval(-age), source: "t")
+        }
+        expect(ClaudeAutoContinue.allowsWork(auto(1, 10), now: now), "a fresh reading with room allows work")
+        expect(!ClaudeAutoContinue.allowsWork(auto(99, 10), now: now), "a spent five-hour window blocks")
+        expect(!ClaudeAutoContinue.allowsWork(auto(1, 99), now: now), "a spent weekly window blocks")
+        expect(!ClaudeAutoContinue.allowsWork(auto(1, 10, age: 30 * 60), now: now), "an old reading does not")
+        expect(!ClaudeAutoContinue.allowsWork(nil, now: now), "no reading does not")
+        expect(ClaudeAutoContinue.allowsWork(auto(1, 99, weeklyReset: now.addingTimeInterval(-60)), now: now),
+               "a weekly window past its reset is full again")
+
         // /usage: only the last drawing counts.
         let screen = "Current session 98% used Resets 9:30pm Current week (all models) 77% used Resets Oct 23 at 7pm Refreshing… "
             + "Current session 3% used Resets 12:50am Current week (all models) 1% used Resets Oct 23 at 7pm"
@@ -68,7 +83,7 @@ enum SelfTest {
         expect(requestCard.actions.first?.auth == true, "allowing needs Face ID")
         let item = PhoneLink.liveItem(requestCard)
         expect(!item.title.contains("Секретный") && !item.title.contains("rm -rf"), "Lock Screen title is general") // l10n:skip
-        expect(PhoneLink.shared.delivery(request, card: requestCard, away: false) == .live, "a request goes to the Live Activity")
+        expect(PhoneLink.shared.delivery(request, card: requestCard, away: false) == .none, "a request stays off the phone while at the Mac")
         let finished = ToastContent(key: "finished-x", kind: .finished, provider: .codex, title: "T", body: "B",
                                     actions: [.openCodexThread("t1")])
         let finishedCard = PhoneLink.card(finished)
@@ -102,6 +117,12 @@ enum SelfTest {
         let open = "{\"timestamp\":\"2026-10-26T05:00:00.000Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"task_started\"}}\n{\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\"}}\n" // l10n:skip
         expect(CodexFinishWatcher.openTurnStart(open, fallback: openNow) == Date(timeIntervalSince1970: 1_792_990_800), "an open Codex turn keeps its real start time")
         expect(CodexFinishWatcher.openTurnStart(open + "{\"type\":\"event_msg\",\"payload\":{\"type\":\"task_complete\"}}\n", fallback: openNow) == nil, "an ended Codex turn is not picked up") // l10n:skip
+        // The session reader only moves over whole lines; a partial tail waits for the next look.
+        let twoLines = Data("a\nb\n".utf8), partialLine = Data("a\nb".utf8)
+        expect(CodexFinishWatcher.wholeLines(twoLines, limit: 8).consumed == 4, "whole lines are consumed")
+        expect(CodexFinishWatcher.wholeLines(partialLine, limit: 8).consumed == 2, "a partial last line is left alone")
+        expect(CodexFinishWatcher.wholeLines(Data("abc".utf8), limit: 3) == (3, true), "an oversized line is skipped")
+        expect(CodexFinishWatcher.wholeLines(Data(), limit: 8).consumed == 0, "an empty read consumes nothing")
         // Codex's questions asked while it works: found in the session file, answered like the app does.
         let askLine: [String: Any] = ["timestamp": "2026-10-26T05:01:59.181Z", "type": "event_msg", "payload": ["type": "item_completed", // l10n:skip
             "item": ["type": "AgentMessage", "id": "call_054e5eb10ca6", "delivery": "async", // l10n:skip

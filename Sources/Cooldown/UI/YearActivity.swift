@@ -119,6 +119,8 @@ struct YearActivityCard: View {
             .contentShape(Rectangle())
             .onTapGesture { selected = isSelected ? nil : date }
             .help(tooltip(date))
+            .accessibilityLabel(Text(Format.day(date)))
+            .accessibilityValue(Text(describe(date)))
     }
 
     /// Five steps like GitHub's: empty, then four shades; square-root scale so light days show.

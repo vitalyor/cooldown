@@ -111,11 +111,20 @@ enum ResumeSelfTest {
             return ["rateLimits": value, "rateLimitsByLimitId": ["codex": value]]
         }
         expect(ResumeRules.judgeLimits(bucket(40), now: now) == .available, "limits available")
+        expect(ResumeRules.judgeLimits(bucket(40) { $0["ordinaryUsageAllowed"] = true }, now: now) == .available,
+               "ordinary usage allowed explicitly")
         expect(ResumeRules.judgeLimits(bucket(100), now: now) == .notYet(Date(timeIntervalSince1970: 1_800_003_605)), "a full window waits for its reset")
         expect(ResumeRules.judgeLimits(bucket(100, resets: 1_799_999_990), now: now) == .notYet(now.addingTimeInterval(60)), "a passed reset waits at least a minute")
         expect(ResumeRules.judgeLimits(bucket(30, resets: 1_799_999_000), now: now) == .stale(now.addingTimeInterval(60)), "a passed reset below 100% is stale")
-        expect(ResumeRules.judgeLimits(bucket(30) { $0["rateLimitReachedType"] = "rate_limit_reached" }, now: now) == .stale(now.addingTimeInterval(60)),
-               "still flagged as reached waits")
+        expect(ResumeRules.judgeLimits(bucket(30) { $0["rateLimitReachedType"] = "rate_limit_reached" }, now: now) == .notYet(Date(timeIntervalSince1970: 1_800_003_605)),
+               "a reached flag waits for the future reset")
+        expect(ResumeRules.judgeLimits(bucket(30) { $0["ordinaryUsageAllowed"] = false }, now: now) == .notYet(Date(timeIntervalSince1970: 1_800_003_605)),
+               "ordinary usage not allowed waits for the reset")
+        expect(ResumeRules.judgeLimits(bucket(30) { $0["ordinaryUsageAllowed"] = NSNull() }, now: now) == .stale(now.addingTimeInterval(60)),
+               "a null ordinary usage answer is unknown, not available")
+        if case .blocked = ResumeRules.judgeLimits(bucket(30) { $0["ordinaryUsageAllowed"] = "yes" }, now: now) {} else {
+            failures.append("auto-continue: a malformed ordinary usage answer blocks")
+        }
         if case .blocked = ResumeRules.judgeLimits(bucket(30) { $0["spendControlReached"] = true }, now: now) {} else { failures.append("auto-continue: spend control blocks") }
         if case .blocked = ResumeRules.judgeLimits(bucket(30) { $0["individualLimit"] = ["x": 1] }, now: now) {} else { failures.append("auto-continue: an individual limit blocks") }
         if case .blocked = ResumeRules.judgeLimits(bucket(30) { $0["rateLimitReachedType"] = "workspace_owner_limit" }, now: now) {} else { failures.append("auto-continue: unknown reached type blocks") }

@@ -28,8 +28,14 @@ enum AgentHooks {
     private static let scriptText = """
     #!/bin/sh
     # Cooldown hook: notes the event for Cooldown and exits. Prints nothing, never blocks the agent.
+    umask 077
     out="$HOME/Library/Application Support/Cooldown/hook-events.jsonl"
     [ -d "$HOME/Library/Application Support/Cooldown" ] || exit 0
+    # A Cooldown that was closed for a long time must not let this file grow without limit.
+    size=$(stat -f%z "$out" 2>/dev/null || echo 0)
+    if [ "$size" -gt 8388608 ]; then
+      mv -f "$out" "$out.1" 2>/dev/null || :
+    fi
     body=$(head -c 65536 | tr -d '\\n\\r')
     [ -n "$body" ] || exit 0
     printf '{"agent":"%s","t":%s,"p":%s}\\n' "$1" "$(date +%s)" "$body" >> "$out" 2>/dev/null
@@ -46,16 +52,22 @@ enum AgentHooks {
     #!/bin/sh
     # Cooldown: Claude Code's permission request as a card while you are away from the terminal.
     # Prints the answer pressed on the card; prints nothing (Claude Code asks as usual) otherwise.
+    umask 077
     dir="$HOME/Library/Application Support/Cooldown/asks"
     pgrep -xq Cooldown || exit 0
     mkdir -p "$dir" 2>/dev/null || exit 0
-    id="$$-$(date +%s)"
+    chmod 700 "$dir" 2>/dev/null || exit 0
+    # Random and unguessable: another process cannot answer by guessing the file name.
+    id="$$-$(uuidgen 2>/dev/null | tr -d '-')"
+    [ -n "$id" ] || exit 0
     head -c 1048576 > "$dir/$id.tmp" 2>/dev/null || exit 0
     mv "$dir/$id.tmp" "$dir/$id.req" || exit 0
     i=0
     while [ $i -lt 14000 ]; do
       if [ -f "$dir/$id.res" ]; then cat "$dir/$id.res"; rm -f "$dir/$id.res" "$dir/$id.req" "$dir/$id.ack"; exit 0; fi
       if [ $i -eq 30 ] && [ ! -f "$dir/$id.ack" ]; then rm -f "$dir/$id.req"; exit 0; fi
+      # Cooldown quit while Claude waits: release the agent now instead of keeping it for an hour.
+      if [ $((i % 40)) -eq 0 ] && ! pgrep -xq Cooldown; then rm -f "$dir/$id.req" "$dir/$id.ack"; exit 0; fi
       if [ $i -lt 40 ]; then sleep 0.05; else sleep 0.25; fi
       i=$((i+1))
     done
@@ -64,11 +76,15 @@ enum AgentHooks {
     """
 
     static func writeScript() throws {
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let fm = FileManager.default
+        try fm.createDirectory(at: directory, withIntermediateDirectories: true)
+        try fm.createDirectory(at: asks, withIntermediateDirectories: true)
+        try fm.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directory.path)
+        try fm.setAttributes([.posixPermissions: 0o700], ofItemAtPath: asks.path)
         for (url, text) in [(script, scriptText), (askScript, askText)] {
             let current = try? String(contentsOf: url, encoding: .utf8)
             if current != text { try text.write(to: url, atomically: true, encoding: .utf8) }
-            try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
+            try fm.setAttributes([.posixPermissions: 0o700], ofItemAtPath: url.path)
         }
     }
 
@@ -123,17 +139,21 @@ enum AgentHooks {
 
     static func status(_ agent: Agent) -> Status {
         guard let root = try? read(agent), let hooks = root["hooks"] as? [String: Any] else { return .off }
-        var ours: [(event: String, group: Int)] = []
+        var ours: [(event: String, group: Int, handler: Int)] = []
         for (event, value) in hooks {
             guard let groups = value as? [[String: Any]] else { continue }
-            for (index, group) in groups.enumerated() where isOurs(group) { ours.append((event, index)) }
+            for (index, group) in groups.enumerated() {
+                for (handler, value) in ((group["hooks"] as? [[String: Any]]) ?? []).enumerated() where isOurHandler(value) {
+                    ours.append((event, index, handler))
+                }
+            }
         }
         guard !ours.isEmpty else { return .off }
         guard agent == .codex else { return .on }
         // Codex records trust per hook as "<file>:<event_in_snake_case>:<group>:<handler>".
         let config = (try? String(contentsOf: CodexPaths.home.appendingPathComponent("config.toml"), encoding: .utf8)) ?? ""
         let untrusted = ours.filter { item in
-            !config.contains("\"\(codexFile.path):\(snake(item.event)):\(item.group):0\"")
+            !config.contains("\"\(codexFile.path):\(snake(item.event)):\(item.group):\(item.handler)\"")
         }
         return untrusted.isEmpty ? .on : .needsTrust(untrusted.count)
     }
@@ -149,7 +169,40 @@ enum AgentHooks {
 
     private static func isOurs(_ group: [String: Any]) -> Bool {
         let handlers = group["hooks"] as? [[String: Any]] ?? []
-        return handlers.contains { ($0["command"] as? String)?.contains(marker) == true }
+        return handlers.contains(where: isOurHandler)
+    }
+
+    private static func isOurHandler(_ handler: [String: Any]) -> Bool {
+        (handler["command"] as? String)?.contains(marker) == true
+    }
+
+    static func updatedGroup(_ group: [String: Any], handler: [String: Any]?) -> [String: Any]? {
+        guard isOurs(group) else { return group }
+        var updated = group
+        let handlers = ((group["hooks"] as? [[String: Any]]) ?? []).compactMap { isOurHandler($0) ? handler : $0 }
+        guard !handlers.isEmpty else { return nil }
+        updated["hooks"] = handlers
+        return updated
+    }
+
+    /// Another tool that also answers permission requests (Coucou/NotchBuddy is common). Both
+    /// handlers will run; Cooldown shows its card, the other may answer first. The person needs to
+    /// know before it looks like Cooldown's answer was ignored.
+    static func foreignPermissionHook(_ agent: Agent) -> String? {
+        guard let root = try? read(agent), let hooks = root["hooks"] as? [String: Any],
+              let groups = hooks["PermissionRequest"] as? [[String: Any]] else { return nil }
+        return foreignPermissionHook(in: groups)
+    }
+
+    static func foreignPermissionHook(in groups: [[String: Any]]) -> String? {
+        for group in groups {
+            for handler in (group["hooks"] as? [[String: Any]] ?? []) where !isOurHandler(handler) {
+                if let command = handler["command"] as? String, !command.isEmpty {
+                    return String(command.prefix(80))
+                }
+            }
+        }
+        return nil
     }
 
     // MARK: Install / remove
@@ -162,7 +215,7 @@ enum AgentHooks {
             var groups = hooks[item.event] as? [[String: Any]] ?? []
             // Already there: brought up to date in place (same position), otherwise left alone.
             if let index = groups.firstIndex(where: isOurs) {
-                groups[index] = ["hooks": [item.handler]]
+                if let updated = updatedGroup(groups[index], handler: item.handler) { groups[index] = updated }
                 hooks[item.event] = groups
                 continue
             }
@@ -178,8 +231,8 @@ enum AgentHooks {
         var root = try read(agent)
         guard var hooks = root["hooks"] as? [String: Any] else { return }
         for (event, value) in hooks {
-            guard var groups = value as? [[String: Any]] else { continue }
-            groups.removeAll(where: isOurs)
+            guard let existing = value as? [[String: Any]] else { continue }
+            let groups = existing.compactMap { updatedGroup($0, handler: nil) }
             if groups.isEmpty { hooks.removeValue(forKey: event) } else { hooks[event] = groups }
         }
         root["hooks"] = hooks
@@ -245,7 +298,20 @@ final class HookEventReader {
 
     private func poll() {
         let end = size()
-        if end < offset { offset = 0 }              // the file was rotated
+        if end < offset {
+            // The hook script moved an oversized file to .1. Read what we had not seen yet
+            // before starting on the new file, otherwise a finished turn or permission can be lost.
+            let old = URL(fileURLWithPath: AgentHooks.events.path + ".1")
+            let oldEnd = (try? FileManager.default.attributesOfItem(atPath: old.path))?[.size] as? UInt64 ?? 0
+            if oldEnd > offset, let handle = try? FileHandle(forReadingFrom: old) {
+                defer { try? handle.close() }
+                try? handle.seek(toOffset: offset)
+                if let data = try? handle.read(upToCount: Int(min(oldEnd - offset, 4 << 20))) {
+                    consume(data)
+                }
+            }
+            offset = 0
+        }
         guard end > offset, let handle = try? FileHandle(forReadingFrom: AgentHooks.events) else { return }
         defer { try? handle.close() }
         try? handle.seek(toOffset: offset)
@@ -254,7 +320,16 @@ final class HookEventReader {
         guard let lastNewline = data.lastIndex(of: UInt8(ascii: "\n")) else { return }
         let complete = data[data.startIndex...lastNewline]
         offset += UInt64(complete.count)
-        for line in complete.split(separator: UInt8(ascii: "\n")) {
+        consume(Data(complete))
+        // Keep the file small: once everything in it is read, start it again.
+        if offset > 2 << 20, offset == size() {
+            try? FileManager.default.removeItem(at: AgentHooks.events)
+            offset = 0
+        }
+    }
+
+    private func consume(_ data: Data) {
+        for line in data.split(separator: UInt8(ascii: "\n")) {
             guard let object = (try? JSONSerialization.jsonObject(with: Data(line))) as? [String: Any],
                   let agent = (object["agent"] as? String).flatMap(AgentHooks.Agent.init(rawValue:)),
                   let payload = object["p"] as? [String: Any] else { continue }
@@ -262,11 +337,6 @@ final class HookEventReader {
             guard Date().timeIntervalSince(time) < 10 * 60 else { continue }
             lastEvent[agent] = time
             if agent == .claude { claude(payload, at: time) } else { codex(payload, at: time) }
-        }
-        // Keep the file small: once everything in it is read, start it again.
-        if offset > 2 << 20, offset == size() {
-            try? FileManager.default.removeItem(at: AgentHooks.events)
-            offset = 0
         }
     }
 

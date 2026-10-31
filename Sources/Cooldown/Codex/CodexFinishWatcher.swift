@@ -51,13 +51,36 @@ final class CodexFinishWatcher {
             let size = (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? UInt64) ?? 0
             guard let start = offsets[path] else {
                 // First sight (a new conversation, or Codex moved/continued one into a new file):
-                // read it all; turns older than a few minutes are skipped by their timestamps.
-                offsets[path] = size
-                if primed { read(file, from: 0, to: size) } else { resumeOpenTurn(file, size: size) }
+                // read the tail; turns older than a few minutes are skipped by their timestamps.
+                if primed {
+                    let tail: UInt64 = 8 << 20
+                    let from = Self.lineStart(file, before: size > tail ? size - tail : 0)
+                    let used = read(file, from: from, to: size)
+                    offsets[path] = from + used
+                } else {
+                    offsets[path] = size
+                    resumeOpenTurn(file, size: size)
+                }
                 continue
             }
-            if size > start { read(file, from: start, to: size) }
-            offsets[path] = size
+            // The file shrank: Codex rewrote or replaced it. Start over rather than wait forever.
+            if size < start {
+                AgentActivity.trace("codex session shrank: \(path), reading from the start")
+                offsets[path] = 0
+                continue
+            }
+            // A delta can be larger than one read (a long tool output, a big rewrite). Read in
+            // chunks and move the offset only over lines that were actually parsed. A partial last
+            // line stays for the next look instead of being skipped.
+            var cursor = start
+            var budget = 64 << 20
+            while cursor < size, budget > 0 {
+                let used = read(file, from: cursor, to: size)
+                guard used > 0 else { break }
+                cursor += used
+                budget -= Int(min(used, UInt64(budget)))
+            }
+            offsets[path] = cursor
         }
         primed = true
     }
@@ -184,11 +207,53 @@ final class CodexFinishWatcher {
         if !answered.isEmpty { CodexQuestions.resolve(thread: thread, calls: Array(answered)) }
     }
 
-    private func read(_ file: URL, from start: UInt64, to end: UInt64) {
-        guard let handle = try? FileHandle(forReadingFrom: file) else { return }
+    /// How many bytes at the front are whole lines. A partial last line is left for the next look;
+    /// an oversized line at a full chunk is skipped. Pure, so `--selftest` can check it.
+    nonisolated static func wholeLines(_ data: Data, limit: Int) -> (consumed: Int, oversized: Bool) {
+        if data.last == UInt8(ascii: "\n") { return (data.count, false) }
+        if let newline = data.lastIndex(of: UInt8(ascii: "\n")) {
+            return (data.distance(from: data.startIndex, to: newline) + 1, false)
+        }
+        if data.count == limit { return (data.count, true) }
+        return (0, false)
+    }
+
+    /// Reads one chunk of a session file and returns how many bytes it consumed. Only whole lines
+    /// are parsed: a line still being written stays in the file for the next poll. A line larger
+    /// than the chunk is skipped (its events are not readable anyway) so one huge tool output can
+    /// never stop the watcher.
+    @discardableResult
+    /// The first byte after the newline before `offset`: never start parsing a tail in the middle
+    /// of a JSONL line (its event would be lost when the rest arrives).
+    private static func lineStart(_ file: URL, before offset: UInt64) -> UInt64 {
+        guard offset > 0, let handle = try? FileHandle(forReadingFrom: file) else { return 0 }
+        defer { try? handle.close() }
+        var end = offset
+        while end > 0 {
+            let start = end > (64 << 10) ? end - (64 << 10) : 0
+            try? handle.seek(toOffset: start)
+            guard let data = try? handle.read(upToCount: Int(end - start)), !data.isEmpty else { return 0 }
+            if let newline = data.lastIndex(of: 0x0A) { return start + UInt64(newline + 1) }
+            end = start
+        }
+        return 0
+    }
+
+    private func read(_ file: URL, from start: UInt64, to end: UInt64) -> UInt64 {
+        guard end > start, let handle = try? FileHandle(forReadingFrom: file) else { return 0 }
         defer { try? handle.close() }
         try? handle.seek(toOffset: start)
-        guard let data = try? handle.read(upToCount: Int(min(end - start, 8 << 20))) else { return }
+        let limit = Int(min(end - start, 8 << 20))
+        guard let data = try? handle.read(upToCount: limit), !data.isEmpty else {
+            AgentActivity.trace("codex session read failed: \(file.lastPathComponent) at \(start)")
+            return 0
+        }
+        let result = Self.wholeLines(data, limit: limit)
+        if result.oversized {
+            AgentActivity.trace("codex session skipped an oversized line: \(file.lastPathComponent)")
+        }
+        guard result.consumed > 0 else { return 0 }
+        let complete = Data(data.prefix(result.consumed))
         if userThreads[file.path] == nil {
             let meta = Self.meta(file)
             userThreads[file.path] = meta.user
@@ -197,13 +262,13 @@ final class CodexFinishWatcher {
         // The conversation's own id is in the first line; the file name can carry a second id
         // (a continued segment), which Codex cannot open.
         let threadId = threadIds[file.path] ?? Self.threadId(from: file)
-        guard userThreads[file.path] == true else { return }
+        guard userThreads[file.path] == true else { return UInt64(result.consumed) }
         let key = threadId ?? file.lastPathComponent
         let title = threadId.flatMap { titles[$0] ?? AppModel.shared.knownTitle($0) ?? Self.indexTitle($0) } ?? ""
         let opener: AgentActivity.Opener = threadId.map { .codexThread($0) } ?? .none
         let activity = AgentActivity.shared
-        if let threadId { questions(in: data, thread: threadId, title: title, maxAge: 30 * 60) }
-        for line in data.split(separator: UInt8(ascii: "\n")) {
+        if let threadId { questions(in: complete, thread: threadId, title: title, maxAge: 30 * 60) }
+        for line in complete.split(separator: UInt8(ascii: "\n")) {
             // Only short event lines matter; skip the big ones (tool output, messages) unparsed.
             guard line.count < 1 << 20 else { continue }
             let head = line.prefix(160)
@@ -267,6 +332,7 @@ final class CodexFinishWatcher {
                                   source: .files, opener: opener, at: date, tokens: tokens)
             }
         }
+        return UInt64(result.consumed)
     }
 
     /// The account limits Codex writes into the session file with each token count.

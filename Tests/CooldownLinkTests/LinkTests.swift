@@ -23,7 +23,11 @@ final class LinkTests: XCTestCase {
         let card = LinkCard(key: "claude.reset", kind: "reset", provider: "claude", title: "Лимит сброшен", body: "Можно продолжать",
                             actions: [LinkAction(id: "continue", title: "Продолжить", style: .primary)], created: Date(timeIntervalSince1970: 1_761_390_000))
         let frame = try mac.envelope(.card(card), to: "phone", push: LinkPush(collapse: card.collapseID))
-        XCTAssertFalse(frame.box!.contains("Лимит"))
+        let cipher = try XCTUnwrap(Data(base64Encoded: try XCTUnwrap(frame.box)))
+        let cipherText = String(decoding: cipher, as: UTF8.self)
+        XCTAssertFalse(cipherText.contains("Лимит"))
+        XCTAssertFalse(cipherText.contains("Можно продолжать"))
+        XCTAssertFalse(cipherText.contains("Продолжить"))
         let box = try phone.open(relayed(frame, from: "mac"))
         XCTAssertEqual(box.card, card)
         // The same box again is a replay.
@@ -74,5 +78,35 @@ final class LinkTests: XCTestCase {
         let s = LiveState(items: [], countdowns: [.init(provider: "claude", until: 1_761_400_000, waiting: 1)], updated: 1_761_390_000)
         let json = String(data: try JSONEncoder().encode(s), encoding: .utf8)!
         XCTAssertTrue(json.contains("1761400000"))
+    }
+
+    @MainActor
+    func testOldWriteFailureDoesNotDropNewConnection() async {
+        let relay = URL(string: "http://127.0.0.1:1")!
+        let client = LinkClient(relay: relay, token: "test")
+        let old = URLSession.shared.webSocketTask(with: URL(string: "ws://127.0.0.1:1/v1/ws")!)
+        client.start()
+        defer { client.stop() }
+        XCTAssertEqual(client.status, .connecting)
+        client.writeFailed(URLError(.networkConnectionLost), frame: LinkFrame(t: "env"), on: old)
+        XCTAssertEqual(client.status, .connecting)
+    }
+}
+
+final class LinkConnectionLifecycleTests: XCTestCase {
+    @MainActor
+    func testOldReadyFrameCannotReviveStoppedOrDifferentConnection() async {
+        let client = LinkClient(relay: URL(string: "http://127.0.0.1:1")!, token: "test")
+        let old = URLSession.shared.webSocketTask(with: URL(string: "ws://127.0.0.1:1/v1/ws")!)
+        var received = 0
+        client.onFrame = { _ in received += 1 }
+        client.start()
+        client.handle(LinkFrame(t: "ready"), on: old)
+        XCTAssertEqual(client.status, .connecting)
+        XCTAssertEqual(received, 0)
+        client.stop()
+        client.handle(LinkFrame(t: "ready"), on: old)
+        XCTAssertEqual(client.status, .off)
+        XCTAssertEqual(received, 0)
     }
 }

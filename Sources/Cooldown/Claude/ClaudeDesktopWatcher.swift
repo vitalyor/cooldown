@@ -71,6 +71,8 @@ final class ClaudeDesktopWatcher {
         guard Settings.watchClaudeWindow, ClaudeSender.hasPermission, !AppModel.shared.demoActive,
               let app = ClaudeSender.claudeApp else {
             if !writing.isEmpty { writing = [:]; AgentActivity.shared.replace(.claude, source: .window, with: []) }
+            for (chat, prompt) in prompts { RequestCenter.shared.resolved(Self.promptKey(chat, prompt)) }
+            prompts = [:]
             return
         }
         // Every 3 s while Claude is in front or writing; otherwise every 9 s is enough to notice.
@@ -108,6 +110,7 @@ final class ClaudeDesktopWatcher {
 
     nonisolated private static func read(pid: pid_t, cache: WindowCache, writing: Set<String>, full: Bool) -> [Look] {
         let root = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(root, 2)
         AXUIElementSetAttributeValue(root, "AXManualAccessibility" as CFString, kCFBooleanTrue)
         let windows = (ClaudeSender.value(root, kAXWindowsAttribute) as? [AXUIElement]) ?? []
         var looks: [Look] = []
@@ -194,9 +197,10 @@ final class ClaudeDesktopWatcher {
         for key in writing.keys where seen[key] == nil {
             writing[key]?.missed += 1
             AgentActivity.trace("miss \(key) \(writing[key]?.missed ?? 0)")
-            if (writing[key]?.missed ?? 0) >= 5, let was = writing.removeValue(forKey: key) {
-                // Out of sight but maybe still writing: the account can tell when it ends.
-                ClaudeBackgroundChats.shared.track(was.chat, key: key, since: was.since)
+            if (writing[key]?.missed ?? 0) >= 5 {
+                // Out of sight: the chat is let go quietly. The window is the only source for an
+                // ordinary chat, so no completion card is invented for it.
+                writing.removeValue(forKey: key)
             }
         }
         activity.replace(.claude, source: .window, with: Set(writing.keys))
@@ -246,7 +250,7 @@ final class ClaudeDesktopWatcher {
             let request = AgentRequest(key: Self.promptKey(key, prompt), provider: .claude, chat: "«\(chat.title)»",
                                        headline: lines.first ?? L("Claude просит разрешение"),
                                        detail: lines.dropFirst().joined(separator: "\n"), choices: choices,
-                                       appBundleIDs: ["com.anthropic.claudefordesktop"],
+                                       appBundleIDs: Presence.shared.away(after: 120).away ? [] : ["com.anthropic.claudefordesktop"],
                                        threadId: nil)
             RequestCenter.shared.post(request, open: { Task { await ClaudeSender.reveal(chat) } }) { choice in
                 guard choice.id.hasPrefix("press:"), let pid = ClaudeSender.claudeApp?.processIdentifier else {
@@ -323,7 +327,7 @@ final class ClaudeDesktopWatcher {
             // Web buttons carry their words as a description or as a title.
             if role == "AXButton", let label = [values[1] as? String, values[3] as? String].compactMap({ $0 }).first(where: { !$0.isEmpty }),
                permissionRole(label) != nil {
-                promptButtons.append((label, ClaudeSender.value(element, kAXParentAttribute).map { $0 as! AXUIElement }))
+                promptButtons.append((label, ClaudeSender.element(ClaudeSender.value(element, kAXParentAttribute))))
             }
             stack.append(contentsOf: ((values[2] as? [AXUIElement]) ?? []).reversed())
         }
@@ -331,8 +335,8 @@ final class ClaudeDesktopWatcher {
         // The message box: a few levels above the text field, holding the send/stop buttons.
         var composer = input
         for _ in 0..<4 {
-            guard let current = composer, let parent = ClaudeSender.value(current, kAXParentAttribute) else { break }
-            composer = (parent as! AXUIElement)
+            guard let current = composer, let parent = ClaudeSender.element(ClaudeSender.value(current, kAXParentAttribute)) else { break }
+            composer = parent
         }
         let prompt = Self.prompt(from: promptButtons)
         if debug {
@@ -356,7 +360,7 @@ final class ClaudeDesktopWatcher {
         guard let group = groups.values.first(where: { $0.labels.count >= 2 }) else { return nil }
         var container = group.parent
         for _ in 0..<2 {
-            if let up = ClaudeSender.value(container, kAXParentAttribute) { container = (up as! AXUIElement) }
+            if let up = ClaudeSender.element(ClaudeSender.value(container, kAXParentAttribute)) { container = up }
         }
         var texts: [String] = []
         var stack = [container]
@@ -376,6 +380,7 @@ final class ClaudeDesktopWatcher {
     /// Presses the chosen button of a prompt in that chat, after finding the very same prompt.
     nonisolated static func press(_ label: String, prompt: Prompt, chat: ClaudeChat, pid: pid_t) -> Bool {
         let root = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(root, 2)
         for window in (ClaudeSender.value(root, kAXWindowsAttribute) as? [AXUIElement]) ?? [] {
             var stack = [window]
             var visited = 0
@@ -388,7 +393,7 @@ final class ClaudeDesktopWatcher {
                 if values[0] as? String == "AXButton",
                    let text = [values[1] as? String, values[3] as? String].compactMap({ $0 }).first(where: { !$0.isEmpty }),
                    permissionRole(text) != nil {
-                    buttons.append((text, element, ClaudeSender.value(element, kAXParentAttribute).map { $0 as! AXUIElement }))
+                    buttons.append((text, element, ClaudeSender.element(ClaudeSender.value(element, kAXParentAttribute))))
                 }
                 stack.append(contentsOf: ((values[2] as? [AXUIElement]) ?? []).reversed())
             }
@@ -397,48 +402,5 @@ final class ClaudeDesktopWatcher {
             return AXUIElementPerformAction(target.element, kAXPressAction as CFString) == .success
         }
         return false
-    }
-}
-
-
-/// Chats that were being answered when they left the window (the person opened another chat).
-/// With claude.ai connected, Cooldown looks once a minute at when those chats last changed:
-/// a change after the answer began that then holds still means the answer is complete.
-@MainActor
-final class ClaudeBackgroundChats {
-    static let shared = ClaudeBackgroundChats()
-
-    private struct Item { var chat: ClaudeChat; var key: String; var since: Date; var seen: Date?; var steady = 0 }
-    private var items: [String: Item] = [:]
-    private var timer: Timer?
-
-    func track(_ chat: ClaudeChat, key: String, since: Date) {
-        guard ClaudeWeb.shared.isConnected, !chat.id.isEmpty else { return }
-        AgentActivity.trace("follow by account \(key)")
-        items[chat.id] = Item(chat: chat, key: key, since: since)
-        if timer == nil {
-            timer = Timer.every(60) { _ in
-                Task { @MainActor in await ClaudeBackgroundChats.shared.check() }
-            }
-        }
-    }
-
-    private func check() async {
-        let now = Date()
-        items = items.filter { now.timeIntervalSince($0.value.since) < 30 * 60 }
-        guard !items.isEmpty, let updates = try? await ClaudeWeb.shared.recentUpdates() else {
-            if items.isEmpty { timer?.invalidate(); timer = nil }
-            return
-        }
-        for (id, var item) in items {
-            guard let changed = updates[id], changed > item.since.addingTimeInterval(5) else { continue }
-            if item.seen == changed { item.steady += 1 } else { item.seen = changed; item.steady = 0 }
-            items[id] = item
-            guard item.steady >= 1 else { continue }
-            items.removeValue(forKey: id)
-            AgentActivity.shared.finished(.claude, key: item.key, title: item.chat.title, message: "",
-                                          duration: changed.timeIntervalSince(item.since), source: .web,
-                                          opener: .claudeChat(item.chat), at: changed)
-        }
     }
 }

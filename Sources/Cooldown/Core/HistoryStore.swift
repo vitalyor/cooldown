@@ -83,7 +83,16 @@ final class HistoryStore {
         guard let data = try? Data(contentsOf: url) else { return HistoryFile() }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .secondsSince1970
-        return (try? decoder.decode(HistoryFile.self, from: data)) ?? HistoryFile()
+        do {
+            return try decoder.decode(HistoryFile.self, from: data)
+        } catch {
+            // Do not let the next save quietly replace a file that may still be recoverable.
+            let stamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
+            let backup = url.deletingLastPathComponent().appendingPathComponent("\(url.lastPathComponent).corrupt-\(stamp)")
+            try? FileManager.default.copyItem(at: url, to: backup)
+            AgentActivity.trace("history \(url.lastPathComponent): unreadable, kept a copy at \(backup.lastPathComponent)")
+            return HistoryFile()
+        }
     }
 
     func save(_ history: HistoryFile) {

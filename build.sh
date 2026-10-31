@@ -74,6 +74,13 @@ if [ -z "$DEV_ID" ] && [ -f "$KC" ]; then
   [ -n "$KC_PASS" ] && security unlock-keychain -p "$KC_PASS" "$KC" 2>/dev/null || true
   IDENTITY=$(security find-identity -p codesigning "$KC" 2>/dev/null | awk '/Cooldown Local Signing/ {print $2; exit}')
 fi
+# Installing over /Applications with a local/ad-hoc signature makes macOS forget the app's
+# Keychain access and ask for the login password again. A normal install must use Developer ID.
+if [ "${1:-}" = "--install" ] && [ -z "$DEV_ID" ] && [ "${COOLDOWN_ALLOW_LOCAL_INSTALL:-0}" != "1" ]; then
+  echo "Refusing to install without a Developer ID signature. Set COOLDOWN_ALLOW_LOCAL_INSTALL=1 only for a private test."
+  exit 1
+fi
+
 if [ -n "$DEV_ID" ]; then
   # Releases get a secure timestamp from Apple (notarization needs it); everyday builds skip the round trip.
   if [ -n "${COOLDOWN_RELEASE:-}" ]; then STAMP="--timestamp"; else STAMP="--timestamp=none"; fi

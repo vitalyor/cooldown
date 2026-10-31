@@ -13,10 +13,12 @@ public struct LinkPush: Codable, Equatable, Sendable {
     public var silent: Bool?
     public var badge: Int?         // things waiting for a press, shown on the app icon
     public var urgent: Bool?       // priority 10 even for a quiet (passive) one
+    /// Wake the phone silently (APNs background push): used for keep-alive, never shown.
+    public var background: Bool?
     public init(collapse: String? = nil, sound: Bool? = nil, level: String? = nil, remove: [String]? = nil, silent: Bool? = nil,
-                badge: Int? = nil, urgent: Bool? = nil) {
+                badge: Int? = nil, urgent: Bool? = nil, background: Bool? = nil) {
         self.collapse = collapse; self.sound = sound; self.level = level; self.remove = remove; self.silent = silent
-        self.badge = badge; self.urgent = urgent
+        self.badge = badge; self.urgent = urgent; self.background = background
     }
 }
 
@@ -326,6 +328,8 @@ public final class LinkClient {
 
     public func stop() {
         wanted = false
+        generation += 1
+        heartbeat?.cancel()
         retry?.cancel()
         monitor?.cancel()
         monitor = nil
@@ -362,10 +366,15 @@ public final class LinkClient {
         task.send(.string(text)) { [weak self] error in
             guard let error else { return }
             Task { @MainActor in
-                self?.outbox.append(frame)
-                self?.dropped(error.localizedDescription)
+                self?.writeFailed(error, frame: frame, on: task)
             }
         }
+    }
+
+    func writeFailed(_ error: Error, frame: LinkFrame, on connection: URLSessionWebSocketTask) {
+        guard wanted, task === connection else { return }
+        outbox.append(frame)
+        dropped(error.localizedDescription)
     }
 
     private func connect() {
@@ -387,7 +396,7 @@ public final class LinkClient {
     private func receive(on t: URLSessionWebSocketTask, generation mine: Int) {
         t.receive { [weak self] result in
             Task { @MainActor in
-                guard let self, mine == self.generation else { return }
+                guard let self, self.wanted, mine == self.generation, self.task === t else { return }
                 switch result {
                 case .failure(let error):
                     self.dropped(error.localizedDescription)
@@ -431,7 +440,8 @@ public final class LinkClient {
         }
     }
 
-    private func handle(_ frame: LinkFrame, on t: URLSessionWebSocketTask) {
+    func handle(_ frame: LinkFrame, on t: URLSessionWebSocketTask) {
+        guard wanted, task === t else { return }
         if frame.t == "ready" {
             attempt = 0
             status = .online
@@ -450,6 +460,7 @@ public final class LinkClient {
     }
 
     private func dropped(_ reason: String) {
+        heartbeat?.cancel()
         task?.cancel(with: .goingAway, reason: nil)
         task = nil
         guard wanted else { status = .off; return }

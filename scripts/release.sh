@@ -20,11 +20,15 @@ if [ -n "$(git status --porcelain)" ]; then
   git push -q
 fi
 
+# Everything that can be checked without a Mac app bundle is checked before publishing.
+python3 scripts/l10n_build.py
+swift test
 # COOLDOWN_SIGN=local publishes a build signed like 1.2.x (the bridge release that teaches the
 # updater to accept Developer ID builds); otherwise the Developer ID certificate is used.
 COOLDOWN_VERSION="$VERSION" COOLDOWN_RELEASE=1 ./build.sh
 # The rules that must never break are checked on the very build being published.
 build/Cooldown.app/Contents/MacOS/Cooldown --selftest || { echo "Self-test failed: not publishing."; exit 1; }
+codesign --verify --deep --strict build/Cooldown.app || { echo "Signature check failed: not publishing."; exit 1; }
 
 OUT="build/release"
 rm -rf "$OUT" && mkdir -p "$OUT/dmg"
@@ -39,6 +43,7 @@ notarize() {
   RESULT=$(xcrun notarytool submit "$1" --keychain-profile "$PROFILE" --wait --output-format json)
   echo "$RESULT" | grep -q '"status" *: *"Accepted"' || { echo "Notarization failed: $RESULT"; exit 1; }
 }
+[ -n "$DEV_ID" ] || { echo "No Developer ID signature (set COOLDOWN_ALLOW_UNNOTARIZED=1 only for a private test build)."; [ "${COOLDOWN_ALLOW_UNNOTARIZED:-0}" = "1" ] || exit 1; }
 if [ -n "$DEV_ID" ]; then
   ditto -c -k --keepParent build/Cooldown.app "$OUT/notarize.zip"
   notarize "$OUT/notarize.zip"
@@ -53,6 +58,7 @@ if [ -n "$DEV_ID" ]; then
   codesign --sign "$DEV_ID" --timestamp "$OUT/Cooldown-$VERSION.dmg"
   notarize "$OUT/Cooldown-$VERSION.dmg"
   xcrun stapler staple -q "$OUT/Cooldown-$VERSION.dmg"
+  xcrun stapler validate -q "$OUT/Cooldown-$VERSION.dmg" || { echo "Notarization ticket not stapled."; exit 1; }
 fi
 ditto -c -k --keepParent build/Cooldown.app "$OUT/Cooldown-$VERSION.zip"
 ( cd "$OUT" && shasum -a 256 "Cooldown-$VERSION.dmg" "Cooldown-$VERSION.zip" > SHA256SUMS.txt )

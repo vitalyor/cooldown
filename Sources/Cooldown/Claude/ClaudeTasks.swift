@@ -79,6 +79,8 @@ final class ClaudeTaskManager: ObservableObject {
     var onChange: ((ClaudeTask, String) -> Void)?
 
     private var running: [String: Process] = [:]
+    private var lastAdopt = Date.distantPast
+    private var adopting = false
     private var storeURL: URL { Settings.appSupport.appendingPathComponent("claude-tasks.json") }
     private var logsURL: URL {
         let url = Settings.appSupport.appendingPathComponent("logs", isDirectory: true)
@@ -245,9 +247,34 @@ final class ClaudeTaskManager: ObservableObject {
         }
     }
 
+    /// Sessions stopped by the plan limit are picked up without a separate "add" step. Only ones
+    /// that stopped recently and are not already known (including ones the person switched off):
+    /// a stopped task stays stopped.
+    private func adoptStoppedSessions(now: Date) {
+        guard Settings.claudeAutoCode, !adopting, now.timeIntervalSince(lastAdopt) > 5 * 60 else { return }
+        lastAdopt = now
+        adopting = true
+        let root = ClaudePaths.projects
+        let known = Set(tasks.map(\.id))
+        Task {
+            let found = await Task.detached(priority: .utility) {
+                Self.discover(root: root).filter { session in
+                    guard session.updated > now.addingTimeInterval(-24 * 3600) else { return false }
+                    if case .limited = session.state { return true }
+                    return false
+                }
+            }.value
+            self.adopting = false
+            for session in found.prefix(5) where !known.contains(session.id) && !self.tasks.contains(where: { $0.id == session.id }) {
+                try? self.add(session, maxResumes: 2)
+            }
+        }
+    }
+
     /// Called every minute with Claude's current limits.
     func tick(limits: LimitSnapshot?) {
         let now = Date()
+        adoptStoppedSessions(now: now)
         for task in tasks where task.enabled {
             if running[task.id] != nil {
                 update(task.id) { $0.status = "resumed"; $0.reason = L("Claude продолжает работу в фоне.") }

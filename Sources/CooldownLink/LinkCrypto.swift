@@ -65,7 +65,10 @@ public enum LinkCrypto {
 
     public static func random(_ count: Int) -> Data {
         var bytes = [UInt8](repeating: 0, count: count)
-        _ = SecRandomCopyBytes(kSecRandomDefault, count, &bytes)
+        let status = SecRandomCopyBytes(kSecRandomDefault, count, &bytes)
+        // A zero-filled key or nonce would be silently insecure; this never fails on a working
+        // system, and a crash is preferable to using predictable bytes.
+        precondition(status == errSecSuccess, "SecRandomCopyBytes failed: \(status)")
         return Data(bytes)
     }
 }

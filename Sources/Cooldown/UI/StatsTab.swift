@@ -42,7 +42,6 @@ struct StatsTabView: View {
             Group {
                 switch StatsTab.options(for: store.id).contains(tab) ? tab : .limits {
                 case .limits: LimitsHistory(store: store, range: range)
-                case .chats: ChatsHistory(web: ClaudeWeb.shared, range: range)
                 case .tokens: TokensHistory(store: store, range: range)
                 case .projects: ProjectsBreakdown(store: store, range: range)
                 }
@@ -219,74 +218,6 @@ private struct TokensHistory: View {
     }
 }
 
-/// Claude Desktop and claude.ai activity: conversations by day, model and project.
-private struct ChatsHistory: View {
-    @ObservedObject var web: ClaudeWeb
-    let range: StatsRange
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if let activity = web.activity {
-                let now = Date()
-                let items = activity.inRange(range, now: now)
-                let days = activity.days(range, now: now)
-                let activeDays = Set(items.map { Calendar.current.startOfDay(for: $0.date) }).count
-                Figures(items: [
-                    ("\(items.count)", "\(Format.word(items.count, L("диалог|диалога|диалогов"))) \(range.phrase)"),
-                    ("\(activeDays)", L("%@ с работой в Claude", "\(Format.word(activeDays, L("день|дня|дней")))")),
-                ])
-                Well {
-                    if days.isEmpty {
-                        EmptyChart(text: L("Диалогов %@ не было.", "\(range.phrase)"))
-                    } else {
-                        Chart(days) { day in
-                            BarMark(x: .value(L("Время"), day.date, unit: range.unit), y: .value(L("Диалоги"), day.conversations))
-                                .foregroundStyle(Theme.coral.gradient)
-                                .cornerRadius(3)
-                        }
-                        .chartXScale(domain: now.addingTimeInterval(-range.interval)...now)
-                        .chartYAxis {
-                            AxisMarks(position: .trailing, values: .automatic(desiredCount: 3)) { value in
-                                AxisGridLine().foregroundStyle(.secondary.opacity(0.15))
-                                AxisValueLabel { Text("\(value.as(Int.self) ?? 0)").font(.caption2) }
-                            }
-                        }
-                        .chartXAxis { timeAxis(range) }
-                        .frame(height: 150)
-                    }
-                }
-                let models = activity.shares(range) { $0.model }
-                if !models.isEmpty {
-                    SectionTitle(text: L("Модели"))
-                    Well { ForEach(models) { row in ShareBar(row: row, color: Theme.coral, unit: L("диал.")) } }
-                }
-                let projects = activity.shares(range) { $0.project }
-                if projects.count > 1 || projects.first?.name != L("Без проекта") {
-                    SectionTitle(text: L("Проекты claude.ai"))
-                    Well { ForEach(projects) { row in ShareBar(row: row, color: Theme.coral, unit: L("диал.")) } }
-                }
-                Text(L("Обновлено %@. Считаются диалоги, которые менялись в этот период; сообщения не читаются.", "\(Format.relative(activity.updated))"))
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .padding(.horizontal, 4)
-            } else if web.isConnected {
-                Well {
-                    HStack(spacing: 8) { ProgressView().controlSize(.small); Text(L("Загружаю активность claude.ai…")).foregroundStyle(.secondary) }
-                        .frame(maxWidth: .infinity, minHeight: 90)
-                }
-                .task { await web.refreshActivity() }
-            } else {
-                Well {
-                    Text(L("Войдите в claude.ai на вкладке «Лимиты», и здесь появится активность Claude Desktop: диалоги по дням, модели и проекты."))
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        }
-    }
-}
-
 private struct ProjectsBreakdown: View {
     @ObservedObject var store: ProviderStore
     @ObservedObject private var log = TurnLog.shared
@@ -298,6 +229,7 @@ private struct ProjectsBreakdown: View {
         let now = Date()
         let projects = Stats.projects(store.buckets, range, now: now)
         let models = Stats.models(store.buckets, range, now: now)
+        let dollars = modelDollars
 
         VStack(alignment: .leading, spacing: 12) {
             if projects.isEmpty {
@@ -378,8 +310,8 @@ private struct ProjectsBreakdown: View {
                             HStack {
                                 Text(row.name).lineLimit(1)
                                 Spacer()
-                                if let dollars = modelDollars[row.name], dollars >= 0.01 {
-                                    Text("≈\(Pricing.format(dollars))").monospacedDigit().foregroundStyle(.secondary)
+                                if let cost = dollars[row.name], cost >= 0.01 {
+                                    Text("≈\(Pricing.format(cost))").monospacedDigit().foregroundStyle(.secondary)
                                 }
                                 Text(Format.percent(row.percent)).monospacedDigit().foregroundStyle(.secondary)
                                     .frame(minWidth: 38, alignment: .trailing)
@@ -453,7 +385,7 @@ private struct ProjectTasks: View {
     }
 
     private func detail(_ turn: TurnLog.Turn) -> String {
-        var parts = [turn.ended.formatted(.dateTime.weekday(.abbreviated).hour().minute())]
+        var parts = [turn.ended.formatted(.dateTime.weekday(.abbreviated).hour().minute().locale(AppLanguage.locale))]
         if let seconds = turn.seconds, seconds >= 60 { parts.append(Format.duration(seconds)) }
         if let tokens = turn.tokens, tokens > 0 { parts.append(Format.tokens(tokens)) }
         if let model = turn.model { parts.append(model) }

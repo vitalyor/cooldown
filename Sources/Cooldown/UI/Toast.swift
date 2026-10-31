@@ -1,199 +1,6 @@
 import AppKit
 import SwiftUI
 
-// MARK: What a card says
-
-/// What a card can offer besides closing.
-enum ToastAction: Equatable {
-    case openPanel
-    case openClaude
-    case openCodex
-    case openCodexThread(String)
-    case continueClaude(demo: Bool)
-    case continueClaudeChat(ClaudeChat)
-    case openClaudeChat(ClaudeChat)
-    case continueAllClaude([ClaudeChat])
-    case openSchedule
-    case installUpdate
-    case installRelease
-    case openReleasePage
-    case openFeed
-    case remindBeforeReset(ProviderID, Date)
-    /// The chat the limit stopped: continue it after the reset (Codex by itself, Claude with a card).
-    case continueAfterReset(AgentActivity.Opener)
-    case openFile(URL)
-
-    var title: String {
-        switch self {
-        case .openFeed: return L("Посмотреть")
-        case .remindBeforeReset: return L("Напомнить за 10 мин")
-        case .continueAfterReset: return L("Продолжить после сброса")
-        case .openFile: return L("Открыть отчёт")
-        case .openSchedule: return L("Отложить задачу")
-        case .installUpdate: return L("Перезапустить")
-        case .installRelease: return L("Обновить")
-        case .openReleasePage: return L("Что нового")
-        case .continueClaudeChat: return L("Продолжить")
-        case .continueAllClaude(let chats): return L("Продолжить все (%@)", "\(chats.count)")
-        case .openPanel: return L("Открыть Cooldown")
-        case .openClaude, .openClaudeChat: return L("Открыть Claude")
-        case .openCodex, .openCodexThread: return L("Открыть Codex")
-        case .continueClaude: return L("Продолжить")
-        }
-    }
-}
-
-struct ToastContent: Equatable {
-    enum Kind { case reset, finished, attention, warning, info, waiting }
-
-    /// How long a card stays: by itself for a while, or until the person answers it.
-    enum Life: Equatable {
-        case auto(Double)
-        case sticky
-    }
-
-    /// Cards with the same key replace each other instead of piling up.
-    var key: String
-    var kind: Kind
-    var provider: ProviderID?
-    var title: String
-    var body: String
-    var actions: [ToastAction] = []
-    var life: Life = .auto(8)
-    var threadId: String? = nil
-    /// Request cards: the exact thing asked about, the answers, and which request they answer.
-    var detail: String? = nil
-    var choices: [RequestChoice] = []
-    var requestKey: String? = nil
-
-    /// The app the news is about: while it is in front, the person already sees what happened.
-    var appBundleIDs: [String] {
-        switch provider {
-        case .codex: return ["com.openai.codex"]
-        case .claude: return ["com.anthropic.claudefordesktop"]
-        case nil: return []
-        }
-    }
-
-    var tint: Color {
-        switch kind {
-        case .reset: return Theme.mint
-        case .finished: return provider.map { Theme.tint(for: $0) } ?? Theme.cobalt
-        case .attention: return Theme.amber
-        case .warning: return Theme.signal
-        case .waiting: return Theme.cobalt
-        case .info: return Theme.cobalt
-        }
-    }
-
-    var symbol: String {
-        switch kind {
-        case .reset: return "arrow.counterclockwise.circle.fill"
-        case .finished: return "checkmark.circle.fill"
-        case .attention: return "hand.raised.circle.fill"
-        case .warning: return "exclamationmark.circle.fill"
-        case .waiting: return "hourglass.circle.fill"
-        case .info: return "info.circle.fill"
-        }
-    }
-}
-
-/// The catalogue of cards Cooldown shows, in one place so the wording and behaviour stay consistent.
-@MainActor
-enum ToastCatalog {
-    static func limitLow(_ provider: ProviderID, remaining: Double, reset: Date) -> ToastContent {
-        let critical = remaining <= 5
-        // Almost out while a chat is at work: offer to continue it after the reset, so it doesn't
-        // just stop halfway.
-        if critical, let (opener, title) = AgentActivity.shared.unwatchedWorking(provider) {
-            return ToastContent(key: "low-\(provider.rawValue)", kind: .warning, provider: provider,
-                                title: L("%@ скоро упрётся в лимит", "\(provider.displayName)"),
-                                body: L("Осталось %@. «%@» остановится на полпути — сброс в %@.", "\(Format.percent(remaining))", "\(title)", "\(Format.time(reset))"),
-                                actions: [.continueAfterReset(opener)], life: .sticky)
-        }
-        return ToastContent(key: "low-\(provider.rawValue)", kind: critical ? .warning : .attention, provider: provider,
-                            title: L("%@: осталось %@", "\(provider.displayName)", "\(Format.percent(remaining))"),
-                            body: critical ? L("Лимит на 5 часов почти кончился. Сброс в %@.", "\(Format.time(reset))")
-                                           : L("Лимит на 5 часов заканчивается. Сброс в %@.", "\(Format.time(reset))"),
-                            actions: [.openPanel], life: .auto(critical ? 14 : 9))
-    }
-
-    /// The limit is spent: when work can go on, with a reminder and (Codex) a task for that moment.
-    static func limitOut(_ provider: ProviderID, reset: Date) -> ToastContent {
-        var actions: [ToastAction] = []
-        if ResetReminder.possible(before: reset) { actions.append(.remindBeforeReset(provider, reset)) }
-        if provider == .codex { actions.append(.openSchedule) }
-        return ToastContent(key: "out-\(provider.rawValue)", kind: .warning, provider: provider,
-                            title: L("Лимит %@ исчерпан", "\(provider.displayName)"),
-                            body: L("Снова можно работать в %@ — через %@.", "\(Format.clock(reset))", "\(Format.duration(max(60, reset.timeIntervalSinceNow)))"),
-                            actions: actions.isEmpty ? [.openPanel] : actions, life: .sticky)
-    }
-
-    static func limitReset(_ provider: ProviderID, demo: Bool = false) -> ToastContent {
-        if provider == .claude {
-            // Needs the person: Cooldown never writes into a Claude chat on its own.
-            let target = ClaudeSender.pendingChat.map { L("в чат «%@»", "\($0.title)") } ?? L("в открытый чат Claude")
-            return ToastContent(key: "reset-claude", kind: .reset, provider: .claude, title: L("Лимит Claude восстановился"),
-                                body: L("Можно продолжать. «Продолжить» отправит «%@» %@.", "\(ClaudeSender.text)", "\(target)"),
-                                actions: [.continueClaude(demo: demo), .openClaude], life: .sticky)
-        }
-        return ToastContent(key: "reset-codex", kind: .reset, provider: .codex, title: L("Лимит Codex восстановился"),
-                            body: L("Окно на 5 часов сбросилось, можно работать дальше."), actions: [.openPanel], life: .auto(9))
-    }
-
-    static func taskWaiting(_ provider: ProviderID, title: String, until: Date?) -> ToastContent {
-        ToastContent(key: "task-\(title)", kind: .waiting, provider: provider, title: L("«%@» ждёт сброса", "\(title)"),
-                     body: until.map { L("Лимит кончился. Cooldown продолжит задачу сам в %@.", "\(Format.time($0))") }
-                        ?? L("Лимит кончился. Cooldown продолжит задачу сам сразу после сброса."),
-                     actions: [.openPanel], life: .auto(9))
-    }
-
-    static func taskResumed(_ provider: ProviderID, title: String) -> ToastContent {
-        ToastContent(key: "task-\(title)", kind: .reset, provider: provider, title: L("«%@» продолжена", "\(title)"),
-                     body: L("Лимит восстановился, Cooldown отправил «продолжай». Задача снова работает."),
-                     actions: [provider == .codex ? .openCodex : .openPanel], life: .auto(9))
-    }
-
-    static func taskFinished(_ provider: ProviderID, title: String, detail: String, threadId: String? = nil) -> ToastContent {
-        ToastContent(key: "task-\(title)", kind: .finished, provider: provider, title: L("%@ закончил «%@»", "\(provider.displayName)", "\(title)"),
-                     body: detail.isEmpty ? L("Задача завершена, можно посмотреть результат.") : detail,
-                     actions: [threadId.map { .openCodexThread($0) } ?? (provider == .codex ? .openCodex : .openPanel)],
-                     life: .auto(12), threadId: threadId)
-    }
-
-    static func taskAttention(_ provider: ProviderID, title: String, reason: String) -> ToastContent {
-        ToastContent(key: "task-\(title)", kind: .attention, provider: provider, title: L("«%@» ждёт вашего решения", "\(title)"),
-                     body: reason.isEmpty ? L("Автопродолжение остановилось, нужно ваше участие.") : reason,
-                     actions: [provider == .codex ? .openCodex : .openPanel], life: .sticky)
-    }
-
-    static func taskBudget(_ provider: ProviderID, title: String) -> ToastContent {
-        ToastContent(key: "task-\(title)", kind: .warning, provider: provider, title: L("«%@»: попытки закончились", "\(title)"),
-                     body: L("Задача несколько раз упиралась в лимит. Автопродолжение остановлено, загляните в диалог."),
-                     actions: [.openPanel], life: .sticky)
-    }
-
-    /// A chat stopped because the limit ran out. Same key as limitOut: it takes that card's place.
-    static func limitStopped(_ provider: ProviderID, name: String, reset: Date?, opener: AgentActivity.Opener = .none) -> ToastContent {
-        var actions: [ToastAction] = []
-        if AgentActivity.canContinueAfterReset(opener) { actions.append(.continueAfterReset(opener)) }
-        if let reset, ResetReminder.possible(before: reset) { actions.append(.remindBeforeReset(provider, reset)) }
-        if provider == .codex { actions.append(.openSchedule) }
-        let when = reset.map { L("Снова можно работать в %@ — через %@.", "\(Format.clock($0))", "\(Format.duration(max(60, $0.timeIntervalSinceNow)))") }
-            ?? L("Снова можно работать после сброса лимита.")
-        let next = provider == .claude ? L("После сброса придёт карточка «Продолжить».")
-                                       : (AppModel.shared.watches.contains(where: \.enabled) ? L("Отслеживаемые задачи Cooldown продолжит сам.") : "")
-        return ToastContent(key: "out-\(provider.rawValue)", kind: .warning, provider: provider,
-                            title: L("%@ упёрся в лимит", "\(provider.displayName)"),
-                            body: L("«%@» остановлен: лимит на 5 часов исчерпан. %@", "\(name)", "\(when)") + (next.isEmpty ? "" : " " + next),
-                            actions: actions.isEmpty ? [.openPanel] : actions, life: .sticky)
-    }
-
-    static func failure(_ title: String, _ body: String, provider: ProviderID? = nil) -> ToastContent {
-        ToastContent(key: "fail-\(title)", kind: .warning, provider: provider, title: title, body: body, life: .sticky)
-    }
-}
-
 // MARK: Showing cards
 
 /// Glass cards that slide out from under the menu bar icon, like a notch toast. They never take
@@ -365,7 +172,10 @@ final class ToastController: ObservableObject {
         panel.isOpaque = false
         panel.hasShadow = true
         panel.becomesKeyOnlyIfNeeded = true
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient, .ignoresCycle]
+        // Only the Space the person is on, and never in a screen recording or share. A card may
+        // carry a prompt, a command or an agent's answer; it must not appear on another Space.
+        panel.collectionBehavior = [.transient, .ignoresCycle]
+        panel.sharingType = .none
         panel.contentView = container
         panel.setContentSize(size)
 
@@ -418,10 +228,11 @@ final class ToastController: ObservableObject {
         card.hideTask = Task { [weak self, weak card] in
             var left = seconds
             while left > 0 {
-                try? await Task.sleep(for: .milliseconds(100))
+                // Four redraws a second are enough for a countdown bar and much cheaper than ten.
+                try? await Task.sleep(for: .milliseconds(250))
                 guard !Task.isCancelled, let card else { return }
                 // Nobody at the Mac: keep the card until they are back, so it is not missed.
-                if !card.model.paused && Self.idleSeconds < 60 { left -= 0.1 }
+                if !card.model.paused && Self.idleSeconds < 60 { left -= 0.25 }
                 card.model.remaining = max(0, left / seconds)
             }
             if let card { self?.remove(card) }
@@ -559,6 +370,8 @@ private struct ToastView: View {
                                 .frame(width: 18, height: 18).contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        .help(L("Закрыть"))
+                        .accessibilityLabel(L("Закрыть"))
                     }
                     Text(content.title).font(.system(size: 14, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
                     if !content.body.isEmpty {
@@ -585,7 +398,7 @@ private struct ToastView: View {
                 GeometryReader { geometry in
                     Capsule().fill(content.tint.opacity(0.55))
                         .frame(width: geometry.size.width * model.remaining, height: 2)
-                        .animation(.linear(duration: 0.1), value: model.remaining)
+                        .animation(.linear(duration: 0.25), value: model.remaining)
                 }
                 .frame(height: 2)
                 .padding(.horizontal, 20)

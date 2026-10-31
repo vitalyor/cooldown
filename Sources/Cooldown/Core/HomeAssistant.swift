@@ -175,19 +175,20 @@ final class HomeAssistant: ObservableObject {
         }
     }
 
-    /// Puts the widget script into Scriptable's iCloud folder, with this Home Assistant's
-    /// network address and token filled in. It shows up in Scriptable on the iPhone by itself.
+    /// Puts the widget script into Scriptable's iCloud folder with this Home Assistant's network
+    /// address. The long-lived token is deliberately not written: iCloud is not the Keychain, so
+    /// the person pastes it into the TOKEN line on the iPhone once.
     func installWidget() throws -> String {
         guard let template = Bundle.main.url(forResource: "Cooldown", withExtension: "js"),
               var script = try? String(contentsOf: template, encoding: .utf8) else { throw Failure.notConfigured }
-        guard let token = Self.token, !token.isEmpty else { throw Failure.notConfigured }
         var address = Self.url
         if address.contains("localhost") || address.contains("127.0.0.1") {
             // The phone can't reach "localhost": use the Mac's address on the local network.
             let ip = Self.lanAddress() ?? "localhost"
             address = address.replacingOccurrences(of: "localhost", with: ip).replacingOccurrences(of: "127.0.0.1", with: ip)
         }
-        script = script.replacingOccurrences(of: "__HA_URL__", with: address).replacingOccurrences(of: "__HA_TOKEN__", with: token)
+        script = script.replacingOccurrences(of: "__HA_URL__", with: address)
+            .replacingOccurrences(of: "__HA_TOKEN__", with: "PASTE_YOUR_HOME_ASSISTANT_TOKEN_HERE")
         let folder = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Mobile Documents/iCloud~dk~simonbs~Scriptable/Documents", isDirectory: true)
         guard FileManager.default.fileExists(atPath: folder.path) else {

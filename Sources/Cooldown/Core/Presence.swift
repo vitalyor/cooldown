@@ -17,13 +17,20 @@ final class Presence: @unchecked Sendable {
     private var lastSynthetic: Date?
     private var displayAsleep = false
     private var tap: CFMachPort?
-    private(set) var reading = false        // the event tap works
+    private var tapWorks = false
+    /// The event tap works. Read from the main thread and from background cards; always under `lock`.
+    var reading: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return tapWorks
+    }
 
     /// Seconds since the last real input.
     var idle: TimeInterval {
-        guard reading else { return Self.systemIdle }
-        lock.lock(); defer { lock.unlock() }
-        return Date().timeIntervalSince(lastPhysical)
+        lock.lock()
+        let works = tapWorks
+        let physical = lastPhysical
+        lock.unlock()
+        return works ? Date().timeIntervalSince(physical) : Self.systemIdle
     }
 
     /// Something other than a person is moving the mouse or typing right now (within a minute).
@@ -104,7 +111,7 @@ final class Presence: @unchecked Sendable {
         let source = CFMachPortCreateRunLoopSource(nil, tap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
-        reading = true
+        lock.lock(); tapWorks = true; lock.unlock()
         AgentActivity.trace("presence: reading real input")
     }
 }

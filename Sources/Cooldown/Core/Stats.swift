@@ -2,12 +2,11 @@ import Foundation
 
 enum StatsTab: String, CaseIterable, Identifiable {
     case limits
-    case chats
     case tokens
     case projects
 
-    static func options(for provider: ProviderID) -> [StatsTab] {
-        provider == .claude ? [.limits, .chats, .tokens, .projects] : [.limits, .tokens, .projects]
+    static func options(for _: ProviderID) -> [StatsTab] {
+        [.limits, .tokens, .projects]
     }
 
     var id: String { rawValue }
@@ -15,7 +14,6 @@ enum StatsTab: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .limits: return L("Расход")
-        case .chats: return L("Диалоги")
         case .tokens: return L("Токены")
         case .projects: return L("Проекты")
         }

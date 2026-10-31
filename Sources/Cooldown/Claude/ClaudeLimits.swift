@@ -63,15 +63,13 @@ enum ClaudeError: LocalizedError {
     }
 }
 
-/// Claude's plan limits come from several places, each with its strengths:
-/// - Claude Code's /usage screen (official client, the whole subscription, refreshed every few minutes);
-/// - Claude Code's status line, which receives `rate_limits` with every reply (official, freshest
-///   while Claude Code is in use);
-/// - the claude.ai account, only when the person signed in to it in Cooldown (adds model limits);
-/// - Claude Desktop's own record of plan usage on disk (no reset times, so it only adds a fresher
-///   figure to a window another source already knows).
+/// Claude's plan limits come from two official local surfaces:
+/// - Claude Code's /usage screen (the whole subscription, refreshed every few minutes);
+/// - Claude Code's status line, which receives `rate_limits` with every reply (freshest while
+///   Claude Code is in use).
+/// Claude Desktop's own record of plan usage on disk adds a fresher figure when it knows one.
 /// They are merged by one rule (see `merge`), so they never contradict each other on screen.
-/// Claude Code's sign-in token is not used: Anthropic allows it only inside its own apps.
+/// Nothing is read from claude.ai, and Claude Code's sign-in token is not used.
 enum ClaudeLimits {
     /// Set by the refresh button: the next read skips the pause between /usage runs.
     nonisolated(unsafe) static var forceNext = false
@@ -91,9 +89,6 @@ enum ClaudeLimits {
             }
             do { candidates.append(try await ClaudeUsageCLI.shared.read(binary: binary, force: force, pace: pace)) } catch { firstError = error }
         }
-        if await ClaudeWeb.shared.isConnected {
-            do { candidates.append(try await ClaudeWeb.shared.usage()) } catch { firstError = firstError ?? error }
-        }
         if let bridged { candidates.append(bridged) }
         guard let merged = merge(candidates, desktop: ClaudeDesktopUsage.latest()) else {
             throw firstError ?? ClaudeError.notConnected
@@ -108,6 +103,9 @@ enum ClaudeLimits {
     /// change by Anthropic is not masked for long.
     static func merge(_ candidates: [LimitSnapshot], desktop: ClaudeDesktopUsage.Reading? = nil, now: Date = Date()) -> LimitSnapshot? {
         guard let newest = candidates.map(\.fetchedAt).max() else { return nil }
+        // A reading older than an hour is not a picture of the current plan window; the caller
+        // keeps the last snapshot on screen but must not treat this as fresh.
+        guard now.timeIntervalSince(newest) < 60 * 60 else { return nil }
         let recent = candidates.filter { newest.timeIntervalSince($0.fetchedAt) < 20 * 60 }
         func pick(_ kind: WindowKind) -> (LimitWindow, [String])? {
             let windows = recent.compactMap { snapshot in (kind == .session ? snapshot.session : snapshot.weekly).map { ($0, snapshot.source ?? "", snapshot.fetchedAt) } }

@@ -114,6 +114,15 @@ enum CodexQuestions {
             AgentActivity.trace("codex question \(key): answer sent")
             return
         } catch {
+            // Only fall back when the answer provably did not reach the turn. A timeout or an
+            // app-level refusal after a steer may already have delivered it; retrying as a
+            // message would then answer the same question twice.
+            let retryable = (error as? CodexIPCError)?.isTemporary == true || error is CodexBusy
+            guard retryable else {
+                AgentActivity.trace("codex question \(key): answer failed (\(error.localizedDescription))")
+                Notifier.shared.post(id: "codexq-failed-\(key)", title: L("Ответ не ушёл в Codex"), body: error.localizedDescription)
+                return
+            }
             AgentActivity.trace("codex question \(key): not taken at once (\(error.localizedDescription)); waiting for the turn to end")
         }
         let deadline = Date().addingTimeInterval(15 * 60)

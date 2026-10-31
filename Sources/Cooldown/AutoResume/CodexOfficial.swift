@@ -29,8 +29,13 @@ final class CodexOfficial {
         // If the server dies, writing to it must fail with an error, not kill Cooldown with SIGPIPE.
         _ = fcntl(input.fileHandleForWriting.fileDescriptor, F_SETNOSIGPIPE, 1)
         try process.run()
-        _ = try call("initialize", ["clientInfo": ["name": "cooldown", "version": "1.0"]], setup: true)
-        try post(["method": "initialized"])
+        do {
+            _ = try call("initialize", ["clientInfo": ["name": "cooldown", "version": "1.0"]], setup: true)
+            try post(["method": "initialized"])
+        } catch {
+            close()
+            throw error
+        }
     }
 
     deinit { close() }

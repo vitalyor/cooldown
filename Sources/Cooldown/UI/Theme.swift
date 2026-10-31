@@ -331,6 +331,8 @@ struct GlassIconButton: View {
         .buttonStyle(.plain)
         .glassEffect(.regular.interactive(), in: .circle)
         .help(help)
+        .disabled(spinning)
+        .accessibilityLabel(help)
     }
 }
 

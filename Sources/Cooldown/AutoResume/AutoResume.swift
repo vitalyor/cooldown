@@ -6,6 +6,18 @@ import Foundation
 /// waits until a fresh reading of the limits says work can go on and then starts one new turn
 /// with a short continuation message. Every look runs on one serial queue; the stored data is
 /// the single source of truth, so switching a watch off takes effect even during a look.
+/// Pure startup-recovery rules, testable without opening Codex.
+enum StartupRecovery {
+    /// Whether a watched task should open the Codex app now. Never while the limit is still
+    /// spent, and not more often than once every two minutes.
+    static func shouldOpenCodex(isRunning: Bool, spentUntil: Date?, lastAsked: Date?, now: Date = Date()) -> Bool {
+        guard !isRunning else { return false }
+        if let spentUntil, spentUntil > now.addingTimeInterval(60) { return false }
+        guard let lastAsked else { return true }
+        return now.timeIntervalSince(lastAsked) > 120
+    }
+}
+
 final class AutoResume: @unchecked Sendable {
     static let shared = AutoResume()
 
@@ -23,10 +35,24 @@ final class AutoResume: @unchecked Sendable {
     /// When Cooldown last had the app load a conversation, and conversations already reported as
     /// unreachable (the app's own connection broke: it answers "no window has it" for everything).
     private var loadAsked: [String: Date] = [:]
+    private var launchAsked: [String: Date] = [:]
     private var brokenNoted = Set<String>()
     /// When Codex's spent limit comes back (kept current by AgentActivity.spent): until then the
     /// conversation has nothing to be loaded for, so the app is not touched.
-    nonisolated(unsafe) static var codexSpentUntil: Date?
+    private static let spentLock = NSLock()
+    nonisolated(unsafe) private static var _codexSpentUntil: Date?
+    static var codexSpentUntil: Date? {
+        get {
+            spentLock.lock()
+            defer { spentLock.unlock() }
+            return _codexSpentUntil
+        }
+        set {
+            spentLock.lock()
+            _codexSpentUntil = newValue
+            spentLock.unlock()
+        }
+    }
 
     // Read from any thread.
     private let shownLock = NSLock()
@@ -114,10 +140,10 @@ final class AutoResume: @unchecked Sendable {
     }
 
     /// Switches a watch off at once: the stored flag is what the send path checks last.
-    func stop(_ raw: String) async {
+    func stop(_ raw: String) async throws {
         let id = raw.lowercased()
-        await quietly {
-            try? self.store.update { data in
+        try await offMain {
+            try self.store.update { data in
                 data.edit(id) {
                     $0.enabled = false
                     $0.status = "paused"
@@ -147,18 +173,32 @@ final class AutoResume: @unchecked Sendable {
     /// Something happened in this conversation (a turn ended, a hook fired): look soon.
     /// Sends the person's own message into a Codex conversation ("Ответить" on the phone), only
     /// while Codex is not working in it. Not counted as an auto-continue.
+    /// The window that owns a conversation. If none is loaded, ask Codex to load it without
+    /// bringing another app to the front, then look again — a phone reply should not fail just
+    /// because the person closed the Codex window.
+    nonisolated private static func owner(_ id: String, _ connection: CodexIPCConnection) throws -> String {
+        do { return try connection.discoverOwner(id) }
+        catch CodexIPCError.threadUnavailable {
+            if !CodexApp.isRunning { DispatchQueue.main.async { CodexApp.openInBackground() } }
+            DispatchQueue.main.async { CodexApp.load(thread: id) }
+            Thread.sleep(forTimeInterval: 2)
+            return try connection.discoverOwner(id)
+        }
+    }
+
     func reply(_ raw: String, text: String) async throws {
         let id = raw.lowercased()
+        guard ResumeRules.isThreadId(id), !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw ResumeError.refused(L("Нужен точный номер диалога Codex и непустое сообщение."))
+        }
         try await offMain {
             try CodexApp.checkVersion()
             let connection = CodexIPCConnection(timeout: 8)
             defer { connection.close() }
             try connection.open()
-            let owner = try connection.discoverOwner(id)
+            let owner = try Self.owner(id, connection)
             let state = try connection.snapshot(id, owner: owner)
-            if ResumeRules.decide(state, thread: id).taskState == "running" {
-                throw CodexBusy()
-            }
+            guard ResumeRules.canReply(state, thread: id) else { throw CodexBusy() }
             let params: [String: Any] = [
                 "conversationId": id,
                 "turnStart": ["request": ["threadId": id, "clientUserMessageId": UUID().uuidString.lowercased(),
@@ -176,16 +216,23 @@ final class AutoResume: @unchecked Sendable {
     /// as when the answer is picked in the app ("steer"). Between turns it starts one instead.
     func answerQuestion(_ raw: String, text: String) async throws {
         let id = raw.lowercased()
+        guard ResumeRules.isThreadId(id), !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw ResumeError.refused(L("Нужен точный номер диалога Codex и непустой ответ."))
+        }
         try await offMain {
             try CodexApp.checkVersion()
             let connection = CodexIPCConnection(timeout: 8)
             defer { connection.close() }
             try connection.open()
-            let owner = try connection.discoverOwner(id)
+            let owner = try Self.owner(id, connection)
             let state = try connection.snapshot(id, owner: owner)
+            let verdict = ResumeRules.decide(state, thread: id)
+            if verdict.taskState != "running", !ResumeRules.canReply(state, thread: id) {
+                throw CodexBusy()
+            }
             let message = UUID().uuidString.lowercased()
             let input: [[String: Any]] = [["type": "text", "text": text, "text_elements": [Any]()]]
-            guard ResumeRules.decide(state, thread: id).taskState == "running" else {
+            guard verdict.taskState == "running" else {
                 let params: [String: Any] = ["conversationId": id,
                                              "turnStart": ["request": ["threadId": id, "clientUserMessageId": message, "input": input]]]
                 AgentActivity.trace("question \(id): answer as a new message")
@@ -242,7 +289,7 @@ final class AutoResume: @unchecked Sendable {
             defer { connection.close() }
             do {
                 try connection.open()
-                let owner = try connection.discoverOwner(id)
+                let owner = try Self.owner(id, connection)
                 let live = try connection.snapshot(id, owner: owner)
                 let verdict = ResumeRules.decide(live, thread: id)
                 title = JSON.nonEmptyString(live["title"]) ?? title
@@ -282,15 +329,19 @@ final class AutoResume: @unchecked Sendable {
     private func boot() {
         // A send that was written but never confirmed (Cooldown quit or crashed around it) has
         // an unknown outcome: that conversation gets nothing more automatically.
-        try? store.update { data in
-            for watch in data.watches where watch.enabled && data.pending(watch.threadId) != nil {
-                data.edit(watch.threadId) {
-                    $0.enabled = false
-                    $0.status = "uncertain"
-                    $0.reason = L("Неизвестно, дошло ли продолжение. Проверьте диалог — сам я туда больше не отправлю.")
-                    $0.updated = Date()
+        do {
+            try store.update { data in
+                for watch in data.watches where watch.enabled && data.pending(watch.threadId) != nil {
+                    data.edit(watch.threadId) {
+                        $0.enabled = false
+                        $0.status = "uncertain"
+                        $0.reason = L("Неизвестно, дошло ли продолжение. Проверьте диалог — сам я туда больше не отправлю.")
+                        $0.updated = Date()
+                    }
                 }
             }
+        } catch {
+            AgentActivity.trace("auto-continue: store unreadable at start: \(error.localizedDescription)")
         }
         publish()
         for watch in current() where watch.enabled { schedule(watch.threadId, after: 3, replace: true) }
@@ -366,15 +417,23 @@ final class AutoResume: @unchecked Sendable {
             }
         }
         var stillOn = false
-        try? store.update { data in
-            guard let watch = data.watch(id), watch.enabled || outcome.force else { return }
-            data.edit(id) {
-                if $0.status != outcome.status || $0.reason != outcome.reason { $0.updated = Date() }
-                $0.status = outcome.status
-                $0.reason = outcome.reason
-                if outcome.disable { $0.enabled = false }
-                stillOn = $0.enabled
+        do {
+            try store.update { data in
+                guard let watch = data.watch(id), watch.enabled || outcome.force else { return }
+                data.edit(id) {
+                    if $0.status != outcome.status || $0.reason != outcome.reason { $0.updated = Date() }
+                    $0.status = outcome.status
+                    $0.reason = outcome.reason
+                    if outcome.disable { $0.enabled = false }
+                    stillOn = $0.enabled
+                }
             }
+        } catch {
+            // The watch stays as it was on disk. Retry rather than releasing it while it is still
+            // enabled: otherwise it would look switched on but never be looked at again.
+            AgentActivity.trace("auto-continue \(id): store write failed: \(error.localizedDescription)")
+            schedule(id, after: 60, replace: true)
+            return
         }
         if outcome.status != "watching" && outcome.status != "waiting_quota" {
             AgentActivity.trace("auto-continue \(id): \(outcome.status) — \(outcome.reason)")
@@ -396,8 +455,20 @@ final class AutoResume: @unchecked Sendable {
             return Outcome(status: "retrying", reason: ResumeError.friendly(error), kind: .failure)
         }
         guard CodexApp.isRunning else {
+            // Cooldown was not running when the limit came back and the person closed Codex.
+            // Open it once in the background; the next look can then load the conversation.
+            let now = Date()
+            if let until = Self.codexSpentUntil, until > now.addingTimeInterval(60) {
+                return Outcome(status: "waiting_quota", reason: L("Жду сброса лимита Codex."), kind: .temporary, next: 60)
+            }
+            if StartupRecovery.shouldOpenCodex(isRunning: false, spentUntil: Self.codexSpentUntil, lastAsked: launchAsked[id], now: now) {
+                launchAsked[id] = now
+                DispatchQueue.main.async { CodexApp.openInBackground() }
+                return Outcome(status: "waiting_connection", reason: L("Открываю Codex, чтобы продолжить задачу."),
+                               kind: .temporary, next: 5)
+            }
             return Outcome(status: "waiting_connection", reason: L("Приложение Codex закрыто — продолжу, когда оно откроется."),
-                           kind: .temporary, next: 600)
+                           kind: .temporary, next: 120)
         }
         let connection = CodexIPCConnection(timeout: 8)
         defer { connection.close() }
@@ -516,11 +587,18 @@ final class AutoResume: @unchecked Sendable {
         guard let print = ResumeRules.fingerprint(state) else { return stopOutcome("unknown", L("Не удалось запомнить состояние задачи.")) }
         if watch.fingerprintTurn == turn, let remembered = watch.fingerprint {
             if remembered != print {
-                return Outcome(status: "changed", reason: L("Пока ждали лимит, в диалоге поменялись настройки или состояние. Не продолжаю."),
-                               disable: true, next: nil)
+                // A changed permission, model or workspace is not a transient redraw. Keep the
+                // watch, but do not send behind the person's back; they can look and re-enable it.
+                return Outcome(status: "needs_attention",
+                               reason: L("Пока ждали лимит, в диалоге поменялись настройки или состояние. Проверьте диалог и включите продолжение снова."),
+                               next: 600)
             }
         } else {
-            try? store.update { data in data.edit(id) { $0.fingerprint = print; $0.fingerprintTurn = turn } }
+            do {
+                try store.update { data in data.edit(id) { $0.fingerprint = print; $0.fingerprintTurn = turn } }
+            } catch {
+                return Outcome(status: "retrying", reason: ResumeError.friendly(error), kind: .failure, next: 60)
+            }
         }
 
         // Only a fresh reading of the limits may say they are back, never the clock alone.
@@ -581,7 +659,7 @@ final class AutoResume: @unchecked Sendable {
             // 2. The checks right before sending, all on fresh data.
             try CodexApp.checkVersion()
             try connection.open()
-            let owner = try connection.discoverOwner(id)
+            let owner = try Self.owner(id, connection)
             let state = try connection.snapshot(id, owner: owner, keepFollowing: true)
             var moved = false
             connection.onBroadcast = { message in

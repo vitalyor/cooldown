@@ -25,6 +25,9 @@ device and opened on the other.
 
 ## Keys
 
+Live Activity buttons use fixed, general labels. Questions with custom answer options travel as
+encrypted notification cards instead, so their answer text is never sent to the relay in clear text.
+
 - Every device keeps a Curve25519 key-agreement key in its Keychain.
 - A Mac and a phone share `key = HKDF-SHA256(ECDH(a, B), salt "cooldown-link-v1",
   info = smaller public key ‖ larger public key, 32 bytes)`.
@@ -114,7 +117,6 @@ Every frame is JSON with a type `t`:
 Button ids (`action`):
 
 - `continue`, `continueChat`, `continueAll`: send "continue" into the chat on the Mac.
-- `afterReset`: continue this chat by itself once the limit is back.
 - `choice:<id>`: answer an agent's question or permission request. `auth: true` asks for Face ID first.
 - `reply` (`input: true`): a text answer, sent in `args.text`. Only on "finished" cards.
 

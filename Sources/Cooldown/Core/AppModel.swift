@@ -76,6 +76,7 @@ final class ProviderStore: ObservableObject {
         guard !scanning else { return }
         scanning = true
         defer { scanning = false }
+        let previous = history
         if fullRebuild {
             history.buckets = []
             history.cursors = [:]
@@ -91,8 +92,14 @@ final class ProviderStore: ObservableObject {
                 Task { @MainActor in AppModel.shared.store(provider).progress(fraction) }
             }
         }.value
-        history.merge(output)
-        history.prune(now: Date())
+        if fullRebuild, output.tokens.isEmpty, output.cursors.isEmpty {
+            // Nothing readable (permissions, a transient I/O error): keep the old statistics
+            // instead of replacing them with an empty file.
+            history = previous
+        } else {
+            history.merge(output)
+            history.prune(now: Date())
+        }
         publish()
         scanState = .idle
         save()
@@ -239,6 +246,8 @@ final class AppModel: ObservableObject {
         schedule()
         CodexFinishWatcher.shared.start()
         HookEventReader.shared.start()
+        MCPEventReader.shared.start()
+        MCPAskReader.shared.start()
         FocusWatch.start()
         UpdateWatch.start()
         GitHubUpdater.shared.start()
@@ -253,6 +262,7 @@ final class AppModel: ObservableObject {
         // Hooks from an earlier version get the newer events (Claude Code's permission cards).
         if AgentHooks.needsUpdate(.claude) { try? AgentHooks.install(.claude) }
         ClaudeAsks.shared.start()
+        ClaudeAutoContinue.shared.recover()
         claude.importSamples(ClaudeDesktopUsage.samples(fitting: claude.samples))
         DailyLog.shared.start()
         Task { await refreshAll() }
@@ -378,7 +388,9 @@ final class AppModel: ObservableObject {
             return
         }
         // At the Mac the percentages in the menu bar already say this; only notify when away.
-        if ToastController.shared.canShow { return }
+        // Do not use ToastController.canShow here: the screen may be unlocked while the person is
+        // away, and then the phone would never learn about a nearly spent limit.
+        if !Presence.shared.away(after: 120).away { return }
         let remaining = session.remainingPercent
         let crossed = [20.0, 5.0].filter { remaining <= $0 }
         guard let lowest = crossed.min() else { return }
@@ -427,22 +439,17 @@ final class AppModel: ObservableObject {
                 continue
             }
             Settings.setPendingReset(provider, nil)
-            // "Limit spent" is over: off the Mac and the phone.
+            // "Limit spent" and "almost out" are over: off the Mac and the phone.
             ToastController.shared.dismiss(key: "out-\(provider.rawValue)")
+            ToastController.shared.dismiss(key: "low-\(provider.rawValue)")
             // Watched Codex tasks re-read the limits right away (they also wake at the reset by themselves).
             if provider == .codex { AutoResume.shared.pokeAll(after: 15) }
-            // Chats chosen for Claude get their own "Продолжить «…»?" cards.
+            // Chats chosen for Claude are continued automatically when possible; the old
+            // "Продолжить" cards are the fallback, not the first path.
             if provider == .claude, !isRenderMode, !ClaudeChatList.shared.entries.isEmpty {
                 EventLog.shared.add(CooldownEvent(kind: .reset, provider: .claude, title: L("Лимит Claude восстановлен"),
                                                   body: L("Ждут продолжения: ") + ClaudeChatList.shared.entries.map { "«\($0.chat.title)»" }.joined(separator: ", ")))
-                // Open until answered or closed, here or on the phone, even across a restart.
-                ClaudeChatList.shared.cardsWaiting = true
-                if ToastController.shared.canShow && !QuietHours.active {
-                    ClaudeChatList.shared.limitReset()
-                    continue
-                }
-                // Away: the phone gets them now; the Mac shows them when someone is back.
-                ClaudeChatList.shared.resetCards().forEach { PhoneLink.shared.forward($0) }
+                ClaudeAutoContinue.shared.limitReset(at: pending)
             }
             if Settings.notifyReset && !isRenderMode {
                 Notifier.shared.post(id: "reset-\(provider.rawValue)-\(Int(pending.timeIntervalSince1970))",
@@ -537,7 +544,7 @@ final class AppModel: ObservableObject {
     }
 
     func stopTask(_ id: String) async throws {
-        await AutoResume.shared.stop(id)
+        try await AutoResume.shared.stop(id)
     }
 
     private func notifyRelayChanges(_ rows: [ResumeWatch]) {
@@ -587,17 +594,21 @@ final class AppModel: ObservableObject {
             || claudeTasks.tasks.contains { TaskStatus.needsAttention($0.status) && $0.updated > Date().addingTimeInterval(-86400) }
     }
 
-    /// The 5-hour window, as the big number in the window shows; the week only if there is no session.
-    private func sessionRemaining(_ snapshot: LimitSnapshot?, _ now: Date) -> Double? {
-        snapshot?.session?.remaining(at: now) ?? snapshot?.weekly?.remaining(at: now)
+    /// The chosen window in the menu bar: five hours by default, the week if selected.
+    /// If the chosen one is not present, fall back to the other so the line is never blank.
+    private func menuRemaining(_ snapshot: LimitSnapshot?, _ now: Date) -> Double? {
+        if Settings.menuWindow == "weekly" {
+            return snapshot?.weekly?.remaining(at: now) ?? snapshot?.session?.remaining(at: now)
+        }
+        return snapshot?.session?.remaining(at: now) ?? snapshot?.weekly?.remaining(at: now)
     }
 
     /// One line per agent shown in the menu bar: both by default, or just the chosen one.
     private func menuLines() -> [MenuLine] {
         let now = Date()
-        let codexLine = MenuLine(remaining: sessionRemaining(codex.snapshot, now), color: GaugeIcon.codex, mark: GaugeIcon.codexMark,
+        let codexLine = MenuLine(remaining: menuRemaining(codex.snapshot, now), color: GaugeIcon.codex, mark: GaugeIcon.codexMark,
                                  glyph: GaugeIcon.codexGlyph, activity: menuActivity(.codex))
-        let claudeLine = MenuLine(remaining: sessionRemaining(claude.snapshot, now), color: GaugeIcon.claude, mark: GaugeIcon.claudeMark,
+        let claudeLine = MenuLine(remaining: menuRemaining(claude.snapshot, now), color: GaugeIcon.claude, mark: GaugeIcon.claudeMark,
                                   glyph: GaugeIcon.claudeGlyph, activity: menuActivity(.claude))
         switch Settings.menuSource {
         case "codex": return [codexLine]
@@ -634,7 +645,9 @@ final class AppModel: ObservableObject {
         // Then each agent's 5-hour limit and how long it lasts at the current pace.
         let now = Date()
         for store in [codex, claude] {
-            guard let window = store.snapshot?.session, !window.isExpired(at: now) else { continue }
+            let snapshot = store.snapshot
+            let window = Settings.menuWindow == "weekly" ? snapshot?.weekly : snapshot?.session
+            guard let window, !window.isExpired(at: now) else { continue }
             var line = L("%@: осталось %@", "\(store.id.displayName)", "\(Format.percent(window.remainingPercent))")
             switch Forecaster.make(window: window, samples: store.samples, now: now).outcome {
             case .runsOut(let at): line += L(", при таком темпе хватит до %@", "\(Format.clock(at))")
