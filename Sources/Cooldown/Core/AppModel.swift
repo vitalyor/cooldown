@@ -607,14 +607,28 @@ final class AppModel: ObservableObject {
     /// One line per agent shown in the menu bar: both by default, or just the chosen one.
     private func menuLines() -> [MenuLine] {
         let now = Date()
-        let codexLine = MenuLine(remaining: menuRemaining(codex.snapshot, now), color: GaugeIcon.codex, mark: GaugeIcon.codexMark,
+        let codexLine0 = MenuLine(remaining: menuRemaining(codex.snapshot, now), color: GaugeIcon.codex, mark: GaugeIcon.codexMark,
                                  glyph: GaugeIcon.codexGlyph, activity: menuActivity(.codex))
-        let claudeLine = MenuLine(remaining: menuRemaining(claude.snapshot, now), color: GaugeIcon.claude, mark: GaugeIcon.claudeMark,
+        let claudeLine0 = MenuLine(remaining: menuRemaining(claude.snapshot, now), color: GaugeIcon.claude, mark: GaugeIcon.claudeMark,
                                   glyph: GaugeIcon.claudeGlyph, activity: menuActivity(.claude))
+        var codexLine = codexLine0, claudeLine = claudeLine0
+        codexLine.countdown = menuCountdown(.codex)
+        claudeLine.countdown = menuCountdown(.claude)
         switch Settings.menuSource {
         case "codex": return [codexLine]
         case "claude": return [claudeLine]
         default: return [codexLine, claudeLine]
+        }
+    }
+
+    /// When a chosen task waits for this agent's spent limit: the moment it goes on.
+    private func menuCountdown(_ provider: ProviderID) -> Date? {
+        guard !demoActive, let reset = AgentActivity.spent(provider), reset > Date() else { return nil }
+        switch provider {
+        case .codex:
+            return watches.contains { $0.enabled && ["waiting_quota", "quota_limited", "waiting_reset"].contains($0.status) } ? reset : nil
+        case .claude:
+            return ClaudeChatList.shared.entries.isEmpty ? nil : reset
         }
     }
 

@@ -53,6 +53,18 @@ struct MenuLine: Equatable {
     /// An agent session is writing (a soft light runs along its line) or
     /// waits for the person (a small amber point by the sign).
     var activity: Activity = .idle
+    /// A chosen task waits for this agent's limit: the bar becomes the time left until it goes on.
+    var countdown: Date? = nil
+
+    /// "1:23" under ten hours, "12h" above; nothing once the moment has passed.
+    func countdownText(now: Date = Date()) -> String? {
+        guard let countdown else { return nil }
+        let left = Int(countdown.timeIntervalSince(now))
+        guard left > 0 else { return nil }
+        let minutes = (left + 59) / 60
+        if minutes < 600 { return String(format: "%d:%02d", minutes / 60, minutes % 60) }
+        return L("%@ ч", "\((minutes + 30) / 60)")
+    }
 }
 
 /// The menu bar item: a line per agent, stacked, each emptying as its limit is spent.
@@ -193,7 +205,7 @@ enum GaugeIcon {
         let markWidth = usesGlyphs ? max(glyphSize, ceil(markSize * 1.45)) : ceil(markSize * 1.45)
         let numberWidth = showText ? (numbers.map(width).max() ?? 0) : 0
         let dotWidth: CGFloat = attention ? 8 : 0
-        let barWidth: CGFloat = 24
+        let barWidth: CGFloat = Self.barWidth(lines, single: single)
         let thickness: CGFloat = single ? 5 : 3
         let rowGap: CGFloat = single ? 0 : 8.5
         let total = dotWidth + markWidth + 3 + (showText ? numberWidth + 4 : 0) + barWidth
@@ -202,6 +214,13 @@ enum GaugeIcon {
             return NSRect(x: total - barWidth, y: center - thickness / 2, width: barWidth, height: thickness)
         }
         return (NSSize(width: total, height: height), bars)
+    }
+
+    /// The bar, or a little wider when a countdown takes its place, so "10:00" fits.
+    static func barWidth(_ lines: [MenuLine], single: Bool) -> CGFloat {
+        let font = NSFont.monospacedDigitSystemFont(ofSize: single ? 11 : 8.5, weight: .bold)
+        let widest = lines.compactMap { $0.countdownText() }.map { ceil(($0 as NSString).size(withAttributes: [.font: font]).width) }.max() ?? 0
+        return max(24, widest)
     }
 
     /// `still`: motion is reduced, so working is shown by a small point instead of moving light.
@@ -217,7 +236,7 @@ enum GaugeIcon {
         let markWidth = usesGlyphs ? max(glyphSize, ceil(markSize * 1.45)) : ceil(markSize * 1.45)
         let numberWidth = showText ? (numbers.map { width($0, numberFont) }.max() ?? 0) : 0
         let dotWidth: CGFloat = attention ? 8 : 0
-        let barWidth: CGFloat = 24
+        let barWidth: CGFloat = Self.barWidth(lines, single: single)
         let thickness: CGFloat = single ? 5 : 3
         let rowGap: CGFloat = single ? 0 : 8.5   // distance between the two row centres
         let total = dotWidth + markWidth + 3 + (showText ? numberWidth + 4 : 0) + barWidth
@@ -264,6 +283,12 @@ enum GaugeIcon {
                                  right: dotWidth + markWidth + 3 + numberWidth)
                 }
 
+                // A task waits for this limit: in place of the bar, how long until it goes on.
+                if let left = line.countdownText() {
+                    let font = NSFont.monospacedDigitSystemFont(ofSize: single ? 11 : 8.5, weight: .bold)
+                    drawCentered(left, font: font, color: line.color, right: barX + barWidth)
+                    continue
+                }
                 let track = NSRect(x: barX, y: center - thickness / 2, width: barWidth, height: thickness)
                 NSColor.labelColor.withAlphaComponent(0.22).setFill()
                 NSBezierPath(roundedRect: track, xRadius: thickness / 2, yRadius: thickness / 2).fill()

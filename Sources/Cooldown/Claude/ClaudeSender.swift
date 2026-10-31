@@ -133,29 +133,42 @@ enum ClaudeSender {
     }
 
     /// Claude's own words under an answer the limit cut off, and its button to try again.
-    nonisolated static let limitNotices = ["Остановлено из-за лимита", "Stopped due to usage limit", "usage limit", "лимита использования", "Usage limit reached"] // l10n:skip
-    nonisolated static let retryLabels: Set<String> = ["Повторить попытку", "Повторить", "Try again", "Retry"] // l10n:skip
+    /// Claude's own sentence under a cut-off answer (not words a chat may contain about limits).
+    nonisolated static let limitNotices = ["Остановлено из-за лимита", "Stopped due to usage limit", "Stopped because of usage limit"] // l10n:skip
+    /// Its button right below that sentence. Not "Повторить"/"Retry": those regenerate an answer.
+    nonisolated static let retryLabels: Set<String> = ["Повторить попытку", "Try again"] // l10n:skip
 
     /// Looks at the end of the open chat: was it stopped by the limit, and Claude's retry button.
     nonisolated static func limitStop(in window: AXUIElement) -> (stopped: Bool, retry: AXUIElement?) {
         var stack = [window]
         var visited = 0
         var notice = false
+        var noticeAt = -1
+        var textsAfter = 0
         var retry: AXUIElement?
         while let element = stack.popLast(), visited < 8000 {
             visited += 1
             let values = Self.values(element, [kAXRoleAttribute, kAXValueAttribute, kAXTitleAttribute, kAXDescriptionAttribute, kAXChildrenAttribute])
             let role = values[0] as? String
             let words = [values[1], values[2], values[3]].compactMap { $0 as? String }
-            if role == "AXStaticText" || role == "AXGroup", words.contains(where: { w in limitNotices.contains { w.localizedCaseInsensitiveContains($0) } }) {
+            if role == "AXStaticText", words.contains(where: { w in w.count < 200 && limitNotices.contains { w.hasPrefix($0) } }) {
                 notice = true
+                noticeAt = visited
+                textsAfter = 0
+                retry = nil   // a later notice is the one that counts
+            } else if role == "AXStaticText", noticeAt >= 0 {
+                textsAfter += 1
             }
-            if role == "AXButton", words.contains(where: { retryLabels.contains($0.trimmingCharacters(in: .whitespaces)) }) {
-                retry = element   // the last one on the page: the newest answer
+            // The button that belongs to the notice: right after it, in page order.
+            if role == "AXButton", noticeAt >= 0, visited - noticeAt < 40,
+               words.contains(where: { retryLabels.contains($0.trimmingCharacters(in: .whitespaces)) }) {
+                retry = element
             }
             stack.append(contentsOf: ((values[4] as? [AXUIElement]) ?? []).reversed())
         }
-        return (notice, notice ? retry : nil)
+        // Only a notice at the end of the chat: an old one above a later answer says nothing now.
+        let last = notice && textsAfter < 15
+        return (last, last ? retry : nil)
     }
 
     /// The same for any message ("Ответить" from the phone).

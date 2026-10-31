@@ -145,7 +145,7 @@ extension PhoneLink {
         for p in ProviderID.allCases {
             guard let reset = AgentActivity.spent(p) else { continue }
             let waiting = p == .codex
-                ? watches.filter { $0.provider == "codex" && ["quota_limited", "waiting_reset", "waiting_connection"].contains($0.state) }.count
+                ? watches.filter { $0.provider == "codex" && ["quota_limited", "waiting_quota", "waiting_reset", "waiting_connection"].contains($0.state) }.count
                 : ClaudeChatList.shared.entries.count
             countdowns.append(.init(provider: p.rawValue, until: reset.timeIntervalSince1970, waiting: waiting))
         }

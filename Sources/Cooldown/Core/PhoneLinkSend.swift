@@ -51,7 +51,7 @@ extension PhoneLink {
 
     func goingToSleep() async {
         let working = ProviderID.allCases.flatMap { AgentActivity.shared.working($0) }
-        let waiting = AppModel.shared.watches.filter { $0.enabled && ["quota_limited", "waiting_reset", "waiting_connection"].contains($0.status) }.count
+        let waiting = AppModel.shared.watches.filter { $0.enabled && ["quota_limited", "waiting_quota", "waiting_reset", "waiting_connection"].contains($0.status) }.count
             + (AgentActivity.spent(.claude) != nil ? ClaudeChatList.shared.entries.count : 0)
         AgentActivity.trace("phone: Mac going to sleep — working \(working.count), waiting \(waiting)")
         guard paired, !working.isEmpty || waiting > 0, let session, let account else { return }

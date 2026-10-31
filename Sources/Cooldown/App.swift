@@ -278,6 +278,23 @@ enum RenderMode {
             if let provider = value("--provider").flatMap(ProviderID.init(rawValue:)) { model.selected = provider }
             await model.prepareForRender(scan: arguments.contains("--scan"))
 
+            if arguments.contains("--menu") {
+                // The menu bar picture: Codex with a task waiting 1:23 for its limit, Claude at 64 %.
+                var codex = MenuLine(remaining: 0, color: GaugeIcon.codex, mark: GaugeIcon.codexMark, glyph: GaugeIcon.codexGlyph)
+                codex.countdown = Date().addingTimeInterval(83 * 60)
+                let claude = MenuLine(remaining: 64, color: GaugeIcon.claude, mark: GaugeIcon.claudeMark, glyph: GaugeIcon.claudeGlyph)
+                let showText = arguments.contains("--percent")
+                let pictures = [GaugeIcon.image(lines: [codex, claude], attention: false, showText: showText),
+                                GaugeIcon.image(lines: [codex], attention: false, showText: showText)]
+                let view = HStack(spacing: 20) { ForEach(0..<pictures.count, id: \.self) { Image(nsImage: pictures[$0]) } }
+                    .padding(10).background(Color(nsColor: dark ? NSColor(white: 0.15, alpha: 1) : NSColor(white: 0.92, alpha: 1)))
+                    .environment(\.colorScheme, dark ? .dark : .light)
+                let renderer = ImageRenderer(content: view)
+                renderer.scale = 4
+                if let image = renderer.nsImage, let png = pngData(image) { try? png.write(to: URL(fileURLWithPath: out)) }
+                print("ok \(out)")
+                exit(0)
+            }
             if let name = value("--card") {
                 guard let content = CardSamples.content(name) else { exit(2) }
                 let renderer = ImageRenderer(content: CardSamples.view(content).padding(12)
