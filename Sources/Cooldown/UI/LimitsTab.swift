@@ -30,7 +30,7 @@ struct LimitsTab: View {
                     ResetPlan(provider: store.id, reset: session.resetsAt, now: now, screen: $screen)
                 }
                 if let session = snapshot.session, !session.isExpired(at: now) {
-                    ForecastWell(session: session, weekly: snapshot.weekly, samples: store.samples, tint: store.tint, now: now)
+                    ForecastWell(session: session, weekly: snapshot.weekly, samples: store.samples, usual: store.paceSamples, tint: store.tint, now: now)
                 } else if snapshot.session != nil {
                     Well {
                         Note(symbol: "sparkles", text: L("Лимит на 5 часов восстановился. Новое окно начнётся с первого запроса."), color: Theme.mint)
@@ -275,6 +275,8 @@ private struct ForecastWell: View {
     let session: LimitWindow
     let weekly: LimitWindow?
     let samples: [LimitSample]
+    /// Readings under the current plan: the usual pace is learned from these.
+    let usual: [LimitSample]
     let tint: Color
     let now: Date
 
@@ -291,7 +293,7 @@ private struct ForecastWell: View {
             RunwayChart(window: session, samples: samples, forecast: forecast, tint: tint, now: now)
                 .frame(height: 100)
             ForecastNote(forecast: forecast, window: session, now: now)
-            if let hours = Pace.hoursLeft(session, samples: samples, now: now) {
+            if let hours = Pace.hoursLeft(session, samples: usual, now: now) {
                 let untilReset = session.resetsAt.timeIntervalSince(now) / 3600
                 Label(hours >= untilReset
                       ? L("В вашем обычном темпе лимита хватит до сброса — можно браться за большое.")
@@ -301,7 +303,7 @@ private struct ForecastWell: View {
             }
             if let weekly, !weekly.isExpired(at: now) {
                 Divider().opacity(0.6)
-                WeeklyForecast(window: weekly, samples: samples, now: now)
+                WeeklyForecast(window: weekly, samples: samples, usual: usual, now: now)
             }
         }
     }
@@ -310,6 +312,7 @@ private struct ForecastWell: View {
 private struct WeeklyForecast: View {
     let window: LimitWindow
     let samples: [LimitSample]
+    let usual: [LimitSample]
     let now: Date
 
     var body: some View {
@@ -333,7 +336,7 @@ private struct WeeklyForecast: View {
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 2)
             }
-            if let usual = Pace.usualWeekShare(window, samples: samples, now: now) {
+            if let usual = Pace.usualWeekShare(window, samples: self.usual, now: now) {
                 let difference = window.usedPercent - usual
                 Label(abs(difference) < 5
                       ? L("Как обычно: к этому моменту недели уходит около %@.", "\(Format.percent(usual))")
@@ -489,6 +492,16 @@ private struct SourceLine: View {
             Text(snapshot.source.map { L("%@, источник: %@.", "\(when)", "\($0)") } ?? "\(when).")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
+            if let plan = snapshot.plan, !plan.isEmpty {
+                let name = plan.prefix(1).uppercased() + plan.dropFirst()
+                // Changed recently: the usual pace is still being learned for it.
+                let since = Settings.plan(snapshot.provider).map(\.since)
+                Text(since.map { now.timeIntervalSince($0) < 7 * 86400 } == true
+                     ? L("Тариф %@ с %@ — обычный темп считается заново.", "\(name)", "\(Format.day(since!))")
+                     : L("Тариф %@.", "\(name)"))
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
         }
         .padding(.horizontal, 4)
     }

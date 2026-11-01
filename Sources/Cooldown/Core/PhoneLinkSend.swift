@@ -292,6 +292,8 @@ extension PhoneLink {
     }
 
     /// A card was answered or closed on the Mac: it goes away on the phone as well.
+    func hasCard(_ key: String) -> Bool { cards[key] != nil }
+
     func resolve(_ key: String, by: String = "mac") {
         ClaudeChatList.shared.cardClosed(key)
         guard let item = cards.removeValue(forKey: key) else { return }

@@ -116,6 +116,8 @@ final class PhoneLink: ObservableObject {
         didSet { UserDefaults.standard.set(lastLive.flatMap { try? JSONEncoder().encode($0) }, forKey: "phoneLastLive") }
     }
     var countdownEnd: Task<Void, Never>?
+    /// A second "end" for the Live Activity, a little after the first (see live()).
+    var liveEndAgain: Task<Void, Never>?
     /// An agent's stretch of work: since when, and when it was last seen working. Short pauses
     /// between turns do not end it, so the Live Activity does not flicker.
     var streaks: [String: (since: Date, last: Date, count: Int)] = [:]

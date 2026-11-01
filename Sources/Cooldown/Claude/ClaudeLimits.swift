@@ -1,5 +1,47 @@
 import Foundation
 
+/// The Claude plan, from Claude Code's own account record (~/.claude.json): only the plan's
+/// type and limit tier are read — nothing else from that file.
+enum ClaudePlan {
+    static var file: URL {
+        if let value = ProcessInfo.processInfo.environment["CLAUDE_CONFIG_DIR"], !value.isEmpty {
+            return URL(fileURLWithPath: value).appendingPathComponent(".claude.json")
+        }
+        return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude.json")
+    }
+
+    nonisolated(unsafe) private static var cached: (at: Date, modified: Date?, name: String?)?
+
+    /// "Pro", "Max 5×", "Max 20×", "Team"… or nil when unknown.
+    static func current() -> String? {
+        let modified = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+        if let cached, cached.modified == modified, Date().timeIntervalSince(cached.at) < 600 { return cached.name }
+        var name: String?
+        if let data = try? Data(contentsOf: file),
+           let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+           let account = root["oauthAccount"] as? [String: Any] {
+            name = describe(type: account["organizationType"] as? String,
+                            tier: (account["userRateLimitTier"] as? String) ?? (account["organizationRateLimitTier"] as? String))
+        }
+        cached = (Date(), modified, name)
+        return name
+    }
+
+    static func describe(type: String?, tier: String?) -> String? {
+        let tier = tier?.lowercased() ?? ""
+        switch type?.lowercased() {
+        case "claude_max":
+            if tier.contains("20x") { return "Max 20×" }
+            if tier.contains("5x") { return "Max 5×" }
+            return "Max"
+        case "claude_pro": return "Pro"
+        case "claude_team": return "Team"
+        case "claude_enterprise": return "Enterprise"
+        default: return nil
+        }
+    }
+}
+
 enum ClaudePaths {
     static var home: URL {
         if let value = ProcessInfo.processInfo.environment["CLAUDE_CONFIG_DIR"], !value.isEmpty {
@@ -83,6 +125,7 @@ enum ClaudeLimits {
         if Settings.claudeUsageCLI, let binary = ClaudePaths.binary(override: Settings.claudePath) {
             let pace = await MainActor.run {
                 ClaudeUsageCLI.Pace(claudeWorking: !AgentActivity.shared.working(.claude).isEmpty,
+                                    idleFor: AgentActivity.shared.idleFor(.claude),
                                     panelOpen: AppModel.shared.panelVisible,
                                     claudeRunning: ClaudeSender.claudeApp != nil,
                                     statusLineFresh: bridged.map { Date().timeIntervalSince($0.fetchedAt) < 180 } ?? false,
@@ -91,9 +134,10 @@ enum ClaudeLimits {
             do { candidates.append(try await ClaudeUsageCLI.shared.read(binary: binary, force: force, pace: pace)) } catch { firstError = error }
         }
         if let bridged { candidates.append(bridged) }
-        guard let merged = merge(candidates, desktop: ClaudeDesktopUsage.latest()) else {
+        guard var merged = merge(candidates, desktop: ClaudeDesktopUsage.latest()) else {
             throw firstError ?? ClaudeError.notConnected
         }
+        if merged.plan == nil { merged.plan = ClaudePlan.current() }
         return merged
     }
 

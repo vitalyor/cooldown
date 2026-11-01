@@ -9,6 +9,20 @@ enum SelfTest {
         var failures = ResumeSelfTest.run()
         func expect(_ condition: Bool, _ name: String) { if !condition { failures.append(name) } }
 
+        // Claude's plan, from Claude Code's account record.
+        expect(ClaudePlan.describe(type: "claude_max", tier: "default_claude_max_5x") == "Max 5×", "plan: Max 5x")
+        expect(ClaudePlan.describe(type: "claude_max", tier: "default_claude_max_20x") == "Max 20×", "plan: Max 20x")
+        expect(ClaudePlan.describe(type: "claude_pro", tier: nil) == "Pro", "plan: Pro")
+        expect(ClaudePlan.describe(type: "something_else", tier: nil) == nil, "plan: unknown")
+        // /usage pace after Claude stops: a minute at first, growing to five, never beyond.
+        expect(ClaudeUsageCLI.decay(after: 0) == 60, "usage pace right after work")
+        expect(ClaudeUsageCLI.decay(after: 4 * 60) == 180, "usage pace grows")
+        expect(ClaudeUsageCLI.decay(after: 20 * 60) == 300, "usage pace capped at 5 min")
+        // A Claude Desktop permission prompt's title.
+        expect(ClaudeDesktopWatcher.isPromptTitle("Claude хочет использовать Neurover prepare generation из neurover-api"), "prompt title ru") // l10n:skip
+        expect(ClaudeDesktopWatcher.isPromptTitle("Claude wants to use Search from Drive"), "prompt title en")
+        expect(!ClaudeDesktopWatcher.isPromptTitle("Входные данные показаны не полностью"), "prompt side note is not a title") // l10n:skip
+
         // Codex requests: only changes to the requests make Cooldown look again.
         expect(CodexRequestWatcher.touchesRequests([["op": "replace", "path": ["requests", 0], "value": 1]]), "patch to requests is noticed")
         expect(!CodexRequestWatcher.touchesRequests([["op": "replace", "path": ["turns", 3, "items"], "value": 1]]), "streaming text is ignored")

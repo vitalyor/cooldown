@@ -111,6 +111,12 @@ final class AgentActivity: ObservableObject {
         if sessions["\(provider.rawValue):\(key)"] == nil { Self.trace("start \(provider.rawValue) \(source.rawValue) \(key) «\(title)»") }
         let id = "\(provider.rawValue):\(key)"
         if provider == .claude { ClaudeChatList.shared.chatStarted(key) }
+        // A new turn in the same chat: you have seen the last answer and written again, so its
+        // "finished" card is old news — off the Mac and the phone.
+        if sessions[id] == nil, ToastController.shared.isShowing("finished-\(id)") || PhoneLink.shared.hasCard("finished-\(id)") {
+            Self.trace("  new turn: «finished» card for \(id) withdrawn")
+            ToastController.shared.dismiss(key: "finished-\(id)")
+        }
         if var existing = sessions[id] {
             existing.state = .working
             existing.updated = date
@@ -279,6 +285,25 @@ final class AgentActivity: ObservableObject {
         return until
     }
 
+    /// The limit reads 100 %, but the agent may still be finishing its turn on what is left over
+    /// (Claude and Codex do not stop at the exact moment). Since when that has been so, per agent.
+    private static var spentWhileWorking: [ProviderID: Date] = [:]
+
+    /// Spent and done: the limit is out and the agent is no longer at work (or has been "at work"
+    /// for more than ten minutes past it, which means the session was not seen to end). Only then
+    /// are "limit spent", the countdown in the menu bar and on the phone shown; while the turn goes
+    /// on, the agent's work light stays instead.
+    static func spentAndStopped(_ provider: ProviderID, now: Date = Date()) -> Date? {
+        guard let reset = spent(provider, now: now) else { spentWhileWorking[provider] = nil; return nil }
+        guard !shared.working(provider).isEmpty else { spentWhileWorking[provider] = nil; return reset }
+        let since = spentWhileWorking[provider] ?? now
+        if spentWhileWorking[provider] == nil {
+            spentWhileWorking[provider] = now
+            trace("\(provider.rawValue): limit at 100 % while still working — waiting for the turn to end")
+        }
+        return now.timeIntervalSince(since) > 10 * 60 ? reset : nil
+    }
+
     /// The agent's last words are its limit notice ("You've hit your usage limit…").
     nonisolated static func looksLikeLimit(_ text: String) -> Bool {
         guard !text.isEmpty, text.count < 400 else { return false }
@@ -335,6 +360,9 @@ final class AgentActivity: ObservableObject {
         EventLog.shared.add(CooldownEvent(kind: .finished, provider: provider, title: L("%@ закончил «%@»", "\(provider.displayName)", "\(name)"),
                                           body: detail, threadId: Self.thread(opener)))
         guard !QuietHours.active else { return }
+        // A new turn in this chat began already (the card is a few seconds behind the answer):
+        // the person is there and has seen it.
+        if sessions[id] != nil { Self.trace("  no card: a new turn already began in \(id)"); return }
         Notifier.shared.post(id: "finished-\(id)-\(Int(date.timeIntervalSince1970))",
                              title: L("%@ закончил «%@»", "\(provider.displayName)", "\(name)"), body: detail,
                              toast: ToastContent(key: "finished-\(id)", kind: .finished, provider: provider,
@@ -411,7 +439,17 @@ final class AgentActivity: ObservableObject {
         if sessions != before { changed() }
     }
 
+    /// When each agent was last seen at work (any session working), for pacing limit readings.
+    private(set) var lastBusy: [ProviderID: Date] = [:]
+
+    /// How long ago `provider` last worked; 0 while it works, nil if not since Cooldown started.
+    func idleFor(_ provider: ProviderID) -> TimeInterval? {
+        if !working(provider).isEmpty { return 0 }
+        return lastBusy[provider].map { Date().timeIntervalSince($0) }
+    }
+
     private func changed() {
+        for provider in ProviderID.allCases where !working(provider).isEmpty { lastBusy[provider] = Date() }
         AppModel.shared.activityChanged()
         // Codex conversations at work are followed for their requests (permissions, questions).
         CodexRequestWatcher.shared.follow(Set(sessions.values.filter { $0.provider == .codex && UUID(uuidString: $0.key) != nil }

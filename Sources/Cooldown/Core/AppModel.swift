@@ -40,6 +40,25 @@ final class ProviderStore: ObservableObject {
         publish()
     }
 
+    /// The plan changed (Pro → Max, say): the same work now takes a different share of the
+    /// limit, so "your usual pace" is learned again from that moment on. For Claude the first
+    /// plan seen counts as a change too: its plan was not known before, so the history may belong
+    /// to another plan. Codex always told its plan, so its first one keeps the history.
+    private func notePlan(_ plan: String?) {
+        guard let plan, !plan.isEmpty, !inDemo else { return }
+        let known = Settings.plan(id)
+        guard known?.name != plan else { return }
+        Settings.setPlan(id, name: plan, since: known == nil && id == .codex ? Date(timeIntervalSince1970: 0) : Date())
+        AgentActivity.trace("\(id.rawValue): plan \(known?.name ?? "unknown") → \(plan)")
+        objectWillChange.send()
+    }
+
+    /// Readings that tell the usual pace: those since the current plan began.
+    var paceSamples: [LimitSample] {
+        guard let since = Settings.plan(id)?.since else { return samples }
+        return samples.filter { $0.t >= since }
+    }
+
     /// Reads the limits; returns the fresh snapshot, or nil if reading failed.
     /// How long a reading is good for before the source is asked again (nil: always ask).
     var freshFor: (() -> TimeInterval)?
@@ -59,6 +78,7 @@ final class ProviderStore: ObservableObject {
             let fresh = try await fetcher(force)
             guard !inDemo else { return nil }   // the demo took over while this was reading
             withAnimation(.smooth(duration: 0.6)) { snapshot = fresh }
+            notePlan(fresh.plan)
             limitError = nil
             let live = ([fresh.session, fresh.weekly].compactMap { $0 }).map {
                 LimitSample(t: fresh.fetchedAt, kind: $0.kind, used: $0.usedPercent, resetsAt: $0.resetsAt)
@@ -114,6 +134,7 @@ final class ProviderStore: ObservableObject {
         if fresh.resetCredits == nil { fresh.resetCredits = snapshot?.resetCredits }
         if fresh.plan == nil { fresh.plan = snapshot?.plan }
         snapshot = fresh
+        notePlan(fresh.plan)
         limitError = nil
         history.add(samples: [fresh.session, fresh.weekly].compactMap { $0 }.map {
             LimitSample(t: fresh.fetchedAt, kind: $0.kind, used: $0.usedPercent, resetsAt: $0.resetsAt)
@@ -380,6 +401,9 @@ final class AppModel: ObservableObject {
         guard Settings.notifyThresholds else { return }
         // Spent: say when work can go on, at the Mac too — that is the useful part.
         if session.remainingPercent < 0.5 || fresh.limitReached == true {
+            // Still finishing its turn on the last bit: not "spent" yet. The turn's end says what
+            // happened (stopped by the limit, or finished), and this card follows only if needed.
+            guard AgentActivity.spentAndStopped(fresh.provider) != nil else { return }
             let key = "out-\(fresh.provider.rawValue)-\(Int(session.resetsAt.timeIntervalSince1970))"
             if !Self.notified("out-\(fresh.provider.rawValue)-", reset: session.resetsAt, tail: "") {
                 Settings.notifiedKeys += [key]
@@ -623,7 +647,7 @@ final class AppModel: ObservableObject {
 
     /// When a chosen task waits for this agent's spent limit: the moment it goes on.
     private func menuCountdown(_ provider: ProviderID) -> Date? {
-        guard !demoActive, let reset = AgentActivity.spent(provider), reset > Date() else { return nil }
+        guard !demoActive, let reset = AgentActivity.spentAndStopped(provider), reset > Date() else { return nil }
         switch provider {
         case .codex:
             return watches.contains { $0.enabled && ["waiting_quota", "quota_limited", "waiting_reset"].contains($0.status) } ? reset : nil

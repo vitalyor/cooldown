@@ -106,6 +106,7 @@
 "Claude задал %@ вопроса" = "Claude ha fatto %@ domande";
 "Claude не открылся." = "Claude non si è aperto.";
 "Claude не открыт." = "Claude non è aperto.";
+"Claude не принял нажатие. Ответьте на запрос в чате." = "Claude non ha accettato la pressione. Rispondi alla richiesta nella chat.";
 "Claude предлагает план" = "Claude propone un piano";
 "Claude продолжает работу в фоне." = "Claude continua a lavorare in background.";
 "Claude просит ответа" = "Claude chiede una risposta";
@@ -963,6 +964,8 @@
 "Так значок выглядит сейчас. Верхняя линия — Codex, нижняя — Claude; длина — сколько осталось в выбранном окне." = "L’icona adesso. Riga superiore — Codex, inferiore — Claude; la lunghezza mostra quanto resta nella finestra scelta.";
 "Так приходит «готово», когда агент закончил, а вас нет у Mac. Live Activity при этом закрывается." = "Così arriva «fatto» quando un agente finisce mentre non sei al Mac. L’attività in tempo reale si chiude nello stesso momento.";
 "Такой ответ здесь не поддерживается." = "Questa risposta non è supportata qui.";
+"Тариф %@ с %@ — обычный темп считается заново." = "Piano %@ dal %@ — il tuo ritmo abituale viene ricalcolato.";
+"Тариф %@." = "Piano %@.";
 "Тип" = "Tipo";
 "Тихие часы" = "Ore di silenzio";
 "Тишина" = "Silenzio";

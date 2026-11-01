@@ -143,7 +143,7 @@ extension PhoneLink {
         let items = pressable.prefix(2).map(Self.liveItem)
         var countdowns: [LiveState.Countdown] = []
         for p in ProviderID.allCases {
-            guard let reset = AgentActivity.spent(p) else { continue }
+            guard let reset = AgentActivity.spentAndStopped(p) else { continue }
             let waiting = p == .codex
                 ? watches.filter { $0.provider == "codex" && ["quota_limited", "waiting_quota", "waiting_reset", "waiting_connection"].contains($0.state) }.count
                 : ClaudeChatList.shared.entries.count
@@ -275,6 +275,15 @@ extension PhoneLink {
                 // Nothing left to press or wait for: gone at once.
                 client.send(.live("end", LiveState(items: []), dismiss: Date()))
                 AgentActivity.trace("phone: live end\(atMacLongEnough ? " — you are at the Mac" : "")")
+                // Once more a little later: an end can miss a Live Activity whose token was still on
+                // its way to the relay, and one left on the phone keeps counting for hours.
+                liveEndAgain?.cancel()
+                liveEndAgain = Task { @MainActor [weak self] in
+                    try? await Task.sleep(for: .seconds(90))
+                    guard let self, !Task.isCancelled, !self.liveOn, let client = self.client else { return }
+                    client.send(.live("end", LiveState(items: []), dismiss: Date()))
+                    AgentActivity.trace("phone: live end (again, to be sure)")
+                }
             }
             return
         }

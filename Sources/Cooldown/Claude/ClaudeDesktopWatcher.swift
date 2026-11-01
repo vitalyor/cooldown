@@ -257,9 +257,15 @@ final class ClaudeDesktopWatcher {
                     throw ResumeError.refused(L("Claude не открыт."))
                 }
                 let label = String(choice.id.dropFirst("press:".count))
-                let pressed = await Task.detached(priority: .userInitiated) { Self.press(label, prompt: prompt, chat: chat, pid: pid) }.value
-                guard pressed else { throw ResumeError.refused(L("Запрос в чате уже закрыт или выглядит иначе.")) }
-                AgentActivity.trace("claude desktop prompt in \(chat.id): pressed «\(label)»")
+                let result = await Task.detached(priority: .userInitiated) { await Self.press(label, prompt: prompt, chat: chat, pid: pid) }.value
+                switch result {
+                case .gone: throw ResumeError.refused(L("Запрос в чате уже закрыт или выглядит иначе."))
+                case .ignored:
+                    AgentActivity.trace("claude desktop prompt in \(chat.id): «\(label)» not taken")
+                    throw ResumeError.refused(L("Claude не принял нажатие. Ответьте на запрос в чате."))
+                case .done:
+                    AgentActivity.trace("claude desktop prompt in \(chat.id): pressed «\(label)», prompt gone")
+                }
             }
         }
         // Chats out of sight keep their prompt (they may still wait); none are guessed away.
@@ -374,11 +380,42 @@ final class ClaudeDesktopWatcher {
             }
             stack.append(contentsOf: ((values[2] as? [AXUIElement]) ?? []).reversed())
         }
+        // The prompt's own title ("Claude хочет использовать … из …") sits a few levels higher
+        // than its buttons, as a heading or a button that unfolds the details: it goes first,
+        // so the card says what is asked rather than a side note.
+        var top = container
+        for _ in 0..<3 {
+            if let up = ClaudeSender.element(ClaudeSender.value(top, kAXParentAttribute)) { top = up }
+        }
+        stack = [top]
+        visited = 0
+        while let element = stack.popLast(), visited < 600 {
+            visited += 1
+            let values = ClaudeSender.values(element, [kAXValueAttribute, kAXDescriptionAttribute, kAXTitleAttribute, kAXChildrenAttribute])
+            let words = [values[0] as? String, values[1] as? String, values[2] as? String].compactMap { $0 }
+            if let title = words.first(where: { isPromptTitle($0) }) {
+                let line = title.trimmingCharacters(in: .whitespacesAndNewlines)
+                texts.removeAll { $0 == line }
+                texts.insert(line, at: 0)
+                break
+            }
+            stack.append(contentsOf: ((values[3] as? [AXUIElement]) ?? []).reversed())
+        }
+        // The tool's input can be long (a whole prompt): a card needs its start only.
+        texts = texts.map { $0.count > 240 ? String($0.prefix(240)) + "…" : $0 }
         return Prompt(text: texts.joined(separator: "\n"), buttons: group.labels)
     }
 
-    /// Presses the chosen button of a prompt in that chat, after finding the very same prompt.
-    nonisolated static func press(_ label: String, prompt: Prompt, chat: ClaudeChat, pid: pid_t) -> Bool {
+    /// "Claude хочет использовать X из Y" / "Claude wants to use X from Y" and the like.
+    nonisolated static func isPromptTitle(_ text: String) -> Bool {
+        let lower = text.lowercased()
+        guard text.count < 200 else { return false }
+        return ["хочет использовать", "хочет выполнить", "хочет открыть", "wants to use", "wants to run", "wants to access", "wants to open"] // l10n:skip
+            .contains { lower.contains($0) }
+    }
+
+    /// Finds the chosen button of the very same prompt in that chat, or nil if it is gone.
+    nonisolated private static func find(_ label: String, prompt: Prompt, chat: ClaudeChat, pid: pid_t) -> AXUIElement? {
         let root = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(root, 2)
         for window in (ClaudeSender.value(root, kAXWindowsAttribute) as? [AXUIElement]) ?? [] {
@@ -399,8 +436,63 @@ final class ClaudeDesktopWatcher {
             }
             guard page?.id == chat.id, Self.prompt(from: buttons.map { ($0.label, $0.parent) }) == prompt,
                   let target = buttons.first(where: { $0.label == label }) else { continue }
-            return AXUIElementPerformAction(target.element, kAXPressAction as CFString) == .success
+            return target.element
+        }
+        return nil
+    }
+
+    enum PressResult { case done, gone, ignored }
+
+    /// Presses the chosen button of a prompt in that chat and checks that Claude took it: the
+    /// prompt must be gone afterwards. Claude's page sometimes reports an accessibility press as
+    /// done and ignores it; then the button is clicked for real — Claude's window is brought up
+    /// for a moment, and the pointer and the app you were in are put back. Called only from a
+    /// button you pressed on a card.
+    nonisolated static func press(_ label: String, prompt: Prompt, chat: ClaudeChat, pid: pid_t) async -> PressResult {
+        guard let target = find(label, prompt: prompt, chat: chat, pid: pid) else { return .gone }
+        AXUIElementPerformAction(target, kAXPressAction as CFString)
+        if await gone(label, prompt: prompt, chat: chat, pid: pid) { return .done }
+        AgentActivity.trace("claude desktop prompt in \(chat.id): press not taken, clicking «\(label)»")
+        guard let again = find(label, prompt: prompt, chat: chat, pid: pid) else { return .done }
+        await click(again, pid: pid)
+        return await gone(label, prompt: prompt, chat: chat, pid: pid) ? .done : .ignored
+    }
+
+    /// Whether the prompt has left the chat within a couple of seconds.
+    nonisolated private static func gone(_ label: String, prompt: Prompt, chat: ClaudeChat, pid: pid_t) async -> Bool {
+        for _ in 0..<4 {
+            try? await Task.sleep(for: .milliseconds(600))
+            if find(label, prompt: prompt, chat: chat, pid: pid) == nil { return true }
         }
         return false
+    }
+
+    /// A real click in the middle of `element`, with Claude in front for that moment.
+    nonisolated private static func click(_ element: AXUIElement, pid: pid_t) async {
+        guard let position = ClaudeSender.value(element, kAXPositionAttribute), let size = ClaudeSender.value(element, kAXSizeAttribute) else { return }
+        var origin = CGPoint.zero, extent = CGSize.zero
+        AXValueGetValue(position as! AXValue, .cgPoint, &origin)
+        AXValueGetValue(size as! AXValue, .cgSize, &extent)
+        guard extent.width > 0, extent.height > 0 else { return }
+        let point = CGPoint(x: origin.x + extent.width / 2, y: origin.y + extent.height / 2)
+        let before = await MainActor.run { NSWorkspace.shared.frontmostApplication }
+        let pointer = CGEvent(source: nil)?.location
+        await MainActor.run { _ = NSRunningApplication(processIdentifier: pid)?.activate() }
+        // The button's own window comes forward, so the click lands on it and not on something above.
+        var window: AnyObject?
+        if AXUIElementCopyAttributeValue(element, kAXWindowAttribute as CFString, &window) == .success, let window {
+            AXUIElementPerformAction(window as! AXUIElement, kAXRaiseAction as CFString)
+        }
+        try? await Task.sleep(for: .milliseconds(350))
+        let source = CGEventSource(stateID: .hidSystemState)
+        for type in [CGEventType.leftMouseDown, .leftMouseUp] {
+            CGEvent(mouseEventSource: source, mouseType: type, mouseCursorPosition: point, mouseButton: .left)?.post(tap: .cghidEventTap)
+            try? await Task.sleep(for: .milliseconds(40))
+        }
+        try? await Task.sleep(for: .milliseconds(150))
+        if let pointer { CGWarpMouseCursorPosition(pointer) }
+        if let before, before.processIdentifier != pid {
+            await MainActor.run { _ = before.activate() }
+        }
     }
 }

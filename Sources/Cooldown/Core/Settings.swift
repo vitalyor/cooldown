@@ -60,6 +60,18 @@ enum Settings {
         return directory
     }
 
+    /// The plan last seen for an agent and since when (for learning the usual pace anew).
+    static func plan(_ provider: ProviderID) -> (name: String, since: Date)? {
+        guard let name = defaults.string(forKey: "plan.\(provider.rawValue)") else { return nil }
+        let since = defaults.double(forKey: "planSince.\(provider.rawValue)")
+        return (name, Date(timeIntervalSince1970: since))
+    }
+
+    static func setPlan(_ provider: ProviderID, name: String, since: Date) {
+        defaults.set(name, forKey: "plan.\(provider.rawValue)")
+        defaults.set(since.timeIntervalSince1970, forKey: "planSince.\(provider.rawValue)")
+    }
+
     static var refreshInterval: TimeInterval {
         let value = defaults.double(forKey: SettingsKey.refreshInterval)
         return value >= 15 ? value : 60

@@ -35,38 +35,54 @@ actor ClaudeUsageCLI {
     private var running: Task<LimitSnapshot, Error>?
 
     /// How often Claude Code is started for /usage. Starting it costs a second of CPU and a
-    /// few helper processes, so it runs only as often as the numbers can have changed:
-    /// every 2 minutes while Claude is working or Cooldown's window is open, every 5 while
-    /// Claude Desktop is open and someone is at the Mac, every 15 otherwise, every 30 while
-    /// the screen is locked — and not at all while Claude Code's status line already brings
-    /// fresh numbers.
+    /// few helper processes, so it follows what Claude is doing:
+    /// - while Claude works: every minute, so the window always shows the latest share;
+    /// - after it stops: the pause grows step by step (1½, 2, 3… minutes) up to 5 minutes;
+    /// - quiet for half an hour or more: every 15 minutes (5 while Cooldown's window is open),
+    ///   every 30 while the screen is locked;
+    /// - not at all while Claude Code's status line already brings fresh numbers.
     struct Pace: Sendable {
         var claudeWorking = false
+        /// Seconds since Claude last worked (0 while it works); nil if not seen at work yet.
+        var idleFor: TimeInterval? = nil
         var panelOpen = false
         var claudeRunning = false
         var statusLineFresh = false
         var resetNear = false
     }
 
+    static let workingInterval: TimeInterval = 60
+    static let settledInterval: TimeInterval = 5 * 60
+
     static func interval(_ pace: Pace) -> TimeInterval {
         if let info = CGSessionCopyCurrentDictionary() as? [String: Any], info["CGSSessionScreenIsLocked"] as? Bool == true {
-            return 30 * 60
+            return pace.claudeWorking ? settledInterval : 30 * 60
         }
         // The five-hour window is about to come back (or just came back): read often, so chats
         // waiting for it go on within a minute or two, not at the next lazy read.
         if pace.resetNear { return minimumInterval }
         if pace.statusLineFresh { return 10 * 60 }
-        if pace.claudeWorking || pace.panelOpen { return minimumInterval }
-        let idle = CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: CGEventType(rawValue: ~0)!)
-        if pace.claudeRunning && idle < 10 * 60 { return 5 * 60 }
+        if pace.claudeWorking { return workingInterval }
+        if let idle = pace.idleFor, idle < 30 * 60 { return decay(after: idle) }
+        if pace.panelOpen { return settledInterval }
+        let away = CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: CGEventType(rawValue: ~0)!)
+        if pace.claudeRunning && away < 10 * 60 { return settledInterval }
         return 15 * 60
+    }
+
+    /// The pause after Claude stopped working: a minute at first, then half a minute longer for
+    /// every minute of quiet, up to five minutes.
+    static func decay(after idle: TimeInterval) -> TimeInterval {
+        min(settledInterval, workingInterval + idle / 2)
     }
 
     func read(binary: URL, force: Bool = false, pace: Pace = Pace()) async throws -> LimitSnapshot {
         var pause = Self.interval(pace)
         if failuresInRow > 0 { pause = min(pause, 60 * pow(2, Double(min(failuresInRow, 4) - 1))) }
         if turnFinished { pause = min(pause, 60) }
-        if !force, Date().timeIntervalSince(lastAttempt) < pause {
+        // A few seconds' slack: the caller's minute timer would otherwise miss a one-minute pause
+        // by a hair and make it two.
+        if !force, Date().timeIntervalSince(lastAttempt) < pause - 5 {
             if let last { return last }
             if let lastError { throw lastError }
         }
