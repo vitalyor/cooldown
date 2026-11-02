@@ -184,24 +184,7 @@ enum ClaudeLimits {
         return result
     }
 
-    /// The usage object shared by claude.ai and Claude Code's /usage.
-    static func parseUsage(_ object: [String: Any], source: String) -> LimitSnapshot? {
-        var snapshot = LimitSnapshot(provider: .claude, plan: nil, session: nil, weekly: nil, fetchedAt: Date(), source: source)
-        snapshot.session = window(object["five_hour"], kind: .session)
-        snapshot.weekly = window(object["seven_day"], kind: .weekly)
-        for (key, value) in object where key.hasPrefix("seven_day_") && !key.contains("oauth") && !key.contains("cowork") {
-            if var extra = window(value, kind: .weekly) {
-                extra.label = extraTitle(key)
-                snapshot.extras.append(extra)
-            }
-        }
-        snapshot.extras.sort { ($0.label ?? "") < ($1.label ?? "") }
-        return snapshot.session != nil || snapshot.weekly != nil ? snapshot : nil
-    }
-
     // MARK: Status line
-
-    static var bridgeConnected: Bool { ClaudeStatusLine.isInstalled }
 
     static func fromBridge() -> LimitSnapshot? {
         guard let data = try? Data(contentsOf: ClaudePaths.bridgeFile),

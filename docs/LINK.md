@@ -98,7 +98,11 @@ Every frame is JSON with a type `t`:
 - `push.badge`: the number for the app icon (cards waiting for a press).
 - The same envelope id again within ten minutes is acknowledged and dropped: a device whose
   connection died before the `ack` sends unacknowledged envelopes again on the next one.
-- A message for a device that is offline waits until `ttl` runs out (at most a day, 200 per device).
+- A message for a device that is offline waits until `ttl` runs out (at most a day, 200 per device,
+  1 MB per device and 32 MB for the whole relay; past that it goes out only to a connected device).
+- The box carries its own `ttl`, sealed with it. The envelope's `ttl` (and the push's) is set by the
+  carrier, so a receiver goes by the sealed one; a box from an older sender without it is believed
+  for at most a day.
 
 ## Messages inside a box
 
@@ -230,3 +234,20 @@ without reaching the relay, which a restricted mobile network might not allow.
 - If the Mac is locked, Claude can't be typed into. The Mac answers `locked`, keeps the command and
   runs it after unlock, if it hasn't expired by then.
 - Every command from a phone is written to the feed: "From iPhone: …".
+
+## Trust and limits
+
+- The relay cannot read, forge or redirect a box: each one is sealed for one receiver, with the
+  sender, receiver and id bound in. It can only delay or drop them.
+- Face ID is asked on the iPhone, before a command leaves it. The Mac trusts a correctly sealed
+  command from a paired phone and checks it against its live cards: a button must be one the card
+  offers, an answer must be one the agent still waits for, "Ответить" works only on a finished turn.
+- A card that cannot show an agent's command whole (too long, long runs of spaces, invisible or
+  direction-changing characters) offers no "Allow" — only "Decline" and answering in the app.
+- A `cooldown://press` link is accepted only for a button the Live Activity or the latest cards show,
+  and Face ID names that button.
+- The notification extension remembers the boxes it showed for a day: the same box pushed again
+  is not shown twice.
+- The relay: 5 phones per Mac, Live Activity frames and receipts limited per device, at most 32
+  pushes to Apple at a time; a Mac that never paired a phone is forgotten after a day without
+  contact (a week if it was seen again).

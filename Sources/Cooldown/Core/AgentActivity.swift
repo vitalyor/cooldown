@@ -64,22 +64,8 @@ final class AgentActivity: ObservableObject {
     nonisolated static func trace(_ text: String) {
         traceLock.lock()
         defer { traceLock.unlock() }
-        let url = Settings.appSupport.appendingPathComponent("activity.log")
-        let line = "\(traceTime.string(from: Date())) \(text)\n"
-        if let handle = try? FileHandle(forWritingTo: url) {
-            handle.seekToEndOfFile()
-            handle.write(Data(line.utf8))
-            let size = handle.offsetInFile
-            try? handle.close()
-            // Kept: the last two megabytes, in two files.
-            if size > 1 << 20 {
-                let old = Settings.appSupport.appendingPathComponent("activity.1.log")
-                try? FileManager.default.removeItem(at: old)
-                try? FileManager.default.moveItem(at: url, to: old)
-            }
-        } else {
-            try? Data(line.utf8).write(to: url)
-        }
+        // Kept: the last two megabytes, in two files.
+        LogFile.append("\(traceTime.string(from: Date())) \(text)\n", to: "activity", limit: 1 << 20)
     }
 
     nonisolated private static let traceLock = NSLock()

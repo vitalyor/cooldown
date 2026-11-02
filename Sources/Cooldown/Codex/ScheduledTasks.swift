@@ -98,7 +98,8 @@ final class ScheduledRunner: ObservableObject {
                          "-s", task.canEdit ? "workspace-write" : "read-only",
                          "-o", last.path]
         if task.canEdit { arguments.append("--approve-for-me") }
-        arguments.append(task.prompt)
+        // After "--": a prompt that starts with a dash is the prompt, never an option.
+        arguments += ["--", task.prompt]
         process.arguments = arguments
         process.currentDirectoryURL = URL(fileURLWithPath: task.folder)
         if let handle = try? FileHandle(forWritingTo: log) {

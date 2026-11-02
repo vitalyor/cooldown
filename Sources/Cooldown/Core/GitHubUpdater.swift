@@ -233,6 +233,12 @@ final class GitHubUpdater: ObservableObject {
             try? FileManager.default.removeItem(atPath: staged)
             throw UpdateError.unpack
         }
+        // What will be swapped in is the copy, not the checked download: check the copy itself,
+        // so nothing that changed it on the way (the app's folder may be writable by others) runs.
+        guard signedLikeMe(URL(fileURLWithPath: staged)) else {
+            try? FileManager.default.removeItem(atPath: staged)
+            throw UpdateError.signature
+        }
 
         let pid = ProcessInfo.processInfo.processIdentifier
         UserDefaults.standard.set(current, forKey: "updatedFrom")

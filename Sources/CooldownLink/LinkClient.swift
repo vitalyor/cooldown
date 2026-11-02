@@ -184,6 +184,8 @@ public final class LinkSession: @unchecked Sendable {
     /// An envelope frame carrying `box` to `peer`.
     public func envelope(_ box: LinkBox, to peer: String, ttl: TimeInterval = 600, keep: String? = nil, push: LinkPush? = nil) throws -> LinkFrame {
         lock.lock(); defer { lock.unlock() }
+        var box = box
+        box.ttl = Int64(ttl)
         let data = try LinkJSON.encoder.encode(box)
         var f = LinkFrame(t: "env")
         f.id = box.id
@@ -195,13 +197,17 @@ public final class LinkSession: @unchecked Sendable {
         return f
     }
 
+    public static let maxCarriedTTL: Int64 = 24 * 60 * 60
+
     /// Opens an envelope frame for this device. Throws for anything it shouldn't trust.
     public func open(_ frame: LinkFrame, now: Date = Date()) throws -> LinkBox {
         lock.lock(); defer { lock.unlock() }
         guard let from = frame.from, let id = frame.id, let text = frame.box else { throw Failure.badBox }
         let plain = try LinkCrypto.open(text, key: key(for: from), from: from, to: account.device, id: id)
         guard let box = try? LinkJSON.decoder.decode(LinkBox.self, from: plain), box.id == id else { throw Failure.badBox }
-        let ttl = TimeInterval(frame.ttl ?? 600)
+        // The sealed ttl decides; a box from an older sender has none, and then the carrier's
+        // figure is believed only up to the relay's own limit of a day.
+        let ttl = TimeInterval(box.ttl ?? min(frame.ttl ?? 600, LinkSession.maxCarriedTTL))
         if box.ts < now.addingTimeInterval(-(ttl + 300)) || box.ts > now.addingTimeInterval(300) { throw Failure.tooOld }
         if seenSet.contains(id) { throw Failure.replay }
         seenSet.insert(id)

@@ -62,6 +62,17 @@ final class LinkTests: XCTestCase {
         XCTAssertThrowsError(try mac.open(relayed(frame, from: "phone")))
     }
 
+    /// A carrier (the relay, a push) cannot keep an old box alive by raising the envelope's ttl:
+    /// the sealed one decides.
+    func testCarriedTTLCannotExtendABox() throws {
+        let (mac, phone) = pair()
+        var box = LinkBox.card(LinkCard(key: "k", kind: "attention", provider: "codex", title: "T", body: "B", actions: [], created: Date()))
+        box.ts = Date().addingTimeInterval(-3 * 3600)
+        var frame = try mac.envelope(box, to: "phone", ttl: 600)
+        frame.ttl = 1_000_000_000
+        XCTAssertThrowsError(try phone.open(relayed(frame, from: "mac")))
+    }
+
     func testInviteAndHello() throws {
         let invite = PairingInvite(relay: URL(string: "https://cooldown.nolim.cloud")!, code: LinkCrypto.random(16).base64URL,
                                    secret: LinkCrypto.random(32), macKey: LinkCrypto.random(32), macName: "MacBook Виталия")

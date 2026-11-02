@@ -14,6 +14,11 @@ A Swift package, SwiftUI + AppKit, no third-party dependencies. The window is a 
 | `Claude/` | limits (`/usage`, status line, Claude Desktop), the Claude Desktop window via Accessibility, Claude Code sessions |
 | `AutoResume/` | Codex auto-continue: the app's local socket (follower only), the decision policy, the send ledger, the per-task watcher |
 | `UI/` | the panel, tabs, cards, settings, the menu bar icon |
+| `Core/PhoneLink*` | the iPhone link on the Mac: cards and state out, commands in (see [LINK.md](LINK.md)) |
+| `Core/CodexLink`, `Core/AgentRestart` | noticing that Codex stopped answering Cooldown; a safe restart of Codex or Claude |
+| `Sources/CooldownLink/` | the end-to-end encrypted link shared by the Mac and the iPhone app |
+| `iOS/` | the iPhone app: cards, Live Activity, notification extension, Lock Screen buttons |
+| `Relay/` | the relay server (Go): passes sealed boxes and wakes the phone through Apple |
 
 ## One coordinator for events
 
@@ -33,9 +38,10 @@ within a window). Readings more than 20 minutes older than the freshest are igno
   dispatch source (`Core/FileWatch.swift`). Timers remain only as a safety net and run with tolerance,
   so macOS can group wake-ups.
 - **External programs only when needed.** While Codex works, its limits come from its own files and
-  `codex app-server` is not started. `claude /usage` runs every 2–30 minutes depending on whether
-  Claude is working and the window is open, and not at all while Claude Code's status line brings
-  fresh numbers.
+  `codex app-server` is not started. `claude /usage` follows Claude: every minute while it works,
+  then a pause that grows by half a minute for each quiet minute up to five, every 15 minutes after
+  half an hour of quiet (30 with the screen locked), every 2 minutes around a reset, and not at all
+  while Claude Code's status line brings fresh numbers.
 - **Auto-continue reacts, it does not poll.** A watched task is looked at when its session file
   reports an ended or failed turn, on Codex hooks, when the Codex app starts or quits and when the
   Mac wakes; while waiting for the limit, a wall-clock timer fires exactly at the reset (+15 s). A
@@ -57,6 +63,11 @@ Cooldown --hooks status            # hook state (install / uninstall)
 Cooldown --menu-icon out.png       # the menu bar icon in different states
 Cooldown --render --out out.png --provider codex --tab stats   # the window as a picture
 Cooldown --showcase --demo 1 --tab limits --clean   # the real window on demo data, for screenshots
+Cooldown --snapshot out.png --tab tasks --provider claude   # the real window with real data, as on screen
+Cooldown --render --card request --dark   # one card; --render --menu for the menu bar picture
+Cooldown --selftest                       # built-in checks
+scripts/check-all.sh                      # build, self-test and unit tests
+scripts/icon-preview.sh                   # every look of the app icon
 ```
 
 What the sources did and why a card was or wasn't shown is in

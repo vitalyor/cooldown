@@ -479,7 +479,8 @@ private struct RequestBlock: View {
                 let question = content.choices.contains { $0.role == .normal || $0.role == .input }
                 Text(detail)
                     .font(question ? .system(size: 12.5) : .system(size: 11.5, design: .monospaced))
-                    .lineLimit(6)
+                    // Room for what RequestCenter.fullyVisible lets through with an "Allow".
+                    .lineLimit(14)
                     .truncationMode(.middle)
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)

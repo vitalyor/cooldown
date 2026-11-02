@@ -25,8 +25,6 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         window?.makeKeyAndOrderFront(nil)
     }
 
-    var isOpen: Bool { window?.isVisible == true }
-
     func setTitle(_ title: String) { window?.title = title }
 
     private func make() -> NSWindow {

@@ -157,6 +157,9 @@ public struct LinkBox: Codable, Equatable, Sendable {
     public var by: String?
     public var cmd: LinkCommand?
     public var result: LinkResult?
+    /// How long the box is good for, in seconds, sealed with it. The envelope's own ttl is set by
+    /// whoever carries it (the relay, a push), so it alone cannot be trusted to say a box is old.
+    public var ttl: Int64?
 
     public init(_ m: Kind, id: String = LinkID.make(), ts: Date = Date()) { self.m = m; self.id = id; self.ts = ts }
 

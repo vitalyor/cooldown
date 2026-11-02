@@ -260,6 +260,7 @@
 "Агент закончил задачу" = "Un agent a terminé une tâche";
 "Агенты" = "Agents";
 "Адрес" = "Adresse";
+"Адрес без https и не в домашней сети: токен и тексты карточек пойдут открытым текстом. Лучше https." = "Cette adresse n’est pas en https ni sur le réseau local : le jeton et les textes des cartes circuleraient en clair. Préférez https.";
 "Без названия" = "Sans titre";
 "Без них Cooldown не сможет сообщить, когда экран заблокирован." = "Sans elles, Cooldown ne pourra rien vous signaler quand l’écran est verrouillé.";
 "Без приложения Codex не работают автопродолжение и карточки запросов; лимиты читаются через codex." = "Sans l’app Codex, la reprise automatique et les cartes de demande ne fonctionnent pas ; les limites sont lues via codex.";
@@ -598,6 +599,7 @@
 "Не удалось: «" = "Échec : « ";
 "Не указан диалог." = "Aucune conversation indiquée.";
 "Не установлено" = "Non installé";
+"Неверный идентификатор сессии Claude Code." = "Identifiant de session Claude Code invalide.";
 "Недавнее" = "Récent";
 "Недавние" = "Récentes";
 "Неделя" = "Semaine";
@@ -966,6 +968,7 @@
 "Такой ответ здесь не поддерживается." = "Cette réponse n’est pas prise en charge ici.";
 "Тариф %@ с %@ — обычный темп считается заново." = "Forfait %@ depuis le %@ — votre rythme habituel est réappris.";
 "Тариф %@." = "Forfait %@.";
+"Текст длинный или с невидимыми местами — разрешить можно только там, где он виден целиком." = "Le texte est long ou contient des parties invisibles : on ne peut l’autoriser que là où il s’affiche en entier.";
 "Тип" = "Type";
 "Тихие часы" = "Heures calmes";
 "Тишина" = "Silence";
@@ -1041,6 +1044,7 @@
 "Чтобы недельного лимита хватило до сброса %@, в день можно около %@. Завтра стоит полегче." = "Pour que la limite hebdomadaire %@ tienne jusqu’à la réinitialisation, environ %@ par jour suffisent. Levez un peu le pied demain.";
 "Чтобы хватило до сброса, в день можно около %@." = "Pour tenir jusqu’à la réinitialisation, environ %@ par jour suffisent.";
 "Чтобы хватило до сброса: до %@ в день" = "Pour tenir jusqu’à la réinitialisation : jusqu’à %@ par jour";
+"Эта кнопка уже не актуальна." = "Ce bouton n’est plus d’actualité.";
 "Эта сессия сейчас не работает и не остановлена лимитом, продолжать нечего." = "Cette session ne tourne pas et n’a pas été arrêtée par la limite — rien à reprendre.";
 "Эти диалоги без автопродолжения. «Подключить» — и если упрутся в лимит, Cooldown продолжит их после сброса." = "Ces conversations n’ont pas de reprise automatique. « Connecter » — et si elles atteignent la limite, Cooldown les reprendra après la réinitialisation.";
 "Это действие доступно только на Mac." = "Cette action n’est disponible que sur le Mac.";
@@ -1140,7 +1144,6 @@
 "сброс %@" = "réinitialisation %@";
 "сброс|сброса|сбросов" = "réinitialisation|réinitialisations";
 "сбросов лимита: %@" = "réinitialisations de limite : %@";
-"своя команда" = "commande personnalisée";
 "сегодня в %@" = "aujourd’hui à %@";
 "сейчас не расходуется" = "pas consommée en ce moment";
 "сеть: %@" = "Réseau : %@";

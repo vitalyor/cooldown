@@ -109,6 +109,7 @@ final class RequestCenter: ObservableObject {
 
     /// A request appeared (or changed). Shown at once unless its app is in front.
     func post(_ request: AgentRequest, open: @escaping () -> Void, respond: @escaping Responder) {
+        let request = Self.withoutBlindApproval(request)
         let isNew = pending[request.key] == nil
         let same = pending[request.key]?.request == request
         pending[request.key] = (request, respond, open)
@@ -122,6 +123,37 @@ final class RequestCenter: ObservableObject {
         // Seen again unchanged (the source re-reads often): the card stays as it is.
         if same { return }
         reveal(request.key)
+    }
+
+    /// Whether a card shows `detail` whole: the Mac card has room for about 14 lines, the phone
+    /// for 600 characters. Long runs of spaces, many blank lines and invisible or direction-changing
+    /// characters can push the dangerous part of a command out of sight.
+    nonisolated static func fullyVisible(_ detail: String?) -> Bool {
+        guard let detail, !detail.isEmpty else { return true }
+        if detail.count > 520 { return false }
+        let lines = detail.split(separator: "\n", omittingEmptySubsequences: false)
+        let visual = lines.reduce(0) { $0 + max(1, ($1.count + 47) / 48) }
+        if visual > 14 { return false }
+        if detail.range(of: #"[ \t]{8,}"#, options: .regularExpression) != nil { return false }
+        let hidden: [ClosedRange<UInt32>] = [0x200B...0x200F, 0x202A...0x202E, 0x2060...0x2069, 0xFEFF...0xFEFF]
+        return !detail.unicodeScalars.contains { scalar in
+            (scalar.properties.generalCategory == .control && scalar != "\n" && scalar != "\t")
+                || hidden.contains { $0.contains(scalar.value) }
+        }
+    }
+
+    /// A request whose words a card cannot show whole gets no "Allow" there: approving what one
+    /// cannot read is approving blind. Declining stays, and so does answering in the app.
+    nonisolated static func withoutBlindApproval(_ request: AgentRequest) -> AgentRequest {
+        guard !fullyVisible(request.detail), request.choices.contains(where: { $0.role == .allow }) else { return request }
+        var request = request
+        request.choices.removeAll { $0.role == .allow }
+        if !request.choices.contains(where: { $0.role == .open }) {
+            request.choices.append(RequestChoice(id: "open", title: L("Ответить там"), role: .open))
+        }
+        let note = L("Текст длинный или с невидимыми местами — разрешить можно только там, где он виден целиком.")
+        request.detail = String((request.detail ?? "").prefix(300)) + "…\n\n" + note
+        return request
     }
 
     /// The request is gone (answered here or in the app, or the turn ended).

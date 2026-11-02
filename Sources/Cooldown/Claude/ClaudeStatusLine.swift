@@ -96,14 +96,6 @@ enum ClaudeStatusLine {
         return command
     }
 
-    /// Who currently fills the status line, in plain words, for the confirmation text.
-    static func currentOwner() -> String? {
-        guard let command = currentStatusLine()?["command"] as? String, !command.isEmpty else { return nil }
-        if command.contains("NotchBuddy") || command.contains("nb-hook") { return "Coucou" }
-        if command.contains("Cooldown") { return "Cooldown" }
-        return L("своя команда")
-    }
-
     private static func readSettings() throws -> [String: Any] {
         guard FileManager.default.fileExists(atPath: ClaudePaths.settings.path) else { return [:] }
         let data = try Data(contentsOf: ClaudePaths.settings)

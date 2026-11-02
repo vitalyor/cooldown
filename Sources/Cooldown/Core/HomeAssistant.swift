@@ -143,12 +143,6 @@ final class HomeAssistant: ObservableObject {
         }
     }
 
-    func endLive(_ provider: ProviderID) {
-        guard isReady else { return }
-        lastSent[provider.rawValue] = nil
-        Task { try? await notify(["message": "clear_notification", "data": ["tag": "cooldown-\(provider.rawValue)"]]) }
-    }
-
     // MARK: Sensors for widgets
 
     /// Mirrors the limits into Home Assistant as sensor.cooldown_codex / sensor.cooldown_claude,

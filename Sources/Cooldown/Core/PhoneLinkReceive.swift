@@ -109,15 +109,11 @@ extension PhoneLink {
             return await act(cmd, from: phone)
         case .diag:
             // The phone's own delivery log: what arrived when, so delivery can be checked end to end.
-            let url = Settings.appSupport.appendingPathComponent("phone-delivery.log")
             let text = (cmd.args["log"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             if !text.isEmpty {
-                let block = "— \(phoneName(phone)), \(Date().formatted(.iso8601))\n\(text)\n"
-                if let handle = try? FileHandle(forWritingTo: url) {
-                    handle.seekToEndOfFile(); handle.write(Data(block.utf8)); try? handle.close()
-                } else {
-                    try? Data(block.utf8).write(to: url)
-                }
+                // Kept small, like activity.log: the latest megabyte, in two files.
+                LogFile.append("— \(phoneName(phone)), \(Date().formatted(.iso8601))\n\(String(text.suffix(64 * 1024)))\n",
+                               to: "phone-delivery", limit: 512 * 1024)
             }
             return ok("")
         }
@@ -163,6 +159,10 @@ extension PhoneLink {
         }
         if actionID == "reply" {
             let text = (cmd.args["text"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            // Only a card that offered "Ответить" (a finished turn) takes a reply.
+            guard content.kind == .finished else {
+                return LinkResult(cmd: cmd.id, code: "stale", text: L("Уже не актуально."))
+            }
             guard !text.isEmpty, let opener = Self.chat(of: content) else {
                 return LinkResult(cmd: cmd.id, code: "failed", text: L("Пустой ответ не отправлен."))
             }

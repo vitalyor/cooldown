@@ -131,7 +131,9 @@ final class ClaudeTaskManager: ObservableObject {
         let own = ClaudeUsageCLI.transcriptFolder.standardizedFileURL.path
         for project in projects where project.standardizedFileURL.path != own {
             guard let files = try? fm.contentsOfDirectory(at: project, includingPropertiesForKeys: [.contentModificationDateKey]) else { continue }
-            for file in files where file.pathExtension == "jsonl" {
+            // Claude Code names its transcripts by the session's UUID; anything else in there is not
+            // one of its sessions (and a name like "--flag" must never reach the command line).
+            for file in files where file.pathExtension == "jsonl" && UUID(uuidString: file.deletingPathExtension().lastPathComponent) != nil {
                 guard let modified = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate,
                       modified >= cutoff else { continue }
                 let info = describe(file)
@@ -352,7 +354,11 @@ final class ClaudeTaskManager: ObservableObject {
         }
         let process = Process()
         process.executableURL = claude
-        process.arguments = ["-p", Self.continuation, "--resume", task.sessionId]
+        guard UUID(uuidString: task.sessionId) != nil else {
+            update(task.id) { $0.status = "failed"; $0.reason = L("Неверный идентификатор сессии Claude Code.") }
+            return
+        }
+        process.arguments = ["-p", Self.continuation, "--resume=\(task.sessionId)"]
         if !task.cwd.isEmpty, FileManager.default.fileExists(atPath: task.cwd) {
             process.currentDirectoryURL = URL(fileURLWithPath: task.cwd)
         }
