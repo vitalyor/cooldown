@@ -152,6 +152,11 @@ actor ClaudeUsageCLI {
         for file in files where file.pathExtension == "jsonl" { try? fm.removeItem(at: file) }
     }
 
+    /// A tall terminal: /usage now adds "What's contributing to your limits usage?" under the
+    /// limits, and on a 60-row screen the session line scrolled off the top of the full redraw that
+    /// is read — the week was there, the five hours were not.
+    static let rows: UInt16 = 200
+
     static var workFolder: URL {
         let folder = Settings.appSupport.appendingPathComponent("claude-usage", isDirectory: true)
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -162,7 +167,7 @@ actor ClaudeUsageCLI {
     private static func run(binary: URL) throws -> LimitSnapshot {
         var master: Int32 = 0
         var slave: Int32 = 0
-        var size = winsize(ws_row: 60, ws_col: 120, ws_xpixel: 0, ws_ypixel: 0)
+        var size = winsize(ws_row: Self.rows, ws_col: 120, ws_xpixel: 0, ws_ypixel: 0)
         guard openpty(&master, &slave, nil, nil, &size) == 0 else { throw UsageError.terminal }
         defer { close(master) }
 
@@ -181,7 +186,7 @@ actor ClaudeUsageCLI {
         // numbers (marked "Refreshing…") and never fetches fresh ones.
         environment["DISABLE_AUTOUPDATER"] = "1"
         environment["COLUMNS"] = "120"
-        environment["LINES"] = "60"
+        environment["LINES"] = String(Self.rows)
         environment["PATH"] = "\(home)/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
         process.environment = environment
         let terminal = FileHandle(fileDescriptor: slave, closeOnDealloc: true)
@@ -220,7 +225,7 @@ actor ClaudeUsageCLI {
                 if quiet > 0.9 || Date().timeIntervalSince(seen) > 10 {
                     redrawFrom = bytes.count
                     lastOutput = Date()
-                    var wider = winsize(ws_row: 60, ws_col: 121, ws_xpixel: 0, ws_ypixel: 0)
+                    var wider = winsize(ws_row: Self.rows, ws_col: 121, ws_xpixel: 0, ws_ypixel: 0)
                     _ = ioctl(master, TIOCSWINSZ, &wider)
                     kill(process.processIdentifier, SIGWINCH)
                     deadline = max(deadline, Date().addingTimeInterval(5))
@@ -402,7 +407,7 @@ private final class Terminal {
 
     init(binary: URL, arguments: [String]) throws {
         var slave: Int32 = 0
-        var size = winsize(ws_row: 60, ws_col: 120, ws_xpixel: 0, ws_ypixel: 0)
+        var size = winsize(ws_row: ClaudeUsageCLI.rows, ws_col: 120, ws_xpixel: 0, ws_ypixel: 0)
         guard openpty(&master, &slave, nil, nil, &size) == 0 else { throw ClaudeUsageCLI.UsageError.terminal }
         process.executableURL = binary
         process.arguments = arguments
