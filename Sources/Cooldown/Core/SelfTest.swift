@@ -95,6 +95,19 @@ enum SelfTest {
         expect(!latest.contains("98%"), "the cached drawing is skipped")
         expect(ClaudeUsageCLI.parse(latest, now: now)?.session?.usedPercent == 3, "the fresh drawing is read")
 
+        // /usage: a redraw that lost the session line (the screen grew) still gives both windows,
+        // and the cached numbers before "Refreshing…" are never used.
+        let stream = "Current session 98% used Resets 9:30pm Current week (all models) 77% used Resets Oct 23 at 7pm Refreshing… "
+            + "Current session 4% used Resets 12:50am Current week (all models) 2% used Resets Oct 23 at 7pm What's contributing… "
+        let redraw = "Current week (all models) 2% used Resets Oct 23 at 7pm Current week (Fable) 0% used Resets Oct 23 at 7pm"
+        let both = ClaudeUsageCLI.read(stream: stream + redraw, redraw: redraw, now: now)
+        expect(both?.session?.usedPercent == 4, "session found outside the redraw")
+        expect(both?.weekly?.usedPercent == 2, "week from the redraw")
+        expect(both?.extras.count == 1, "per-model week kept")
+        let cachedOnly = ClaudeUsageCLI.read(stream: "Current session 98% used Resets 9:30pm Refreshing… Current week (all models) 2% used Resets Oct 23 at 7pm",
+                                             redraw: nil, now: now)
+        expect(cachedOnly?.session == nil && cachedOnly?.weekly?.usedPercent == 2, "cached session is not used")
+
         // Russian plural forms.
         expect(AppLanguage.pluralIndex(1, forms: 3) == 0 && AppLanguage.pluralIndex(3, forms: 3) == 1
                && AppLanguage.pluralIndex(11, forms: 3) == 2 && AppLanguage.pluralIndex(22, forms: 3) == 1, "plural forms")

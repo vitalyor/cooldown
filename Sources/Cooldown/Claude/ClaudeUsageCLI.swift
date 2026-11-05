@@ -95,7 +95,14 @@ actor ClaudeUsageCLI {
         defer { running = nil }
         lastAttempt = Date()
         do {
-            let snapshot = try await task.value
+            var snapshot = try await task.value
+            // A five-hour window that is still running does not vanish between two readings: if
+            // this one missed it (the screen changed shape), the last reading's stays until it ends.
+            if snapshot.session == nil, let known = last?.session, known.resetsAt > Date(),
+               let lastAt = last?.fetchedAt, Date().timeIntervalSince(lastAt) < 30 * 60 {
+                snapshot.session = known
+                AgentActivity.trace("claude /usage: no five-hour line this time, keeping the last one")
+            }
             last = snapshot
             lastError = nil
             failuresInRow = 0
@@ -272,9 +279,8 @@ actor ClaudeUsageCLI {
 
         clearTranscripts()
         let text = plain(bytes)
-        // Only the full drawing made after the refresh counts: earlier ones show the cache.
-        let latest = latestScreen(redrawFrom.map { plain(bytes.suffix(from: bytes.startIndex + $0)) } ?? text)
-        if redrawFrom != nil, !latest.contains("Refreshing"), let snapshot = parse(latest, now: Date()) { return snapshot }
+        let redraw = redrawFrom.map { plain(bytes.suffix(from: bytes.startIndex + $0)) }
+        if let snapshot = read(stream: text, redraw: redraw, now: Date()) { return snapshot }
         let logs = Settings.appSupport.appendingPathComponent("logs", isDirectory: true)
         try? FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true)
         try? text.write(to: logs.appendingPathComponent("claude-usage-unread.txt"), atomically: true, encoding: .utf8)
@@ -287,6 +293,44 @@ actor ClaudeUsageCLI {
     }
 
     /// The last drawing of the limits (from the last "Current session" on).
+    /// The numbers from everything /usage drew, not from one picture of the screen: Claude Code
+    /// keeps adding sections (a usage breakdown, tips…), redraws only what changed, and a tall screen
+    /// can scroll. So each window is taken on its own, from its latest drawing that came after the
+    /// cached numbers ("Refreshing…") were replaced: first from the full redraw, and a window
+    /// missing there from the rest of the fresh output. Cached numbers are never used.
+    static func read(stream text: String, redraw: String?, now: Date) -> LimitSnapshot? {
+        let primary = redraw.flatMap { $0.contains("Refreshing") ? nil : parse(latestScreen($0), now: now) }
+        // After the last "Refreshing…" everything drawn is fresh; per window, its last drawing wins.
+        var tail = text
+        if let marker = text.range(of: "Refreshing", options: .backwards) { tail = String(text[marker.upperBound...]) }
+        let fresh = latestPerWindow(tail, now: now)
+        guard var result = primary ?? fresh else { return nil }
+        if let fresh {
+            if result.session == nil { result.session = fresh.session }
+            if result.weekly == nil { result.weekly = fresh.weekly }
+            for extra in fresh.extras where !result.extras.contains(where: { $0.label == extra.label }) { result.extras.append(extra) }
+        }
+        result.limitReached = (result.session?.usedPercent ?? 0) >= 100 || (result.weekly?.usedPercent ?? 0) >= 100
+        return result
+    }
+
+    /// Each window's last complete drawing in `text` (session, week, per-model weeks).
+    static func latestPerWindow(_ text: String, now: Date) -> LimitSnapshot? {
+        guard let regex = try? NSRegularExpression(pattern: #"Current\s*"#) else { return nil }
+        let starts = regex.matches(in: text, range: NSRange(text.startIndex..., in: text)).compactMap { Range($0.range, in: text)?.lowerBound }
+        var result: LimitSnapshot?
+        // From the end: the first reading found for a window is its latest.
+        for (index, start) in starts.enumerated().reversed() {
+            let end = index + 1 < starts.count ? starts[index + 1] : text.endIndex
+            guard let one = parse(String(text[start..<end]), now: now) else { continue }
+            if result == nil { result = LimitSnapshot(provider: .claude, plan: nil, session: nil, weekly: nil, fetchedAt: now, source: one.source) }
+            if result?.session == nil { result?.session = one.session }
+            if result?.weekly == nil { result?.weekly = one.weekly }
+            for extra in one.extras where !(result?.extras.contains(where: { $0.label == extra.label }) ?? false) { result?.extras.append(extra) }
+        }
+        return result
+    }
+
     static func latestScreen(_ text: String) -> String {
         guard let regex = try? NSRegularExpression(pattern: #"Current\s*session"#, options: .caseInsensitive),
               let last = regex.matches(in: text, range: NSRange(text.startIndex..., in: text)).last,
@@ -325,7 +369,7 @@ actor ClaudeUsageCLI {
             let resetText = firstMatch(#"Resets\s*([^\n(]+)"#, in: block)?.trimmingCharacters(in: .whitespaces)
             let zone = firstMatch(#"Resets[^\n(]*\(([A-Za-z_]+/[A-Za-z_]+)"#, in: block).flatMap(TimeZone.init(identifier:))
             let lower = header.lowercased().replacingOccurrences(of: " ", with: "")
-            let kind: WindowKind = lower.hasPrefix("session") ? .session : .weekly
+            let kind: WindowKind = lower.hasPrefix("session") || lower.contains("5-hour") || lower.contains("5hour") ? .session : .weekly
             // Never invent a reset time. A made-up five-hour or weekly reset would win the merge
             // against a real reading and send auto-continue at the wrong moment.
             guard let resetText, let resets = resetDate(resetText, zone: zone ?? .current, now: now) else { continue }
