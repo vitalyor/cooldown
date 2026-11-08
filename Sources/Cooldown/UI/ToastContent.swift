@@ -2,7 +2,11 @@ import SwiftUI
 
 /// What a card can offer besides closing.
 enum ToastAction: Equatable {
+    /// The window on the limits of the card's agent.
     case openPanel
+    /// The window on a given place, for the card's agent.
+    case open(PanelPlace)
+    case openSettings(SettingsPane)
     case openClaude
     case openCodex
     case openCodexThread(String)
@@ -22,8 +26,13 @@ enum ToastAction: Equatable {
     /// Quit and open the agent's app again — only when nothing is going on in it (AgentRestart).
     case restartAgent(ProviderID)
 
+    /// The agent's own app: where a chat or task about it can actually be looked at.
+    static func app(_ provider: ProviderID) -> ToastAction { provider == .codex ? .openCodex : .openClaude }
+
     var title: String {
         switch self {
+        case .open(let place): return place.tab == .tasks ? L("Открыть задачи") : L("Посмотреть")
+        case .openSettings: return L("Открыть настройки")
         case .openFeed: return L("Посмотреть")
         case .remindBeforeReset: return L("Напомнить за 10 мин")
         case .continueAfterReset: return L("Продолжить после сброса")

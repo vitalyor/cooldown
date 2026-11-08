@@ -24,6 +24,7 @@ final class StatusController: NSObject {
     private var subscriptions = Set<AnyCancellable>()
     private var monitors: [Any] = []
     private var resignObserver: NSObjectProtocol?
+    private var positionReset: Task<Void, Never>?
 
     init(model: AppModel) {
         self.model = model
@@ -177,6 +178,13 @@ final class StatusController: NSObject {
     @objc private func menuSettings() { SettingsWindow.shared.show() }
     @objc private func menuQuit() { NSApp.terminate(nil) }
 
+    /// Opens the window on a place of the main screen, for the agent the card is about.
+    func open(_ place: PanelPlace, for provider: ProviderID?) {
+        if let provider { model.selected = provider }
+        model.place = place
+        open(to: .home)
+    }
+
     /// Opens the window on a given screen (feed, settings, …).
     func open(to screen: Screen) {
         model.route = screen
@@ -188,6 +196,7 @@ final class StatusController: NSObject {
     }
 
     func open() {
+        positionReset?.cancel()
         guard let button = item.button, let buttonWindow = button.window else { return }
         let anchor = buttonWindow.convertToScreen(button.convert(button.bounds, to: nil))
         let screen = buttonWindow.screen ?? NSScreen.main
@@ -224,6 +233,13 @@ final class StatusController: NSObject {
 
     func close() {
         model.panelVisible = false
+        // Unused for a minute: the next look starts from the main screen.
+        positionReset?.cancel()
+        positionReset = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(60))
+            guard !Task.isCancelled, let self, !self.model.panelVisible else { return }
+            self.model.resetPosition()
+        }
         removeMonitors()
         item.button?.highlight(false)
         NSAnimationContext.runAnimationGroup({ context in

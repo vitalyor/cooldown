@@ -225,7 +225,7 @@ final class ClaudeChatList: ObservableObject {
                 key: "claude-chats-all", kind: .reset, provider: .claude,
                 title: L("Лимит Claude восстановился"),
                 body: L("Ждут продолжения: %@. Cooldown откроет их по очереди и отправит «%@».", "\(names)", "\(ClaudeSender.text)"),
-                actions: [.continueAllClaude(chats), .openPanel], life: .sticky)]
+                actions: [.continueAllClaude(chats), .openClaude], life: .sticky)]
         }
         return entries.prefix(1).map(card(for:))
     }

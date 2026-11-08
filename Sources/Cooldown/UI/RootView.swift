@@ -31,12 +31,21 @@ enum MainTab: String, CaseIterable, Identifiable {
     }
 }
 
+/// A place on the main screen a card can lead to.
+struct PanelPlace: Equatable {
+    var tab: MainTab
+    var stats: StatsTab = .limits
+    var range: StatsRange = .day
+    static let tasks = PanelPlace(tab: .tasks)
+}
+
 struct RootView: View {
     @EnvironmentObject private var model: AppModel
     @State private var screen: Screen
     @State private var tab: MainTab
     @State private var stats: StatsTab
     @State private var range: StatsRange
+    @State private var position = 0
     private let render: Bool
 
     /// Starting points for `--snapshot` design checks.
@@ -57,7 +66,7 @@ struct RootView: View {
         ZStack(alignment: .top) {
             switch screen {
             case .home:
-                HomeView(screen: $screen, tab: $tab, stats: $stats, range: $range, render: render)
+                HomeView(screen: $screen, tab: $tab, stats: $stats, range: $range, position: position, render: render)
                     .transition(.move(edge: .leading).combined(with: .opacity))
             case .addTask:
                 AddTaskScreen(screen: $screen, provider: model.selected, render: render)
@@ -83,6 +92,21 @@ struct RootView: View {
         .onChange(of: model.route) { _, route in
             if let route { screen = route; model.route = nil }
         }
+        .onChange(of: model.place) { _, place in
+            guard let place else { return }
+            tab = place.tab
+            stats = place.stats
+            range = place.range
+            model.place = nil
+        }
+        .onChange(of: model.positionResets) { _, _ in
+            guard !DemoController.shared.active, Self.debugTab == nil, Self.debugScreen == nil else { return }
+            screen = .home
+            tab = .limits
+            stats = .limits
+            range = .day
+            position += 1 // also back to the top of the list
+        }
     }
 }
 
@@ -93,6 +117,7 @@ private struct HomeView: View {
     @Binding var tab: MainTab
     @Binding var stats: StatsTab
     @Binding var range: StatsRange
+    let position: Int
     let render: Bool
 
     var body: some View {
@@ -115,7 +140,7 @@ private struct HomeView: View {
                 case .tasks: TasksTab(store: store, tasks: model.claudeTasks, screen: $screen, render: render)
                 }
             }
-            .id("\(tab.rawValue)-\(model.selected.rawValue)")
+            .id("\(tab.rawValue)-\(model.selected.rawValue)-\(position)")
             .transition(.opacity)
             .background {
                 // Keys while the window is open: ⌘1–3 tabs, ⌘← ⌘→ Codex / Claude.

@@ -128,7 +128,7 @@ final class ScheduledRunner: ObservableObject {
         let detail = L("Лимит Codex восстановился, задача запущена в папке %@.", "\(Stats.projectName(task.folder))")
         Notifier.shared.post(id: "scheduled-start-\(id)", title: L("Запланированная задача запущена"), body: "«\(task.title)». \(detail)",
                              toast: ToastContent(key: "scheduled-\(id)", kind: .reset, provider: .codex,
-                                                 title: L("Запущено: «%@»", "\(task.title)"), body: detail, actions: [.openPanel], life: .auto(10)))
+                                                 title: L("Запущено: «%@»", "\(task.title)"), body: detail, actions: [.open(.tasks)], life: .auto(10)))
     }
 
     private func finished(_ id: UUID, status: Int32, answer: URL) {
@@ -146,7 +146,7 @@ final class ScheduledRunner: ObservableObject {
                              body: "«\(task.title)»: \(body)",
                              toast: ToastContent(key: "scheduled-\(id)", kind: task.state == .done ? .finished : .warning, provider: .codex,
                                                  title: (task.state == .done ? L("Выполнено: «") : L("Не удалось: «")) + task.title + "»",
-                                                 body: body, actions: [.openPanel], life: task.state == .done ? .auto(14) : .sticky))
+                                                 body: body, actions: [.open(.tasks)], life: task.state == .done ? .auto(14) : .sticky))
         tick(limits: AppModel.shared.codex.snapshot)
     }
 

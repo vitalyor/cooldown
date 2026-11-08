@@ -262,7 +262,11 @@ final class ToastController: ObservableObject {
         remove(card)
         switch action {
         case .openPanel:
-            StatusController.shared?.open()
+            StatusController.shared?.open(PanelPlace(tab: .limits), for: card.content.provider)
+        case .open(let place):
+            StatusController.shared?.open(place, for: card.content.provider)
+        case .openSettings(let pane):
+            SettingsWindow.shared.show(pane)
         case .openFeed:
             StatusController.shared?.open(to: .feed)
         case .remindBeforeReset(let provider, let reset):

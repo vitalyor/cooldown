@@ -112,6 +112,10 @@ enum SelfTest {
         expect(AppLanguage.pluralIndex(1, forms: 3) == 0 && AppLanguage.pluralIndex(3, forms: 3) == 1
                && AppLanguage.pluralIndex(11, forms: 3) == 2 && AppLanguage.pluralIndex(22, forms: 3) == 1, "plural forms")
         expect(Format.word(5, "a|b|c") == "c" || Format.word(5, "a|b|c") == "b", "plural words")
+        // Cards lead to the place they are about.
+        expect(ToastCatalog.taskWaiting(.claude, title: "T", until: nil).actions == [.open(.tasks)], "a waiting task opens Tasks") // l10n:skip
+        expect(ToastCatalog.taskAttention(.claude, title: "T", reason: "").actions == [.openClaude], "a Claude task opens Claude") // l10n:skip
+        expect(ToastCatalog.taskAttention(.codex, title: "T", reason: "").actions == [.openCodex], "a Codex task opens Codex") // l10n:skip
         // iPhone: what goes where, and nothing private reaches the Live Activity.
         let request = ToastContent(key: "req-x", kind: .attention, provider: .codex, title: "Секретный чат", body: "rm -rf build", // l10n:skip
                                    choices: [RequestChoice(id: "allow", title: "OK", role: .allow), // l10n:skip

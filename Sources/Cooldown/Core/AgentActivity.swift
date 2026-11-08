@@ -454,7 +454,7 @@ final class AgentActivity: ObservableObject {
         case .codexThread(let id): return .openCodexThread(id)
         case .claudeChat(let chat): return .openClaudeChat(chat)
         case .claudeApp: return .openClaude
-        case .none: return provider == .codex ? .openCodex : .openPanel
+        case .none: return .app(provider)
         }
     }
 

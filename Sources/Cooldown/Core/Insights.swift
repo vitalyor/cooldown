@@ -68,7 +68,7 @@ enum Insights {
                                  toast: ToastContent(key: "project-\(name)", kind: .info, provider: store.id,
                                                      title: L("«%@»: около %@ недельного лимита", "\(name)", "\(Format.percent(ofLimit))"),
                                                      body: L("На этот проект ушло %@ работы %@ с начала недели. Всего неделя израсходована на %@.", "\(Format.percent(share * 100))", "\(store.id.displayName)", "\(Format.percent(week.usedPercent))"),
-                                                     actions: [.openPanel], life: .auto(12)))
+                                                     actions: [.open(PanelPlace(tab: .stats, stats: .projects, range: .week))], life: .auto(12)))
         }
     }
 
@@ -96,7 +96,7 @@ enum Insights {
                                  toast: ToastContent(key: "day-\(store.id.rawValue)", kind: .info, provider: store.id,
                                                      title: L("%@: сегодня ушло %@ недели", "\(name)", "\(Format.percent(spent))"),
                                                      body: L("Чтобы недельного лимита хватило до сброса %@, в день можно около %@. Завтра стоит полегче.", "\(Format.time(week.resetsAt))", "\(Format.percent(budget))"),
-                                                     actions: [.openPanel], life: .auto(14)))
+                                                     actions: [.open(PanelPlace(tab: .stats))], life: .auto(14)))
         }
     }
 
@@ -137,6 +137,6 @@ enum Insights {
         let report = WeeklyReport.render(now: now)
         ToastController.shared.show(ToastContent(key: "week", kind: .info, provider: nil, title: L("Итоги недели"),
                                                  body: parts.joined(separator: ", ") + ".",
-                                                 actions: report.map { [.openFile($0), .openPanel] } ?? [.openPanel], life: .sticky))
+                                                 actions: (report.map { [.openFile($0)] } ?? []) + [.open(PanelPlace(tab: .stats, range: .week))], life: .sticky))
     }
 }

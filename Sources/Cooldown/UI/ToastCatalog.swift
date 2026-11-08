@@ -47,32 +47,32 @@ enum ToastCatalog {
         ToastContent(key: "task-\(title)", kind: .waiting, provider: provider, title: L("«%@» ждёт сброса", "\(title)"),
                      body: until.map { L("Лимит кончился. Cooldown продолжит задачу сам в %@.", "\(Format.time($0))") }
                         ?? L("Лимит кончился. Cooldown продолжит задачу сам сразу после сброса."),
-                     actions: [.openPanel], life: .auto(9))
+                     actions: [.open(.tasks)], life: .auto(9))
     }
 
     static func taskResumed(_ provider: ProviderID, title: String) -> ToastContent {
         ToastContent(key: "task-\(title)", kind: .reset, provider: provider, title: L("«%@» продолжена", "\(title)"),
                      body: L("Лимит восстановился, Cooldown отправил «продолжай». Задача снова работает."),
-                     actions: [provider == .codex ? .openCodex : .openPanel], life: .auto(9))
+                     actions: [.app(provider)], life: .auto(9))
     }
 
     static func taskFinished(_ provider: ProviderID, title: String, detail: String, threadId: String? = nil) -> ToastContent {
         ToastContent(key: "task-\(title)", kind: .finished, provider: provider, title: L("%@ закончил «%@»", "\(provider.displayName)", "\(title)"),
                      body: detail.isEmpty ? L("Задача завершена, можно посмотреть результат.") : detail,
-                     actions: [threadId.map { .openCodexThread($0) } ?? (provider == .codex ? .openCodex : .openPanel)],
+                     actions: [threadId.map { .openCodexThread($0) } ?? .app(provider)],
                      life: .auto(12), threadId: threadId)
     }
 
     static func taskAttention(_ provider: ProviderID, title: String, reason: String) -> ToastContent {
         ToastContent(key: "task-\(title)", kind: .attention, provider: provider, title: L("«%@» ждёт вашего решения", "\(title)"),
                      body: reason.isEmpty ? L("Автопродолжение остановилось, нужно ваше участие.") : reason,
-                     actions: [provider == .codex ? .openCodex : .openPanel], life: .sticky)
+                     actions: [.app(provider)], life: .sticky)
     }
 
     static func taskBudget(_ provider: ProviderID, title: String) -> ToastContent {
         ToastContent(key: "task-\(title)", kind: .warning, provider: provider, title: L("«%@»: попытки закончились", "\(title)"),
                      body: L("Задача несколько раз упиралась в лимит. Автопродолжение остановлено, загляните в диалог."),
-                     actions: [.openPanel], life: .sticky)
+                     actions: [.app(provider)], life: .sticky)
     }
 
     /// A chat stopped because the limit ran out. Same key as limitOut: it takes that card's place.

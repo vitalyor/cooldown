@@ -222,6 +222,8 @@ final class PhoneLink: ObservableObject {
             if case .offline = old {} else { AgentActivity.trace("phone: relay unreachable — \(reason)") }
             if offlineSince == nil { offlineSince = Date() }
             checkOffline()
+            // A refused WebSocket looks like any dropped connection; this call sees the real 401.
+            Task { await refreshDevices() }
         default:
             break
         }
@@ -235,7 +237,7 @@ final class PhoneLink: ObservableObject {
                 ToastController.shared.show(ToastContent(key: "phone-offline", kind: .warning, provider: nil,
                     title: L("iPhone не получает уведомления"),
                     body: L("Уже 10 минут нет связи с сервером Cooldown (%@). Пока её нет, карточки и Live Activity до телефона не дойдут.", reason),
-                    actions: [.openPanel], life: .sticky))
+                    actions: [.openSettings(.iphone)], life: .sticky))
                 EventLog.shared.add(CooldownEvent(kind: .info, provider: nil, title: L("iPhone не получает уведомления"), body: reason))
         }
     }
@@ -324,8 +326,12 @@ final class PhoneLink: ObservableObject {
         } catch let failure as LinkHTTP.Failure where failure.status == 401 {
             // The relay no longer accepts this Mac (removed elsewhere, or its store was restored).
             // Do not keep showing a dead pairing: start over from a fresh QR code.
-            message = L("Сервер больше не знает этот Mac. Включите Cooldown для iPhone заново.")
+            let text = L("Сервер больше не знает этот Mac. Включите Cooldown для iPhone заново.")
+            message = text
             await disable()
+            offlineWarned = true // the card goes away by itself once the new pairing is online
+            ToastController.shared.show(ToastContent(key: "phone-offline", kind: .warning, provider: nil,
+                title: L("iPhone не получает уведомления"), body: text, actions: [.openSettings(.iphone)], life: .sticky))
         } catch {}
     }
 

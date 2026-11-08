@@ -539,6 +539,11 @@ final class AppModel: ObservableObject {
 
     /// A screen to show the next time the window draws (from the menu, a card or the hot key).
     @Published var route: Screen?
+    /// A place on the main screen to show (from a card).
+    @Published var place: PanelPlace?
+    /// Counts the times the window went back to the main screen after a minute unused.
+    @Published private(set) var positionResets = 0
+    func resetPosition() { positionResets += 1 }
 
     /// A dialog picked on the Tasks tab, opened straight away by the add-task screen.
     @Published var pendingThread: CodexConversation?
