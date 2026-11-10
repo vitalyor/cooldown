@@ -2,7 +2,7 @@
 
 **English** · [Русский](PRIVACY.ru.md)
 
-Cooldown runs on your Mac. It has no analytics or telemetry. It connects to the relay only if you turn on Cooldown for iPhone (`cooldown.nolim.cloud` by default), and checks GitHub for updates unless you turn that off.
+Cooldown runs on your Mac. It has no analytics or telemetry. It connects to the relay only if you turn on Cooldown for iPhone, and checks GitHub for updates unless you turn that off.
 
 ## Reads (read-only)
 
