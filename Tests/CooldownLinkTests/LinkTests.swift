@@ -120,4 +120,32 @@ final class LinkConnectionLifecycleTests: XCTestCase {
         XCTAssertEqual(client.status, .off)
         XCTAssertEqual(received, 0)
     }
+
+    func testNodeListSignature() throws {
+        // Signed with a throwaway key, the same format `relay directory-sign` writes.
+        let key = Curve25519.Signing.PrivateKey()
+        let keyText = key.publicKey.rawRepresentation.base64EncodedString()
+        func signed(_ text: String, with signer: Curve25519.Signing.PrivateKey) throws -> Data {
+            let payload = Data(text.utf8)
+            return try JSONEncoder().encode(["payload": payload.base64EncodedString(),
+                                             "sig": try signer.signature(for: payload).base64EncodedString()])
+        }
+        let good = #"{"seq":3,"nodes":[{"id":"n1","url":"https://n1.example"}]}"#
+        let list = try XCTUnwrap(LinkNodes.verify(try signed(good, with: key), key: keyText))
+        XCTAssertEqual(list.seq, 3)
+        XCTAssertEqual(list.nodes.first?.url.host, "n1.example")
+        // Someone else's key is refused, and so is a list changed after signing.
+        XCTAssertNil(LinkNodes.verify(try signed(good, with: Curve25519.Signing.PrivateKey()), key: keyText))
+        var tampered = try JSONDecoder().decode([String: String].self, from: try signed(good, with: key))
+        tampered["payload"] = Data(#"{"seq":9,"nodes":[{"id":"x","url":"https://evil.example"}]}"#.utf8).base64EncodedString()
+        XCTAssertNil(LinkNodes.verify(try JSONEncoder().encode(tampered), key: keyText))
+    }
+
+    func testMovesOnlyToAClearlyFasterServer() {
+        let a = URL(string: "https://a.example")!, b = URL(string: "https://b.example")!
+        XCTAssertNil(LinkNodes.better(than: a, [a: 0.10, b: 0.08]), "a small gain is not worth moving")
+        XCTAssertEqual(LinkNodes.better(than: a, [a: 0.10, b: 0.05]), b)
+        XCTAssertEqual(LinkNodes.better(than: a, [b: 0.50]), b, "the current one stopped answering")
+        XCTAssertNil(LinkNodes.better(than: a, [:]))
+    }
 }

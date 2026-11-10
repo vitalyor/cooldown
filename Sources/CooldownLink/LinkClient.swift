@@ -234,10 +234,29 @@ public enum LinkHTTP {
         public var errorDescription: String? { "relay \(status) \(reason)" }
     }
 
+    /// Any server can answer. One that is down is skipped, and "unknown token" is believed only if
+    /// no other server knows it: clients delete their pairing on it.
     public static func call(_ relay: URL, _ method: String, _ path: String, token: String? = nil, body: Encodable? = nil) async throws -> Data {
+        let servers = LinkNodes.candidates(relay).prefix(4)
+        var last: Error = URLError(.cannotConnectToHost)
+        for (index, server) in servers.enumerated() {
+            do {
+                let data = try await once(server, method, path, token: token, body: body, timeout: index == servers.count - 1 ? 20 : 8)
+                LinkNodes.markGood(server)
+                return data
+            } catch let failure as Failure where failure.status < 500 && failure.status != 401 && failure.status != 429 {
+                throw failure
+            } catch {
+                last = error
+            }
+        }
+        throw last
+    }
+
+    private static func once(_ relay: URL, _ method: String, _ path: String, token: String?, body: Encodable?, timeout: TimeInterval) async throws -> Data {
         var req = URLRequest(url: relay.appendingPathComponent(path))
         req.httpMethod = method
-        req.timeoutInterval = 20
+        req.timeoutInterval = timeout
         if let token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         if let body {
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -336,6 +355,7 @@ public final class LinkClient {
         wanted = false
         generation += 1
         heartbeat?.cancel()
+        rebalancing?.cancel()
         retry?.cancel()
         monitor?.cancel()
         monitor = nil
@@ -397,6 +417,12 @@ public final class LinkClient {
         status = .connecting
         t.resume()
         receive(on: t, generation: mine)
+        // A server that doesn't answer at all would hold this for a minute.
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(6))
+            guard let self, mine == self.generation, self.task === t, self.status == .connecting else { return }
+            self.dropped("no answer")
+        }
     }
 
     private func receive(on t: URLSessionWebSocketTask, generation mine: Int) {
@@ -446,11 +472,39 @@ public final class LinkClient {
         }
     }
 
+    private var rebalancing: Task<Void, Never>?
+
+    /// Keeps the list fresh and, every ten minutes, moves to a clearly faster server if that holds twice in a row.
+    private func rebalance(on t: URLSessionWebSocketTask, generation mine: Int) {
+        rebalancing?.cancel()
+        rebalancing = Task { @MainActor [weak self] in
+            var candidate: URL?
+            while !Task.isCancelled {
+                guard let from = self?.relay else { return }
+                await LinkNodes.refresh(from: from)
+                let times = await LinkNodes.measure(from: from)
+                guard let self, !Task.isCancelled, mine == self.generation, self.task === t else { return }
+                let better = LinkNodes.better(than: self.relay, times)
+                if let better, better == candidate {
+                    self.relay = better
+                    t.cancel(with: .goingAway, reason: nil)
+                    self.task = nil
+                    self.connect()
+                    return
+                }
+                candidate = better
+                try? await Task.sleep(for: .seconds(600))
+            }
+        }
+    }
+
     func handle(_ frame: LinkFrame, on t: URLSessionWebSocketTask) {
         guard wanted, task === t else { return }
         if frame.t == "ready" {
             attempt = 0
             status = .online
+            LinkNodes.markGood(relay)
+            rebalance(on: t, generation: generation)
             beat(on: t, generation: generation)
             // Unacknowledged ones from the last connection first, then what queued meanwhile.
             let fresh = unacked.filter { Date().timeIntervalSince($0.at) < 3600 }
@@ -471,6 +525,7 @@ public final class LinkClient {
         task = nil
         guard wanted else { status = .off; return }
         status = .offline(reason)
+        relay = LinkNodes.next(after: relay)
         scheduleRetry()
     }
 
