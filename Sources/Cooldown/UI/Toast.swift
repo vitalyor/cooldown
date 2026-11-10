@@ -371,7 +371,7 @@ private struct ToastView: View {
                             Text(provider.displayName).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                         }
                         if content.life == .sticky {
-                            Label(L("ждёт вас"), systemImage: "pin.fill")
+                            Text(L("ждёт вас"))
                                 .font(.caption2.weight(.semibold))
                                 .foregroundStyle(content.tint)
                         }
@@ -398,13 +398,15 @@ private struct ToastView: View {
                             Button(action.title) { act(action) }
                                 .buttonStyle(ToastButton(fill: index == 0 ? content.tint : .primary, prominent: index == 0))
                         }
-                        Button("OK", action: close).buttonStyle(ToastButton(fill: .primary, prominent: false))
                     }
-                    .padding(.top, 4)
+                    .padding(.top, content.actions.isEmpty ? 0 : 6)
                     }
                 }
             }
-            .padding(14)
+            .padding(16)
+        }
+        // On top of the bottom margin, so every card keeps the same one; its ends stay clear of the corners.
+        .overlay(alignment: .bottom) {
             if case .auto = content.life {
                 GeometryReader { geometry in
                     Capsule().fill(content.tint.opacity(0.55))
@@ -412,7 +414,7 @@ private struct ToastView: View {
                         .animation(.linear(duration: 0.25), value: model.remaining)
                 }
                 .frame(height: 2)
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 26)
                 .padding(.bottom, 6)
                 .opacity(model.paused ? 0.3 : 1)
             }
@@ -454,7 +456,7 @@ enum CardSamples {
 
     static func view(_ content: ToastContent) -> some View {
         ToastView(model: ToastController.CardModel(content), act: { _ in }, choose: { _ in }, close: {}, hover: { _ in })
-            .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Color(nsColor: .windowBackgroundColor)))
+            .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color(nsColor: .windowBackgroundColor)))
     }
 }
 
