@@ -141,8 +141,7 @@ Cooldown shows what is missing in its Settings window (⌘, or the gear) → Gen
 
 ## Privacy
 
-Cooldown has no analytics or telemetry. If you enable the iPhone connection, a relay (by default
-`cooldown.nolim.cloud`) forwards encrypted messages and sends pushes through Apple. Live Activity
+Cooldown has no analytics or telemetry. If you enable the iPhone connection, the Cooldown relay forwards encrypted messages and sends pushes through Apple. Live Activity
 headings, button labels and countdowns are visible to the relay; chat titles, card text and commands
 are encrypted. Cooldown also contacts GitHub for update checks unless you turn them off.
 Details: [docs/PRIVACY.md](docs/PRIVACY.md) and [docs/LINK.md](docs/LINK.md).

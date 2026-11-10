@@ -45,8 +45,7 @@ The MCP bridge only appends events Claude chose to report to `mcp-events.jsonl`.
 - Into a Codex conversation you chose — one continuation message per turn stopped by the limit, after it resets. Through the Codex app's local socket (`~/.codex/ipc/ipc.sock`), as a follower only: Cooldown approves nothing and answers none of the app's requests. The send ledger lives in `~/Library/Application Support/Cooldown/AutoResume/` (yours only); an unconfirmed send is never repeated.
 
 - To your iPhone — only if you turned on Cooldown for iPhone and paired a phone: cards, chat names,
-  answers and the delivery log are encrypted on the Mac and opened only on your phone; the relay
-  (`cooldown.nolim.cloud` by default) passes them on without reading them. For the Live Activity it
+  answers and the delivery log are encrypted on the Mac and opened only on your phone; the Cooldown relay passes them on without reading them. For the Live Activity it
   sees general lines ("Claude is working"), button labels and reset times. Details: [LINK.md](LINK.md).
 
 ## The relay and the iPhone app
