@@ -10,7 +10,7 @@ import Foundation
 @MainActor
 final class PhoneLink: ObservableObject {
     static let shared = PhoneLink()
-    static let defaultRelay = URL(string: "https://n1.nolim.cloud")!
+    static let defaultRelay = URL(string: "https://cooldown.nolim.cloud")!
 
     @Published var account: LinkAccount?
     @Published var status: LinkClient.Status = .off
