@@ -14,7 +14,7 @@ public struct LinkNode: Codable, Equatable, Sendable {
 public enum LinkNodes {
     static let publicKey = "fOQhz3uscj/piWpIUtzEx6lOT0I2DTUUhu+6MyPBbW4="
     /// Used until a list has been fetched; new servers come through the list, without an app update.
-    static let seeds = [URL(string: "https://cooldown.nolim.cloud")!]
+    static let seeds = ["https://n1.nolim.cloud", "https://n2.nolim.cloud", "https://cooldown.nolim.cloud"].map { URL(string: $0)! }
     /// Reachable even if every server is down or blocked; the signature is what's trusted.
     static let fallback = URL(string: "https://raw.githubusercontent.com/vitalyor/cooldown/main/nodes.json")!
 
