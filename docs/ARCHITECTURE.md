@@ -17,8 +17,6 @@ A Swift package, SwiftUI + AppKit, no third-party dependencies. The window is a 
 | `Core/PhoneLink*` | the iPhone link on the Mac: cards and state out, commands in (see [LINK.md](LINK.md)) |
 | `Core/CodexLink`, `Core/AgentRestart` | noticing that Codex stopped answering Cooldown; a safe restart of Codex or Claude |
 | `Sources/CooldownLink/` | the end-to-end encrypted link shared by the Mac and the iPhone app |
-| `iOS/` | the iPhone app: cards, Live Activity, notification extension, Lock Screen buttons |
-| `Relay/` | the relay server (Go): passes sealed boxes and wakes the phone through Apple |
 
 ## One coordinator for events
 

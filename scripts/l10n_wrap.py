@@ -13,7 +13,8 @@ import json, os, re, sys
 CYR = re.compile('[А-Яа-яЁё]')
 ROOT = os.path.join(os.path.dirname(__file__), '..', 'Sources', 'Cooldown')
 # The iPhone app shares the Mac app's strings.
-ROOTS = [ROOT, os.path.join(os.path.dirname(__file__), '..', 'iOS')]
+# (it lives in a private repository next to this one).
+ROOTS = [ROOT, os.path.join(os.path.dirname(__file__), '..', '..', 'remote', 'iOS')]
 
 
 def parse_string(src, i):

@@ -49,6 +49,15 @@ The MCP bridge only appends events Claude chose to report to `mcp-events.jsonl`.
   (`cooldown.nolim.cloud` by default) passes them on without reading them. For the Live Activity it
   sees general lines ("Claude is working"), button labels and reset times. Details: [LINK.md](LINK.md).
 
+## The relay and the iPhone app
+
+The relay keeps only what it needs to pass messages: an id and a name for each paired device (the name you
+gave the Mac or phone), a hash of its access token, Apple push tokens, when it was last seen, and sealed
+messages waiting for an offline device (at most a day). Unpairing deletes a device and what waits for it;
+a pairing unused for 180 days is deleted. IP addresses are used for rate limits and are not stored with
+the pairing. The iPhone app has no account, analytics or advertising. To have data removed, unpair the
+phone, or contact the developer through the project's GitHub page.
+
 Cooldown does not use Claude Code's sign-in (the token in the Keychain): Anthropic allows it only in
 its own apps.
 

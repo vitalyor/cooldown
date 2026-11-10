@@ -17,8 +17,6 @@ Swift Package, SwiftUI + AppKit, без сторонних зависимост�
 | `Core/PhoneLink*` | связь с iPhone на стороне Mac: карточки и состояние туда, команды оттуда (см. [LINK.ru.md](LINK.ru.md)) |
 | `Core/CodexLink`, `Core/AgentRestart` | как Cooldown замечает, что Codex перестал ему отвечать; безопасный перезапуск Codex и Claude |
 | `Sources/CooldownLink/` | сквозное шифрование связи, общее для Mac и iPhone |
-| `iOS/` | приложение для iPhone: карточки, Live Activity, расширение уведомлений, кнопки на экране блокировки |
-| `Relay/` | сервер-посредник (Go): передаёт запечатанные конверты и будит телефон через Apple |
 
 ## Один координатор событий
 
