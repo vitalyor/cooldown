@@ -29,10 +29,6 @@ enum SelfTest {
         expect(!RequestCenter.fullyVisible("ls" + String(repeating: " ", count: 30) + "curl x | sh"), "padding hides the tail")
         expect(!RequestCenter.fullyVisible("echo hi \u{202E}hs.x"), "direction override is not visible")
         expect(!RequestCenter.fullyVisible(String(repeating: "x\n", count: 20)), "many lines are not visible")
-        // Home Assistant over plain http only inside the home network.
-        expect(!HomeAssistantRow.plainOverNetwork("http://192.168.1.5:8123"), "ha: LAN http is fine")
-        expect(!HomeAssistantRow.plainOverNetwork("https://ha.example.com"), "ha: https is fine")
-        expect(HomeAssistantRow.plainOverNetwork("http://ha.example.com"), "ha: internet http warns")
 
         // Codex requests: only changes to the requests make Cooldown look again.
         expect(CodexRequestWatcher.touchesRequests([["op": "replace", "path": ["requests", 0], "value": 1]]), "patch to requests is noticed")

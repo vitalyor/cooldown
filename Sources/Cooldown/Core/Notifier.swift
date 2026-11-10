@@ -32,7 +32,6 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
                                                       threadId: toast?.threadId))
                 }
                 if !demo {
-                    HomeAssistant.shared.forward(title: title, body: body)
                     PhoneLink.shared.forward(toast ?? ToastContent(key: id, kind: opensClaude ? .reset : .info, provider: opensClaude ? .claude : nil,
                                                                    title: title, body: body,
                                                                    actions: opensClaude ? [.continueClaude(demo: false)] : [],

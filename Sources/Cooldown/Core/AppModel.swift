@@ -377,11 +377,6 @@ final class AppModel: ObservableObject {
             Insights.checkPace(claude)
         }
         ScheduledRunner.shared.tick(limits: codex.snapshot)
-        if !demoActive {
-            HomeAssistant.shared.updateLive(.codex, snapshot: codex.snapshot)
-            HomeAssistant.shared.updateLive(.claude, snapshot: claude.snapshot)
-            HomeAssistant.shared.publishSensors()
-        }
         updateMenuImage(animated: true)
         activityChanged()   // the tooltip carries the fresh forecast
     }

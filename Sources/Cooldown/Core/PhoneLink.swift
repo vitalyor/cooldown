@@ -124,7 +124,7 @@ final class PhoneLink: ObservableObject {
     var endSent = false
 
     var paired: Bool { !(account?.peers.isEmpty ?? true) }
-    var relay: URL { URL(string: UserDefaults.standard.string(forKey: SettingsKey.phoneRelay) ?? "") ?? Self.defaultRelay }
+    var relay: URL { Self.defaultRelay }
 
     init() {
         if let saved = UserDefaults.standard.dictionary(forKey: "phoneLinkDone") as? [String: Double] {

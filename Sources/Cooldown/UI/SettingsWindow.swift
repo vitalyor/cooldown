@@ -136,7 +136,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .codex: return L("codex путь хуки автопродолжение")
         case .claude: return L("claude code desktop usage аккаунт строка статуса хуки окно")
         case .updates: return L("версия github обновить скачивать")
-        case .data: return L("csv таблица экспорт пересобрать демо iphone home assistant")
+        case .data: return L("csv таблица экспорт пересобрать демо")
         case .diagnostics: return L("проверка отчёт ошибки не работает тест")
         case .about: return L("лицензия mit благодарности выйти")
         }

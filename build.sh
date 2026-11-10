@@ -39,7 +39,6 @@ if [ -n "${COOLDOWN_VERSION:-}" ]; then
   /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $COOLDOWN_VERSION" "$APP/Contents/Info.plist"
   /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(git rev-list --count HEAD 2>/dev/null || echo 1)" "$APP/Contents/Info.plist"
 fi
-cp Resources/Scriptable/Cooldown.js "$APP/Contents/Resources/Cooldown.js"
 # Translations: Russian is the source text; every other language has a Localizable.strings.
 for folder in Resources/Localization/*.lproj; do
   [ -d "$folder" ] && cp -R "$folder" "$APP/Contents/Resources/"

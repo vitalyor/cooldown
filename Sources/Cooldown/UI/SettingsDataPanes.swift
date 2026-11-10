@@ -107,9 +107,6 @@ struct DataPane: View {
                 }
             }
         }
-        if HomeAssistant.featureEnabled {
-            Section(L("iPhone через Home Assistant")) { HomeAssistantRow() }
-        }
     }
 
     private func exportCSV() {

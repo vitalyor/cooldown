@@ -37,7 +37,6 @@ enum SettingsKey {
     static let quietTo = "quietTo"
     static let haURL = "haURL"
     static let phoneLink = "phoneLink"
-    static let phoneRelay = "phoneRelay"
     static let phoneAlways = "phoneAlways"
     static let phoneLive = "phoneLive"
     static let phoneKeepAlive = "phoneKeepAlive"
