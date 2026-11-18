@@ -225,12 +225,15 @@ private struct Header: View {
     @Binding var screen: Screen
 
     var body: some View {
+        // Two agents fit a fixed 200 pt switch; with Antigravity it takes all the room beside the buttons.
+        let compact = ProviderID.shown.count > 2
         HStack(spacing: 8) {
             GlassSegments(options: ProviderID.shown, selection: $model.selected, tint: { Theme.tint(for: $0) }) { provider, selected in
-                ProviderLabel(store: model.store(provider), selected: selected)
+                ProviderLabel(store: model.store(provider), selected: selected, compact: compact)
             }
-            .frame(width: 200)
-            Spacer()
+            .frame(width: compact ? nil : 200)
+            .frame(maxWidth: compact ? .infinity : nil)
+            if !compact { Spacer() }
             FeedButton(screen: $screen)
             RefreshButton(codex: model.codex, claude: model.claude)
             GlassIconButton(symbol: "gearshape", help: L("Настройки (⌘,)")) { SettingsWindow.shared.show() }
@@ -242,16 +245,22 @@ private struct Header: View {
 private struct ProviderLabel: View {
     @ObservedObject var store: ProviderStore
     let selected: Bool
+    /// Three names side by side: no dot, a point smaller, and never wrapped onto a second line.
+    var compact = false
 
     var body: some View {
         let remaining = store.snapshot?.lowestRemaining(at: Date())
         HStack(spacing: 6) {
-            Circle()
-                .fill(remaining.map { Theme.level(remaining: $0, tint: store.tint) } ?? Color.secondary.opacity(0.4))
-                .frame(width: 7, height: 7)
+            if !compact {
+                Circle()
+                    .fill(remaining.map { Theme.level(remaining: $0, tint: store.tint) } ?? Color.secondary.opacity(0.4))
+                    .frame(width: 7, height: 7)
+            }
             Text(store.id.displayName)
-                .font(.system(size: 13, weight: selected ? .semibold : .medium))
+                .font(.system(size: compact ? 12 : 13, weight: selected ? .semibold : .medium))
                 .foregroundStyle(selected ? .primary : .secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
     }
 }
