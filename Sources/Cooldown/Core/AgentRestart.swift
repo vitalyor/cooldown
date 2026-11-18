@@ -33,6 +33,7 @@ final class AgentRestart {
             }
         case .claude:
             if ClaudeAutoContinue.shared.running { reasons.append(L("Cooldown продолжает чат")) }
+        case .antigravity: break
             if await ClaudeSender.draftInOpenChat() == true { reasons.append(L("в поле ввода Claude есть неотправленный текст")) }
         }
         return reasons
@@ -116,6 +117,7 @@ final class AgentRestart {
                 if ok { return true }
             case .claude:
                 if let app = ClaudeSender.claudeApp, app.isFinishedLaunching, ClaudeSender.window(of: app) != nil { return true }
+            case .antigravity: return false
             }
         }
         return false

@@ -172,11 +172,11 @@ final class ToastController: ObservableObject {
         panel.isOpaque = false
         panel.hasShadow = true
         panel.becomesKeyOnlyIfNeeded = true
-        // Only the Space the person is on, and never in a screen recording or share. A card may
-        // carry a prompt, a command or an agent's answer; it must not appear on another Space.
-        // Over a full-screen Codex or Claude too: that is the Space the person is on.
+        // Only the Space the person is on, and not in a screen recording or share unless the person
+        // allows it in Settings. A card may carry a prompt, a command or an agent's answer; it must
+        // not appear on another Space. Over a full-screen Codex or Claude too: that is their Space.
         panel.collectionBehavior = [.transient, .ignoresCycle, .fullScreenAuxiliary]
-        panel.sharingType = .none
+        panel.sharingType = Self.sharing
         panel.contentView = container
         panel.setContentSize(size)
 
@@ -326,6 +326,13 @@ final class ToastController: ObservableObject {
     }
 
     /// A short tour of the card types, one after another.
+    private static var sharing: NSWindow.SharingType { Settings.cardsInCapture ? .readOnly : .none }
+
+    /// The setting changed: apply it to the cards already on screen too.
+    func applySharing() {
+        for card in cards { card.panel.sharingType = Self.sharing }
+    }
+
     func showExamples() {
         let examples: [ToastContent] = [
             ToastCatalog.taskWaiting(.codex, title: L("Рефакторинг парсера"), until: Date().addingTimeInterval(7200)),

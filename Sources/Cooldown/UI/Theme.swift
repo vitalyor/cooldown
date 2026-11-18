@@ -4,6 +4,7 @@ import SwiftUI
 enum Theme {
     static let cobalt = dynamic(light: (0.22, 0.36, 0.95), dark: (0.53, 0.62, 1.00))
     static let coral = dynamic(light: (0.84, 0.41, 0.26), dark: (0.98, 0.58, 0.42))
+    static let violet = dynamic(light: (0.47, 0.32, 0.86), dark: (0.74, 0.64, 1.00))
     static let mint = dynamic(light: (0.05, 0.56, 0.45), dark: (0.33, 0.83, 0.68))
     static let amber = dynamic(light: (0.80, 0.55, 0.04), dark: (0.98, 0.76, 0.26))
     static let signal = dynamic(light: (0.83, 0.22, 0.24), dark: (1.00, 0.44, 0.44))
@@ -12,6 +13,7 @@ enum Theme {
         switch provider {
         case .codex: return cobalt
         case .claude: return coral
+        case .antigravity: return violet
         }
     }
 
@@ -40,6 +42,7 @@ enum Theme {
 enum MenuMark: Equatable {
     case prompt     // ›_ , a terminal prompt, for Codex
     case asterisk   // ✻ , for Claude
+    case arch       // ∩ with a bar, an "A", for Antigravity
 }
 
 struct MenuLine: Equatable {
@@ -76,6 +79,7 @@ enum GaugeIcon {
     static let codex = adaptive(light: (0.25, 0.36, 0.92), dark: (0.66, 0.73, 1.00))
     static let codexMark = MenuMark.prompt
     static let claudeMark = MenuMark.asterisk
+    static let antigravity = adaptive(light: (0.47, 0.32, 0.86), dark: (0.74, 0.64, 1.00))
 
     /// The menu bar glyphs the installed apps ship for themselves (template images), used as they are
     /// and only tinted; when an app is missing, the simple drawn sign stands in.
@@ -186,6 +190,11 @@ enum GaugeIcon {
                 path.move(to: NSPoint(x: cx - dx, y: center - dy))
                 path.line(to: NSPoint(x: cx + dx, y: center + dy))
             }
+        case .arch:
+            let cx = x + width / 2
+            path.move(to: NSPoint(x: cx - half, y: center - half))
+            path.line(to: NSPoint(x: cx, y: center + half))
+            path.line(to: NSPoint(x: cx + half, y: center - half))
         }
         path.stroke()
     }

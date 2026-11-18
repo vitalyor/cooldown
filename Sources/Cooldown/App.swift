@@ -8,6 +8,12 @@ enum Entry {
         let arguments = CommandLine.arguments
         if arguments.contains("--mcp") { CooldownMCP.run() }
         if arguments.contains(ClaudeStatusLine.flag) { ClaudeStatusLine.run() }
+        // Started from inside a Claude Code session, the app inherits that session's variables
+        // (ANTHROPIC_BASE_URL, CLAUDE_CODE_*), and every `claude` it runs then reports "Not logged in".
+        for key in ProcessInfo.processInfo.environment.keys
+        where (key.hasPrefix("CLAUDE") || key.hasPrefix("ANTHROPIC")) && key != "CLAUDE_CONFIG_DIR" {
+            unsetenv(key)
+        }
         if let index = arguments.firstIndex(of: "--menu-icon"), index + 1 < arguments.count {
             // Diagnostic: draws the menu bar item for a few levels on dark and light bars.
             let samples: [(Double?, Double?)] = [(100, 81), (64, 50), (38, 22), (12, 4), (nil, 70)]
@@ -154,6 +160,26 @@ enum Entry {
             app.run()
             return
         }
+        if let index = arguments.firstIndex(of: "--setup-snapshot"), index + 1 < arguments.count {
+            // Diagnostic: the setup window as a picture, drawn off screen so nothing appears or takes focus.
+            let app = NSApplication.shared
+            app.setActivationPolicy(.prohibited)
+            Task { @MainActor in
+                AppModel.shared.isRenderMode = true
+                let window = SetupWindow.shared.make(onScreen: false)
+                window.setFrameOrigin(NSPoint(x: -4000, y: 0))
+                window.orderBack(nil)
+                try? await Task.sleep(for: .seconds(8))
+                let shot = Process()
+                shot.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+                shot.arguments = ["-x", "-o", "-l", "\(window.windowNumber)", arguments[index + 1]]
+                try? shot.run()
+                shot.waitUntilExit()
+                exit(0)
+            }
+            app.run()
+            return
+        }
         if arguments.contains("--render") {
             RenderMode.run(arguments: arguments)
             return
@@ -206,7 +232,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let snapshot = prepareSnapshot()
             controller = StatusController(model: AppModel.shared)
             HotKey.register()
-            if let snapshot { scheduleSnapshot(snapshot) }
+            if let snapshot { scheduleSnapshot(snapshot) } else if !CommandLine.arguments.contains("--showcase") { SetupWindow.shared.showOnFirstRun() }
             if CommandLine.arguments.contains("--toasts") {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2) { ToastController.shared.showExamples() }
             }

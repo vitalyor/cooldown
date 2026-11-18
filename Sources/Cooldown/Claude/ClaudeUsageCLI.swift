@@ -89,7 +89,13 @@ actor ClaudeUsageCLI {
         if let running { return try await running.value }
         let task = Task.detached(priority: .utility) {
             // Claude Code sometimes draws the screen late (updates, notices); one retry covers it.
-            do { return try Self.run(binary: binary) } catch UsageError.unreadable { return try Self.run(binary: binary) }
+            do { return try Self.run(binary: binary) }
+            catch UsageError.unreadable { return try Self.run(binary: binary) }
+            // Its own question about Cooldown's own empty folder: nothing there to protect.
+            catch UsageError.trust {
+                try Self.acceptFolder(binary: binary)
+                return try Self.run(binary: binary)
+            }
         }
         running = task
         defer { running = nil }
@@ -124,21 +130,23 @@ actor ClaudeUsageCLI {
         }
     }
 
-    /// Answers Claude Code's one-time folder question with "Yes, I trust this folder" for Cooldown's
-    /// own empty folder. Only ever called from the button the person presses in Cooldown.
+    /// Answers Claude Code's one-time folder question with "Yes, I trust this folder". It is only
+    /// ever asked about Cooldown's own empty folder, where the program is started.
+    private static func acceptFolder(binary: URL) throws {
+        let session = try Terminal(binary: binary, arguments: [])
+        defer { session.stop() }
+        func flat(_ text: String) -> String { text.replacingOccurrences(of: " ", with: "").lowercased() }
+        guard session.wait(until: { flat($0).contains("trustthisfolder") }, timeout: 20) else { return }
+        // Let the question finish drawing before answering it, like a person would.
+        _ = session.wait(until: { _ in false }, timeout: 1.2)
+        session.send("\u{1B}[B")   // move to "Yes, I trust this folder"
+        _ = session.wait(until: { flat($0).contains("❯yes,itrust") }, timeout: 2)
+        session.send("\r")
+        _ = session.wait(until: { flat($0).contains("shift+tab") || flat($0).contains("try\"") }, timeout: 8)
+    }
+
     func allowFolder(binary: URL) async throws -> LimitSnapshot {
-        try await Task.detached(priority: .userInitiated) {
-            let session = try Terminal(binary: binary, arguments: [])
-            defer { session.stop() }
-            func flat(_ text: String) -> String { text.replacingOccurrences(of: " ", with: "").lowercased() }
-            guard session.wait(until: { flat($0).contains("trustthisfolder") }, timeout: 20) else { return }
-            // Let the question finish drawing before answering it, like a person would.
-            _ = session.wait(until: { _ in false }, timeout: 1.2)
-            session.send("\u{1B}[B")   // move to "Yes, I trust this folder"
-            _ = session.wait(until: { flat($0).contains("❯yes,itrust") }, timeout: 2)
-            session.send("\r")
-            _ = session.wait(until: { flat($0).contains("shift+tab") || flat($0).contains("try\"") }, timeout: 8)
-        }.value
+        try await Task.detached(priority: .userInitiated) { try Self.acceptFolder(binary: binary) }.value
         lastAttempt = .distantPast
         return try await read(binary: binary, force: true)
     }
@@ -433,8 +441,8 @@ actor ClaudeUsageCLI {
         var errorDescription: String? {
             switch self {
             case .terminal: return L("Не удалось запустить Claude Code.")
-            case .missing: return L("Claude Code не найден. Откройте вкладку Code в Claude Desktop один раз или установите Claude Code.")
-            case .signedOut: return L("Claude Code не вошёл в аккаунт. Запустите claude в Терминале и войдите.")
+            case .missing: return L("Claude Code не найден. Откройте настройку Cooldown: она установит его по одной кнопке.")
+            case .signedOut: return L("Claude Code не вошёл в аккаунт. Откройте настройку Cooldown и нажмите «Войти».")
             case .trust: return L("Claude Code ждёт разрешения работать в пустой папке Cooldown.")
             case .unreadable: return L("Не удалось прочитать экран /usage в Claude Code.")
             case .serverFailed: return L("Claude Code не смог загрузить лимиты с сервера; Cooldown повторит через минуту.")

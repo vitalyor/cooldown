@@ -14,7 +14,7 @@ public struct LinkNode: Codable, Equatable, Sendable {
 public enum LinkNodes {
     static let publicKey = "fOQhz3uscj/piWpIUtzEx6lOT0I2DTUUhu+6MyPBbW4="
     /// Used until a list has been fetched; new servers come through the list, without an app update.
-    static let seeds = ["https://n1.cooldown.nolim.cloud", "https://n2.cooldown.nolim.cloud", "https://n3.cooldown.nolim.cloud"].map { URL(string: $0)! }
+    static let seeds = ["https://n1.cooldown.nolim.cloud", "https://n3.cooldown.nolim.cloud", "https://n2.cooldown.nolim.cloud", "https://n4.cooldown.nolim.cloud"].map { URL(string: $0)! }
     /// Reachable even if every server is down or blocked; the signature is what's trusted.
     static let fallback = URL(string: "https://raw.githubusercontent.com/vitalyor/cooldown/main/nodes.json")!
 
@@ -74,11 +74,17 @@ public enum LinkNodes {
 
     /// Servers to try, best guess first: the last that worked, the given one, the list, the built-in ones.
     public static func candidates(_ preferred: URL) -> [URL] {
-        withState { s in
-            var seen = Set<URL>()
-            let weighted = s.nodes.sorted { ($0.weight ?? 1) > ($1.weight ?? 1) }.map(\.url)
-            return ([s.good].compactMap { $0 } + [preferred] + weighted + seeds).filter { seen.insert($0).inserted }
-        }
+        withState { s in ordered(good: s.good, preferred: preferred, nodes: s.nodes, seeds: seeds) }
+    }
+
+    /// Once a signed list is known, an address not on it is a server that was removed: a pairing
+    /// or a last success may still name it, and it is not tried. Before that, everything is.
+    static func ordered(good: URL?, preferred: URL, nodes: [LinkNode], seeds: [URL]) -> [URL] {
+        var seen = Set<URL>()
+        let weighted = nodes.sorted { ($0.weight ?? 1) > ($1.weight ?? 1) }.map(\.url)
+        let current = Set(weighted)
+        let remembered = [good, preferred].compactMap { $0 }.filter { nodes.isEmpty || current.contains($0) || $0.host == "localhost" }
+        return (remembered + weighted + (nodes.isEmpty ? seeds : [])).filter { seen.insert($0).inserted }
     }
 
     public static func next(after url: URL) -> URL {

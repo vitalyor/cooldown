@@ -50,7 +50,7 @@ extension PhoneLink {
     // MARK: Sleep
 
     func goingToSleep() async {
-        let working = ProviderID.allCases.flatMap { AgentActivity.shared.working($0) }
+        let working = ProviderID.agents.flatMap { AgentActivity.shared.working($0) }
         let waiting = AppModel.shared.watches.filter { $0.enabled && ["quota_limited", "waiting_quota", "waiting_reset", "waiting_connection"].contains($0.status) }.count
             + (AgentActivity.spent(.claude) != nil ? ClaudeChatList.shared.entries.count : 0)
         AgentActivity.trace("phone: Mac going to sleep — working \(working.count), waiting \(waiting)")
@@ -83,9 +83,9 @@ extension PhoneLink {
         let probe = UserDefaults.standard.double(forKey: "phoneProbeMinutes")
         if probe > 0 { return probe * 60 }
         guard Settings.phoneKeepAlive, paired else { return nil }
-        let working = ProviderID.allCases.contains { !AgentActivity.shared.working($0).isEmpty }
+        let working = ProviderID.agents.contains { !AgentActivity.shared.working($0).isEmpty }
         let waitingPress = cards.values.contains { !$0.card.actions.filter { $0.input != true }.isEmpty }
-        let resetSoon = ProviderID.allCases.contains { p in AgentActivity.spent(p).map { $0.timeIntervalSinceNow < 15 * 60 } ?? false }
+        let resetSoon = ProviderID.agents.contains { p in AgentActivity.spent(p).map { $0.timeIntervalSinceNow < 15 * 60 } ?? false }
         guard working || waitingPress || resetSoon else { return nil }
         // Only mobile data puts the phone's line to sleep. On Wi-Fi a rare one is enough to notice
         // that it left the Wi-Fi (you went out); on mobile data often enough to keep it awake.

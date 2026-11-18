@@ -23,6 +23,7 @@ enum SettingsKey {
     static let showActivity = "showActivity"
     static let quietWithFocus = "quietWithFocus"
     static let cardsWhenFront = "cardsWhenFront"
+    static let cardsInCapture = "cardsInCapture"
     static let notifyPace = "notifyPace"
     static let notifyProjects = "notifyProjects"
     static let weeklySummary = "weeklySummary"
@@ -103,6 +104,8 @@ enum Settings {
     static var quietWithFocus: Bool { bool(SettingsKey.quietWithFocus, true) }
     /// Show cards even while the agent's own app is in front.
     static var cardsWhenFront: Bool { bool(SettingsKey.cardsWhenFront, false) }
+    /// Let screenshots, recordings and screen sharing see the cards. Off by default: a card may carry a prompt.
+    static var cardsInCapture: Bool { bool(SettingsKey.cardsInCapture, false) }
     /// Warn while an agent works if the 5-hour limit will run out before it resets.
     static var notifyPace: Bool { bool(SettingsKey.notifyPace, true) }
     /// Say when one project takes a large part of the weekly limit.

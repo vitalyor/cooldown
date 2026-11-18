@@ -22,6 +22,11 @@ protocol HistoryScanning {
     func scan(cursors: [String: FileCursor], progress: (Double) -> Void) -> ScanOutput
 }
 
+/// For a provider whose usage history Cooldown does not read.
+struct NoHistory: HistoryScanning {
+    func scan(cursors: [String: FileCursor], progress: (Double) -> Void) -> ScanOutput { ScanOutput() }
+}
+
 struct HistoryFile: Codable {
     var version = 1
     var buckets: [TokenBucket] = []

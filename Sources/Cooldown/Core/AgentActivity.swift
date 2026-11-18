@@ -261,12 +261,24 @@ final class AgentActivity: ObservableObject {
     }
 
     /// When the 5-hour window of `provider` is spent right now: its reset time, otherwise nil.
+    /// Windows in which a turn really was stopped by the limit, by reset time.
+    private static var limitHit: [ProviderID: Date] = [:]
+
+    /// Codex reports whole percents, so "100" can still leave room for a request: for Codex only
+    /// its own "limit reached" or a turn actually stopped by the limit counts. Claude's reading
+    /// says "limit reached" itself.
+    nonisolated static func isSpent(_ provider: ProviderID, remaining: Double, limitReached: Bool, stopped: Bool) -> Bool {
+        if limitReached || stopped { return true }
+        return provider == .claude && remaining < 0.5
+    }
+
     static func spent(_ provider: ProviderID, now: Date = Date()) -> Date? {
         guard let s = AppModel.shared.store(provider).snapshot, let w = s.session, !w.isExpired(at: now) else {
             if provider == .codex { AutoResume.codexSpentUntil = nil }
             return nil
         }
-        let until = w.remainingPercent < 0.5 || s.limitReached ? w.resetsAt : nil
+        let until = isSpent(provider, remaining: w.remainingPercent, limitReached: s.limitReached,
+                            stopped: limitHit[provider].map { abs($0.timeIntervalSince(w.resetsAt)) < 30 * 60 } ?? false) ? w.resetsAt : nil
         if provider == .codex { AutoResume.codexSpentUntil = until }
         return until
     }
@@ -302,6 +314,7 @@ final class AgentActivity: ObservableObject {
     private func stoppedByLimit(_ provider: ProviderID, name: String, opener: Opener) {
         guard !AppModel.shared.demoActive else { return }
         let reset = Self.spent(provider) ?? AppModel.shared.store(provider).snapshot?.session?.resetsAt
+        if let reset { Self.limitHit[provider] = reset }
         if let reset {
             // checkThresholds must not post its own "limit spent" card for this window as well.
             Settings.notifiedKeys += ["out-\(provider.rawValue)-\(Int(reset.timeIntervalSince1970))"]
@@ -435,7 +448,10 @@ final class AgentActivity: ObservableObject {
     }
 
     private func changed() {
-        for provider in ProviderID.allCases where !working(provider).isEmpty { lastBusy[provider] = Date() }
+        for provider in ProviderID.agents where !working(provider).isEmpty {
+            lastBusy[provider] = Date()
+            AgentSetup.shared.noticeInUse(provider)
+        }
         AppModel.shared.activityChanged()
         // Codex conversations at work are followed for their requests (permissions, questions).
         CodexRequestWatcher.shared.follow(Set(sessions.values.filter { $0.provider == .codex && UUID(uuidString: $0.key) != nil }

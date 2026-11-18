@@ -39,6 +39,10 @@ enum ToastCatalog {
                                 body: L("Можно продолжать. «Продолжить» отправит «%@» %@.", "\(ClaudeSender.text)", "\(target)"),
                                 actions: [.continueClaude(demo: demo), .openClaude], life: .sticky)
         }
+        if provider == .antigravity {
+            return ToastContent(key: "reset-antigravity", kind: .reset, provider: .antigravity, title: L("Лимит %@ восстановлен", "Antigravity"),
+                                body: L("Окно на 5 часов сбросилось, можно продолжать работу."), actions: [.openPanel], life: .auto(9))
+        }
         return ToastContent(key: "reset-codex", kind: .reset, provider: .codex, title: L("Лимит Codex восстановился"),
                             body: L("Окно на 5 часов сбросилось, можно работать дальше."), actions: [.openPanel], life: .auto(9))
     }

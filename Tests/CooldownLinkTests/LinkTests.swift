@@ -141,6 +141,13 @@ final class LinkConnectionLifecycleTests: XCTestCase {
         XCTAssertNil(LinkNodes.verify(try JSONEncoder().encode(tampered), key: keyText))
     }
 
+    func testServerRemovedFromTheListIsNotTried() {
+        let old = URL(string: "https://old.example")!, n1 = URL(string: "https://n1.example")!, seed = URL(string: "https://seed.example")!
+        let list = [LinkNode(id: "n1", url: n1, region: nil, weight: 1)]
+        XCTAssertEqual(LinkNodes.ordered(good: old, preferred: old, nodes: list, seeds: [seed]), [n1], "a pairing may still name a removed server")
+        XCTAssertEqual(LinkNodes.ordered(good: nil, preferred: old, nodes: [], seeds: [seed]), [old, seed], "with no list yet, everything is tried")
+    }
+
     func testMovesOnlyToAClearlyFasterServer() {
         let a = URL(string: "https://a.example")!, b = URL(string: "https://b.example")!
         XCTAssertNil(LinkNodes.better(than: a, [a: 0.10, b: 0.08]), "a small gain is not worth moving")

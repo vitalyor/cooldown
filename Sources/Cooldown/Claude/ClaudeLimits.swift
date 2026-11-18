@@ -71,7 +71,7 @@ enum ClaudePaths {
             "/usr/local/bin/claude",
             "\(home)/.npm-global/bin/claude",
             "\(home)/.bun/bin/claude",
-        ]
+        ] + ToolPaths.userInstalled("claude")
         if let found = candidates.first(where: { fm.isExecutableFile(atPath: $0) }) { return URL(fileURLWithPath: found) }
         return desktopBundled()
     }

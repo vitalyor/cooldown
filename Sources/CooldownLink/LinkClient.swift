@@ -341,7 +341,7 @@ public final class LinkClient {
     private var generation = 0
 
     public init(relay: URL, token: String) {
-        self.relay = relay
+        self.relay = LinkNodes.candidates(relay).first ?? relay
         self.token = token
     }
 

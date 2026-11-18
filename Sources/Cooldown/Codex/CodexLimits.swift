@@ -25,7 +25,7 @@ enum CodexPaths {
             "/opt/homebrew/bin/codex",
             "/usr/local/bin/codex",
             "\(home)/.npm-global/bin/codex",
-        ]
+        ] + ToolPaths.userInstalled("codex")
         return candidates.first { fm.isExecutableFile(atPath: $0) }.map { URL(fileURLWithPath: $0) }
     }
 }
@@ -39,7 +39,7 @@ enum CodexError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .binaryNotFound: return L("Не найден Codex. Укажите путь к нему в настройках.")
+        case .binaryNotFound: return L("Codex не найден. Откройте настройку Cooldown: она установит его по одной кнопке.")
         case .timeout: return L("Codex не ответил за 20 секунд.")
         case .exited: return L("Codex завершился, не прислав ответ.")
         case .server(let message): return L("Codex вернул ошибку: %@", "\(message)")

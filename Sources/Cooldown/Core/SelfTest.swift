@@ -11,6 +11,36 @@ enum SelfTest {
 
         // Claude's plan, from Claude Code's account record.
         expect(ClaudePlan.describe(type: "claude_max", tier: "default_claude_max_5x") == "Max 5×", "plan: Max 5x")
+        do {
+            let now = Date()
+            let week = LimitWindow(kind: .weekly, usedPercent: 46, durationMinutes: 10080, resetsAt: now.addingTimeInterval(86400))
+            var snap = LimitSnapshot(provider: .codex, weekly: week, fetchedAt: now)
+            expect(AppModel.menuRemaining(snap, weekly: false, now) == 100, "menu: unstarted 5h window is full")
+            expect(AppModel.menuRemaining(snap, weekly: true, now) == 54, "menu: weekly shown when chosen")
+            snap.session = LimitWindow(kind: .session, usedPercent: 30, durationMinutes: 300, resetsAt: now.addingTimeInterval(3600))
+            expect(AppModel.menuRemaining(snap, weekly: false, now) == 70, "menu: 5h window shown")
+            expect(AppModel.menuRemaining(nil, weekly: false, now) == nil, "menu: no data stays blank")
+        }
+        do {
+            // Friendly forecast lines: ten 5-hour windows in a row never repeat a phrase.
+            let start = Date(timeIntervalSince1970: 1_800_000_000)
+            let lines = (0..<10).map { i in
+                Banter.line(.lasts(usedAtReset: 40), window: LimitWindow(kind: .session, usedPercent: 10, durationMinutes: 300,
+                                                            resetsAt: start.addingTimeInterval(Double(i) * 18_000)),
+                            now: Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: start)!)
+            }
+            expect(Set(lines).count == 10, "banter: no repeats across ten windows")
+            expect([Banter.night, Banter.exhausted, Banter.idle, Banter.lasts, Banter.almostOut, Banter.fast].allSatisfy { $0.count >= 8 }, "banter: every mood has a full set")
+        }
+        do {
+            // Antigravity's /usage reply: the first group gives the main windows, others are extras.
+            let reply = #"{"status":"SUCCESS","command":{"name":"usage","data":{"groups":[{"name":"Gemini Models","buckets":[{"window":"weekly","remaining_fraction":0.8,"reset_time":"2026-11-25T06:48:38Z"},{"window":"5h","remaining_fraction":0.25,"reset_time":"2026-11-18T11:48:38Z"}]},{"name":"Claude and GPT models","buckets":[{"window":"5h","remaining_fraction":1,"reset_time":"2026-11-18T11:48:38Z"}]}]}}}"#
+            let snap = try? AntigravityLimits.parse(Data(reply.utf8), now: Date())
+            expect(snap?.session.map { abs($0.usedPercent - 75) < 0.01 } == true, "antigravity: 5h window")
+            expect(snap?.weekly.map { abs($0.usedPercent - 20) < 0.01 } == true, "antigravity: weekly window")
+            expect(snap?.extras.count == 1 && snap?.extras.first?.label?.hasPrefix("Claude and GPT") == true, "antigravity: other group as extra")
+            expect((try? AntigravityLimits.parse(Data(#"{"status":"ERROR","response":"Not signed in"}"#.utf8), now: Date())) == nil, "antigravity: error reply")
+        }
         expect(ClaudePlan.describe(type: "claude_max", tier: "default_claude_max_20x") == "Max 20×", "plan: Max 20x")
         expect(ClaudePlan.describe(type: "claude_pro", tier: nil) == "Pro", "plan: Pro")
         expect(ClaudePlan.describe(type: "something_else", tier: nil) == nil, "plan: unknown")
@@ -108,6 +138,18 @@ enum SelfTest {
         expect(AppLanguage.pluralIndex(1, forms: 3) == 0 && AppLanguage.pluralIndex(3, forms: 3) == 1
                && AppLanguage.pluralIndex(11, forms: 3) == 2 && AppLanguage.pluralIndex(22, forms: 3) == 1, "plural forms")
         expect(Format.word(5, "a|b|c") == "c" || Format.word(5, "a|b|c") == "b", "plural words")
+        // Codex's whole percents: "100" alone is not a spent limit.
+        expect(!AgentActivity.isSpent(.codex, remaining: 0, limitReached: false, stopped: false), "codex 100% alone is not spent")
+        expect(AgentActivity.isSpent(.codex, remaining: 0, limitReached: true, stopped: false), "codex says reached")
+        expect(AgentActivity.isSpent(.codex, remaining: 0, limitReached: false, stopped: true), "codex turn stopped by the limit")
+        expect(AgentActivity.isSpent(.claude, remaining: 0, limitReached: false, stopped: false), "claude at 100% is spent")
+        // Setup reads the tools' answers, and only those.
+        expect(AgentSetup.claudeSignedIn(#"{"loggedIn": true, "authMethod": "claude.ai"}"#) == true, "claude signed in")
+        expect(AgentSetup.claudeSignedIn(#"{"loggedIn": false}"#) == false, "claude signed out")
+        expect(AgentSetup.claudeSignedIn("unknown command") == nil, "claude too old to say")
+        expect(AgentSetup.signInLink(in: "If your browser did not open, visit: https://a.example/x?y=1\nPaste") == URL(string: "https://a.example/x?y=1"), "sign-in link")
+        expect(AgentSetup.signInLink(in: "visit: https://a.example/partial") == nil, "a link still arriving is not used")
+        expect(SetupGuide.silentInstall(.codex).contains("CODEX_NON_INTERACTIVE=1"), "Codex installer asks nothing")
         // Cards lead to the place they are about.
         expect(ToastCatalog.taskWaiting(.claude, title: "T", until: nil).actions == [.open(.tasks)], "a waiting task opens Tasks") // l10n:skip
         expect(ToastCatalog.taskAttention(.claude, title: "T", reason: "").actions == [.openClaude], "a Claude task opens Claude") // l10n:skip

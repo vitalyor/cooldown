@@ -16,6 +16,7 @@ struct LimitsTab: View {
     }
 
     @ObservedObject private var usage = ClaudeUsageStatus.shared
+    @ObservedObject private var setup = AgentSetup.shared
 
     @ViewBuilder
     private func content(now: Date) -> some View {
@@ -38,6 +39,8 @@ struct LimitsTab: View {
                 }
                 SourceLine(snapshot: snapshot, error: store.limitError, now: now)
             }
+        } else if setup.needsHelp(store.id) {
+            SetupPrompt(provider: store.id)
         } else if store.id == .claude, store.limitError == ClaudeError.notConnected.localizedDescription || store.limitError == nil {
             ClaudeConnect()
         } else if store.id == .claude, usage.needsPermission {
@@ -45,7 +48,9 @@ struct LimitsTab: View {
         } else if let error = store.limitError {
             Well {
                 Note(symbol: "exclamationmark.triangle.fill", text: error, color: Theme.amber)
-                Button(L("Открыть настройки")) { SettingsWindow.shared.show(store.id == .codex ? .codex : .claude) }.buttonStyle(.link)
+                if store.id != .antigravity {
+                    Button(L("Открыть настройки")) { SettingsWindow.shared.show(store.id == .codex ? .codex : .claude) }.buttonStyle(.link)
+                }
             }
         } else {
             HStack(spacing: 8) {
@@ -457,6 +462,16 @@ struct ForecastNote: View {
     let now: Date
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            note
+            Text(Banter.line(forecast.outcome, window: window, now: now))
+                .font(.caption).foregroundStyle(.secondary).italic()
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.leading, 23)
+        }
+    }
+
+    @ViewBuilder private var note: some View {
         switch forecast.outcome {
         case .exhausted:
             Note(symbol: "pause.circle.fill",

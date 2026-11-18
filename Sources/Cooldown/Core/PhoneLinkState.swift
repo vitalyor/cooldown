@@ -62,14 +62,14 @@ extension PhoneLink {
 
     func currentState(now: Date = Date()) -> LinkState {
         let model = AppModel.shared
-        let limits: [LinkLimit] = [model.codex, model.claude].compactMap { store in
+        let limits: [LinkLimit] = [model.codex, model.claude, model.antigravity].compactMap { store in
             guard let s = store.snapshot else { return nil }
             func used(_ w: LimitWindow?) -> Double? { w.map { $0.isExpired(at: now) ? 0 : $0.usedPercent } }
             return LinkLimit(provider: store.id.rawValue, session: used(s.session), week: used(s.weekly),
                              sessionReset: s.session?.resetsAt, weekReset: s.weekly?.resetsAt,
                              stale: now.timeIntervalSince(s.fetchedAt) > 1800)
         }
-        let agents = ProviderID.allCases.map { p in
+        let agents = ProviderID.agents.map { p in
             let working = AgentActivity.shared.working(p)
             return LinkAgent(provider: p.rawValue, working: !working.isEmpty, since: working.map(\.started).min())
         }
@@ -142,11 +142,14 @@ extension PhoneLink {
             .sorted { rank($0) != rank($1) ? rank($0) < rank($1) : $0.created > $1.created }
         let items = pressable.prefix(2).map(Self.liveItem)
         var countdowns: [LiveState.Countdown] = []
-        for p in ProviderID.allCases {
+        for p in ProviderID.agents {
             guard let reset = AgentActivity.spentAndStopped(p) else { continue }
             let waiting = p == .codex
                 ? watches.filter { $0.provider == "codex" && ["quota_limited", "waiting_quota", "waiting_reset", "waiting_connection"].contains($0.state) }.count
                 : ClaudeChatList.shared.entries.count
+            // Only a task that will go on after the reset is worth a Live Activity; the bare countdown
+            // stays in the menu bar on the Mac.
+            guard waiting > 0 else { continue }
             countdowns.append(.init(provider: p.rawValue, until: reset.timeIntervalSince1970, waiting: waiting))
         }
         countdowns.sort { $0.until < $1.until }

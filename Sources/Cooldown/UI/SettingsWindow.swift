@@ -264,7 +264,10 @@ private struct GeneralPane: View {
     @State private var problem: String?
 
     var body: some View {
-        Section(L("Готовность")) { ReadinessRows() }
+        Section(L("Готовность")) {
+            ReadinessRows()
+            Button(L("Открыть мастер настройки")) { SetupWindow.shared.show() }
+        }
         Section {
             OptionToggle(title: L("Открывать при входе в систему"), detail: L("Cooldown запустится сам после перезагрузки Mac."), isOn: $launchAtLogin)
                 .onChange(of: launchAtLogin) { _, enabled in
@@ -397,6 +400,7 @@ private struct MenuBarPane: View {
                 Text(L("Codex и Claude")).tag("lowest")
                 Text(L("Только Codex")).tag("codex")
                 Text(L("Только Claude")).tag("claude")
+                if AntigravityLimits.installed || menuSource == "antigravity" { Text(L("Только Antigravity")).tag("antigravity") }
             }
             Picker(L("Окно в строке меню"), selection: $menuWindow) {
                 Text(L("5 часов")).tag("session")
@@ -420,6 +424,7 @@ private struct MenuBarPane: View {
 private struct NotificationsPane: View {
     @AppStorage(SettingsKey.toasts) private var toasts = true
     @AppStorage(SettingsKey.cardsWhenFront) private var cardsWhenFront = false
+    @AppStorage(SettingsKey.cardsInCapture) private var cardsInCapture = false
     @AppStorage(SettingsKey.notifyThresholds) private var notifyThresholds = true
     @AppStorage(SettingsKey.notifyReset) private var notifyReset = true
     @AppStorage(SettingsKey.notifyPace) private var notifyPace = true
@@ -438,6 +443,10 @@ private struct NotificationsPane: View {
             OptionToggle(title: L("Даже если агент на экране"),
                          detail: L("Выключено: пока вы в Codex или Claude, Cooldown считает, что вы видите всё сами. Событие всё равно попадёт в ленту."),
                          isOn: $cardsWhenFront)
+            OptionToggle(title: L("Показывать карточки на снимках экрана"),
+                         detail: L("Для скриншотов и записи экрана. Выключено: карточек не видно на снимках, в записи и при показе экрана — в них бывают промпты и ответы агентов."),
+                         isOn: $cardsInCapture)
+                .onChange(of: cardsInCapture) { ToastController.shared.applySharing() }
             HStack {
                 Spacer()
                 Button(L("Показать примеры карточек")) { ToastController.shared.showExamples() }
@@ -501,11 +510,27 @@ private struct QuietPane: View {
 
 // MARK: Codex
 
+/// "I use this agent": its tab and menu bar line. Off hides both until it is turned on again,
+/// or until the agent is seen at work.
+private struct ShownSection: View {
+    let provider: ProviderID
+    @ObservedObject private var setup = AgentSetup.shared
+
+    var body: some View {
+        Section {
+            OptionToggle(title: L("Показывать %@ в Cooldown", provider.toolName),
+                         detail: L("Выключено: ни вкладки, ни линии в строке меню, лимиты не запрашиваются. Если %@ снова заработает, Cooldown вернёт его сам.", provider.toolName),
+                         isOn: Binding(get: { !setup.skipped.contains(provider) }, set: { setup.setSkipped(provider, !$0) }))
+        }
+    }
+}
+
 private struct CodexPane: View {
     @EnvironmentObject private var model: AppModel
     @AppStorage(SettingsKey.codexPath) private var codexPath = ""
 
     var body: some View {
+        ShownSection(provider: .codex)
         Section {
             PathRow(label: L("Программа codex"), path: CodexPaths.binary(override: codexPath)?.path, choose: {
                 if let path = chooseFile() {
@@ -555,6 +580,7 @@ private struct ClaudePane: View {
     @State private var message: String?
 
     var body: some View {
+        ShownSection(provider: .claude)
         Section {
             OptionToggle(title: L("Через Claude Code"),
                          detail: L("Cooldown открывает экран /usage в Claude Code и сразу закрывает. Запросов к модели нет, токены не тратятся; лимиты общие для всей подписки."),

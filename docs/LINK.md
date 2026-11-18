@@ -151,7 +151,7 @@ Commands (`op`):
 - `more`: how many other cards wait.
 - `working`: agents at work and since when; pauses up to 45 seconds between turns count as one
   stretch, and a finished turn ends it at once. Sent only to phones whose app shows it.
-- `countdowns`: spent limits and when they come back. When one runs out the Mac sends the state
+- `countdowns`: spent limits that a task is waiting on, and when they come back (a bare spent limit is shown only in the Mac menu bar). When one runs out the Mac sends the state
   again, so the countdown goes away instead of standing at 0:00.
 
 The Mac sends `la` frames: `start` when something new appears and nobody is at the Mac, `update`

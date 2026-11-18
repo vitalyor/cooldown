@@ -4,6 +4,8 @@ import Foundation
 enum ProviderID: String, Codable, CaseIterable, Identifiable {
     case codex
     case claude
+    /// Google Antigravity: only its limits (no history, tasks or hooks).
+    case antigravity
 
     var id: String { rawValue }
 
@@ -11,7 +13,18 @@ enum ProviderID: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .codex: return "Codex"
         case .claude: return "Claude"
+        case .antigravity: return "Antigravity"
         }
+    }
+
+    /// The agents Cooldown drives: setup, hooks, tasks, history.
+    static let agents: [ProviderID] = [.codex, .claude]
+    /// What the window and the menu bar show: the agents the person uses (not marked "I don't use
+    /// it"), plus Antigravity once it is installed. Never empty: with everything hidden, both agents.
+    @MainActor static var shown: [ProviderID] {
+        let used = agents.filter { !AgentSetup.shared.skipped.contains($0) }
+        let all = used + (AntigravityLimits.installed ? [.antigravity] : [])
+        return all.isEmpty ? agents : all
     }
 }
 

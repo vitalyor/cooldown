@@ -120,6 +120,13 @@ private struct HomeView: View {
     let position: Int
     let render: Bool
 
+    /// ⌘← ⌘→: the previous or next agent among those shown.
+    private func step(_ by: Int) {
+        let shown = ProviderID.shown
+        guard let index = shown.firstIndex(of: model.selected) else { model.selected = shown[0]; return }
+        model.selected = shown[max(0, min(shown.count - 1, index + by))]
+    }
+
     var body: some View {
         let store = model.store(model.selected)
         VStack(spacing: 0) {
@@ -134,7 +141,8 @@ private struct HomeView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
             Group {
-                switch tab {
+                // Antigravity brings only its limits: no history or tasks to show.
+                switch model.selected == .antigravity ? .limits : tab {
                 case .limits: LimitsTab(store: store, screen: $screen, render: render)
                 case .stats: StatsTabView(store: store, tab: $stats, range: $range, render: render)
                 case .tasks: TasksTab(store: store, tasks: model.claudeTasks, screen: $screen, render: render)
@@ -143,13 +151,13 @@ private struct HomeView: View {
             .id("\(tab.rawValue)-\(model.selected.rawValue)-\(position)")
             .transition(.opacity)
             .background {
-                // Keys while the window is open: ⌘1–3 tabs, ⌘← ⌘→ Codex / Claude.
+                // Keys while the window is open: ⌘1–3 tabs, ⌘← ⌘→ the previous / next agent.
                 Group {
                     Button("") { tab = .limits }.keyboardShortcut("1", modifiers: .command)
                     Button("") { tab = .stats }.keyboardShortcut("2", modifiers: .command)
                     Button("") { tab = .tasks }.keyboardShortcut("3", modifiers: .command)
-                    Button("") { model.selected = .codex }.keyboardShortcut(.leftArrow, modifiers: .command)
-                    Button("") { model.selected = .claude }.keyboardShortcut(.rightArrow, modifiers: .command)
+                    Button("") { step(-1) }.keyboardShortcut(.leftArrow, modifiers: .command)
+                    Button("") { step(1) }.keyboardShortcut(.rightArrow, modifiers: .command)
                 }
                 .opacity(0)
                 .allowsHitTesting(false)
@@ -158,9 +166,11 @@ private struct HomeView: View {
         }
         .frame(maxHeight: render ? nil : .infinity, alignment: .top)
         .overlay(alignment: .bottom) {
-            TabBar(tab: $tab, tint: store.tint)
-                .padding(.horizontal, 14)
-                .padding(.bottom, 14)
+            if model.selected != .antigravity {
+                TabBar(tab: $tab, tint: store.tint)
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 14)
+            }
         }
         .animation(.smooth(duration: 0.25), value: tab)
         .animation(.smooth(duration: 0.25), value: model.selected)
@@ -216,7 +226,7 @@ private struct Header: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            GlassSegments(options: ProviderID.allCases, selection: $model.selected, tint: { Theme.tint(for: $0) }) { provider, selected in
+            GlassSegments(options: ProviderID.shown, selection: $model.selected, tint: { Theme.tint(for: $0) }) { provider, selected in
                 ProviderLabel(store: model.store(provider), selected: selected)
             }
             .frame(width: 200)

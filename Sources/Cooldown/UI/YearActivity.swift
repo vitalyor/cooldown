@@ -142,6 +142,7 @@ struct YearActivityCard: View {
         case (.dollars, .claude): return day.claudeDollars
         case (.done, .codex): return Double(day.codexDone)
         case (.done, .claude): return Double(day.claudeDone + day.chats)
+        case (_, .antigravity): return 0
         }
     }
 

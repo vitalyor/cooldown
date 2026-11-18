@@ -163,6 +163,7 @@ final class StatusController: NSObject {
         add(L("Запланировать задачу Codex…"), #selector(menuSchedule))
         menu.addItem(.separator())
         add(L("Настройки…"), #selector(menuSettings), ",")
+        add(L("Настройка агентов…"), #selector(menuSetup))
         add(L("Выйти из Cooldown"), #selector(menuQuit), "q")
         item.menu = menu
         item.button?.performClick(nil)
@@ -176,6 +177,7 @@ final class StatusController: NSObject {
     @objc private func menuFeed() { open(to: .feed) }
     @objc private func menuSchedule() { open(to: .schedule) }
     @objc private func menuSettings() { SettingsWindow.shared.show() }
+    @objc private func menuSetup() { SetupWindow.shared.show() }
     @objc private func menuQuit() { NSApp.terminate(nil) }
 
     /// Opens the window on a place of the main screen, for the agent the card is about.

@@ -81,6 +81,7 @@ struct ToastContent: Equatable {
         switch provider {
         case .codex: return ["com.openai.codex"]
         case .claude: return ["com.anthropic.claudefordesktop"]
+        case .antigravity: return ["com.google.antigravity"]
         case nil: return []
         }
     }

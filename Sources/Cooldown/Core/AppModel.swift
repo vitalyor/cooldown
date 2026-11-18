@@ -201,6 +201,8 @@ final class AppModel: ObservableObject {
     let claude = ProviderStore(id: .claude,
                                fetch: { force in try await ClaudeLimits.fetch(force: force) },
                                scanner: { ClaudeHistoryScanner(root: ClaudePaths.projects) })
+    /// Limits only: Antigravity keeps no history Cooldown reads.
+    let antigravity = ProviderStore(id: .antigravity, fetch: { _ in try await AntigravityLimits.fetch() }, scanner: { NoHistory() })
     let claudeTasks = ClaudeTaskManager()
 
     @Published var selected: ProviderID {
@@ -236,7 +238,20 @@ final class AppModel: ObservableObject {
         selected = ProviderID(rawValue: UserDefaults.standard.string(forKey: SettingsKey.selectedProvider) ?? "") ?? .codex
     }
 
-    func store(_ id: ProviderID) -> ProviderStore { id == .codex ? codex : claude }
+    /// An agent was hidden or shown again: keep the window on a visible tab and redraw the menu bar.
+    func shownChanged() {
+        if !ProviderID.shown.contains(selected) { selected = ProviderID.shown[0] }
+        objectWillChange.send()
+        updateMenuImage(animated: true)
+    }
+
+    func store(_ id: ProviderID) -> ProviderStore {
+        switch id {
+        case .codex: return codex
+        case .claude: return claude
+        case .antigravity: return antigravity
+        }
+    }
 
     /// Auto-continue needs the Codex desktop app (its local socket) — nothing else to install.
     var relayAvailable: Bool { CodexApp.url != nil }
@@ -246,6 +261,11 @@ final class AppModel: ObservableObject {
     func start() {
         codex.load()
         claude.load()
+        antigravity.load()
+        if !ProviderID.shown.contains(selected) { selected = ProviderID.shown[0] }
+        // A local command without a model turn, but still a process of its own: once a minute while
+        // the window is open, every five minutes otherwise.
+        antigravity.freshFor = { AppModel.shared.panelVisible ? Settings.refreshInterval : 5 * 60 }
         claudeTasks.load()
         // Codex: while it works, its session files bring the limits with every reply; asking
         // `codex app-server` (a process of its own) is needed only when the window is open or
@@ -294,8 +314,10 @@ final class AppModel: ObservableObject {
         codex.load()
         claude.load()
         claudeTasks.load()
+        antigravity.load()
         codex.allowSave = scan
         claude.allowSave = scan
+        antigravity.allowSave = scan
         DailyLog.shared.load()
         if scan {
             await codex.scan()
@@ -367,11 +389,14 @@ final class AppModel: ObservableObject {
     func refreshLimits() async {
         let force = forceNext
         forceNext = false
-        async let codexFresh = codex.refreshLimits(force: force)
-        async let claudeFresh = claude.refreshLimits(force: force)
-        let (a, b) = await (codexFresh, claudeFresh)
+        let hidden = AgentSetup.shared.skipped
+        async let codexFresh = hidden.contains(.codex) ? nil : codex.refreshLimits(force: force)
+        async let claudeFresh = hidden.contains(.claude) ? nil : claude.refreshLimits(force: force)
+        async let antigravityFresh = AntigravityLimits.installed ? antigravity.refreshLimits(force: force) : nil
+        let (a, b, c) = await (codexFresh, claudeFresh, antigravityFresh)
         if let a { checkThresholds(a) }
         if let b { checkThresholds(b) }
+        if let c { checkThresholds(c) }
         if !isRenderMode {
             Insights.checkPace(codex)
             Insights.checkPace(claude)
@@ -395,7 +420,8 @@ final class AppModel: ObservableObject {
         }
         guard Settings.notifyThresholds else { return }
         // Spent: say when work can go on, at the Mac too — that is the useful part.
-        if session.remainingPercent < 0.5 || fresh.limitReached == true {
+        if AgentActivity.isSpent(fresh.provider, remaining: session.remainingPercent, limitReached: fresh.limitReached, stopped: false)
+            || AgentActivity.spent(fresh.provider) != nil {
             // Still finishing its turn on the last bit: not "spent" yet. The turn's end says what
             // happened (stopped by the limit, or finished), and this card follows only if needed.
             guard AgentActivity.spentAndStopped(fresh.provider) != nil else { return }
@@ -620,12 +646,15 @@ final class AppModel: ObservableObject {
     }
 
     /// The chosen window in the menu bar: five hours by default, the week if selected.
-    /// If the chosen one is not present, fall back to the other so the line is never blank.
+    /// A window the agent does not report has not started yet, so it is full: showing the other
+    /// window's number instead made the line jump from 100% to the week's 54%.
+    nonisolated static func menuRemaining(_ snapshot: LimitSnapshot?, weekly: Bool, _ now: Date) -> Double? {
+        guard let snapshot else { return nil }
+        return (weekly ? snapshot.weekly : snapshot.session)?.remaining(at: now) ?? 100
+    }
+
     private func menuRemaining(_ snapshot: LimitSnapshot?, _ now: Date) -> Double? {
-        if Settings.menuWindow == "weekly" {
-            return snapshot?.weekly?.remaining(at: now) ?? snapshot?.session?.remaining(at: now)
-        }
-        return snapshot?.session?.remaining(at: now) ?? snapshot?.weekly?.remaining(at: now)
+        Self.menuRemaining(snapshot, weekly: Settings.menuWindow == "weekly", now)
     }
 
     /// One line per agent shown in the menu bar: both by default, or just the chosen one.
@@ -641,19 +670,20 @@ final class AppModel: ObservableObject {
         switch Settings.menuSource {
         case "codex": return [codexLine]
         case "claude": return [claudeLine]
-        default: return [codexLine, claudeLine]
+        case "antigravity":
+            return [MenuLine(remaining: menuRemaining(antigravity.snapshot, now), color: GaugeIcon.antigravity, mark: .arch)]
+        default:
+            // Hidden agents ("I don't use it") leave the menu bar too; both, if both are hidden.
+            let shown = ProviderID.shown
+            let lines = [(ProviderID.codex, codexLine), (.claude, claudeLine)].filter { shown.contains($0.0) }.map(\.1)
+            return lines.isEmpty ? [codexLine, claudeLine] : lines
         }
     }
 
-    /// When a chosen task waits for this agent's spent limit: the moment it goes on.
+    /// The agent's limit is spent and it stopped: the moment work can go on.
     private func menuCountdown(_ provider: ProviderID) -> Date? {
         guard !demoActive, let reset = AgentActivity.spentAndStopped(provider), reset > Date() else { return nil }
-        switch provider {
-        case .codex:
-            return watches.contains { $0.enabled && ["waiting_quota", "quota_limited", "waiting_reset"].contains($0.status) } ? reset : nil
-        case .claude:
-            return ClaudeChatList.shared.entries.isEmpty ? nil : reset
-        }
+        return reset
     }
 
     private func menuActivity(_ provider: ProviderID) -> MenuLine.Activity {
@@ -683,7 +713,7 @@ final class AppModel: ObservableObject {
         }
         // Then each agent's 5-hour limit and how long it lasts at the current pace.
         let now = Date()
-        for store in [codex, claude] {
+        for store in [codex, claude, antigravity] {
             let snapshot = store.snapshot
             let window = Settings.menuWindow == "weekly" ? snapshot?.weekly : snapshot?.session
             guard let window, !window.isExpired(at: now) else { continue }
