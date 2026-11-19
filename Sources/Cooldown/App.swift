@@ -310,8 +310,11 @@ enum RenderMode {
                 codex.countdown = Date().addingTimeInterval(83 * 60)
                 let claude = MenuLine(remaining: 64, color: GaugeIcon.claude, mark: GaugeIcon.claudeMark, glyph: GaugeIcon.claudeGlyph)
                 let showText = arguments.contains("--percent")
+                let antigravity = MenuLine(remaining: 82, color: GaugeIcon.antigravity, mark: .arch)
                 let pictures = [GaugeIcon.image(lines: [codex, claude], attention: false, showText: showText),
-                                GaugeIcon.image(lines: [codex], attention: false, showText: showText)]
+                                GaugeIcon.image(lines: [codex], attention: false, showText: showText),
+                                GaugeIcon.image(lines: [claude, antigravity], attention: false, showText: showText),
+                                GaugeIcon.image(lines: [antigravity], attention: false, showText: showText)]
                 let view = HStack(spacing: 20) { ForEach(0..<pictures.count, id: \.self) { Image(nsImage: pictures[$0]) } }
                     .padding(10).background(Color(nsColor: dark ? NSColor(white: 0.15, alpha: 1) : NSColor(white: 0.92, alpha: 1)))
                     .environment(\.colorScheme, dark ? .dark : .light)

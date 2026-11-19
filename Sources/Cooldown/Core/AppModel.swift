@@ -657,27 +657,29 @@ final class AppModel: ObservableObject {
         Self.menuRemaining(snapshot, weekly: Settings.menuWindow == "weekly", now)
     }
 
-    /// One line per agent shown in the menu bar: both by default, or just the chosen one.
+    /// One line per agent chosen for the menu bar (one or two of them). Agents that are hidden
+    /// ("I don't use it") or not installed leave it; with none left, the first two shown stand in.
     private func menuLines() -> [MenuLine] {
         let now = Date()
-        let codexLine0 = MenuLine(remaining: menuRemaining(codex.snapshot, now), color: GaugeIcon.codex, mark: GaugeIcon.codexMark,
-                                 glyph: GaugeIcon.codexGlyph, activity: menuActivity(.codex))
-        let claudeLine0 = MenuLine(remaining: menuRemaining(claude.snapshot, now), color: GaugeIcon.claude, mark: GaugeIcon.claudeMark,
-                                  glyph: GaugeIcon.claudeGlyph, activity: menuActivity(.claude))
-        var codexLine = codexLine0, claudeLine = claudeLine0
-        codexLine.countdown = menuCountdown(.codex)
-        claudeLine.countdown = menuCountdown(.claude)
-        switch Settings.menuSource {
-        case "codex": return [codexLine]
-        case "claude": return [claudeLine]
-        case "antigravity":
-            return [MenuLine(remaining: menuRemaining(antigravity.snapshot, now), color: GaugeIcon.antigravity, mark: .arch)]
-        default:
-            // Hidden agents ("I don't use it") leave the menu bar too; both, if both are hidden.
-            let shown = ProviderID.shown
-            let lines = [(ProviderID.codex, codexLine), (.claude, claudeLine)].filter { shown.contains($0.0) }.map(\.1)
-            return lines.isEmpty ? [codexLine, claudeLine] : lines
+        func line(_ provider: ProviderID) -> MenuLine {
+            switch provider {
+            case .codex:
+                var line = MenuLine(remaining: menuRemaining(codex.snapshot, now), color: GaugeIcon.codex, mark: GaugeIcon.codexMark,
+                                    glyph: GaugeIcon.codexGlyph, activity: menuActivity(.codex))
+                line.countdown = menuCountdown(.codex)
+                return line
+            case .claude:
+                var line = MenuLine(remaining: menuRemaining(claude.snapshot, now), color: GaugeIcon.claude, mark: GaugeIcon.claudeMark,
+                                    glyph: GaugeIcon.claudeGlyph, activity: menuActivity(.claude))
+                line.countdown = menuCountdown(.claude)
+                return line
+            case .antigravity:
+                return MenuLine(remaining: menuRemaining(antigravity.snapshot, now), color: GaugeIcon.antigravity, mark: .arch)
+            }
         }
+        let shown = ProviderID.shown
+        let chosen = Settings.menuProviders.filter(shown.contains)
+        return (chosen.isEmpty ? Array(shown.prefix(2)) : chosen).map(line)
     }
 
     /// The agent's limit is spent and it stopped: the moment work can go on.

@@ -1338,5 +1338,8 @@
  "%@ снова на виду": "%@ ist wieder sichtbar",
  "Вы отметили, что не пользуетесь %@: его вкладка и линия в строке меню скрыты.": "Du hast angegeben, %@ nicht zu nutzen: Tab und Linie in der Menüleiste sind ausgeblendet.",
  "Выключено: ни вкладки, ни линии в строке меню, лимиты не запрашиваются. Если %@ снова заработает, Cooldown вернёт его сам.": "Aus: kein Tab, keine Linie in der Menüleiste, keine Limitabfragen. Arbeitet %@ wieder, blendet Cooldown es von selbst ein.",
- "Показывать %@ в Cooldown": "%@ in Cooldown zeigen"
+ "Показывать %@ в Cooldown": "%@ in Cooldown zeigen",
+ "Линии в строке меню": "Linien in der Menüleiste",
+ "Одна или две линии, в порядке Codex, Claude, Antigravity. Чтобы выбрать другую, сначала снимите одну из отмеченных.": "Eine oder zwei Linien, in der Reihenfolge Codex, Claude, Antigravity. Um eine andere zu wählen, schalte zuerst eine der aktiven aus.",
+ "Так значок выглядит сейчас. Длина линии — сколько осталось в выбранном окне.": "So sieht das Symbol gerade aus. Die Länge einer Linie zeigt, wie viel im gewählten Fenster übrig ist."
 }

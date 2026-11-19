@@ -21,6 +21,12 @@ enum SelfTest {
             expect(AppModel.menuRemaining(snap, weekly: false, now) == 70, "menu: 5h window shown")
             expect(AppModel.menuRemaining(nil, weekly: false, now) == nil, "menu: no data stays blank")
         }
+        // Menu bar lines: old single choices still read the same, any two can be chosen, order is fixed.
+        expect(Settings.menuProviders("lowest") == [.codex, .claude], "menu lines: old default")
+        expect(Settings.menuProviders("claude") == [.claude], "menu lines: old single choice")
+        expect(Settings.menuProviders("antigravity,codex") == [.codex, .antigravity], "menu lines: fixed order")
+        expect(Settings.menuProviders("codex,claude,antigravity").count == 2, "menu lines: at most two")
+        expect(Settings.menuProviders("nonsense").isEmpty, "menu lines: unknown ignored")
         do {
             // Friendly forecast lines: ten 5-hour windows in a row never repeat a phrase.
             let start = Date(timeIntervalSince1970: 1_800_000_000)

@@ -136,7 +136,6 @@
 "Codex завершился с ошибкой (код %@). Подробности в журнале." = "Codex endete mit einem Fehler (Code %@). Details im Protokoll.";
 "Codex завершился, не прислав ответ." = "Codex wurde ohne Antwort beendet.";
 "Codex задал %@ вопроса" = "Codex hat %@ Fragen gestellt";
-"Codex и Claude" = "Codex und Claude";
 "Codex меняет состояние диалога." = "Codex ändert gerade den Zustand der Unterhaltung.";
 "Codex молчит 15 минут" = "Codex ist seit 15 Minuten still";
 "Codex молчит 15 минут: «%@»" = "Codex ist seit 15 Minuten still: „%@“";
@@ -565,6 +564,7 @@
 "Лимиты на 5 часов и неделю, общие для всей подписки" = "5-Stunden- und Wochenlimits, gemeinsam für das ganze Abonnement";
 "Лимиты на экране блокировки" = "Limits auf dem Sperrbildschirm";
 "Лимиты, работа агентов и автопродолжение для Codex и Claude — в строке меню." = "Limits, Arbeit der Agenten und Auto-Fortsetzen für Codex und Claude — in der Menüleiste.";
+"Линии в строке меню" = "Linien in der Menüleiste";
 "Линия" = "Linie";
 "Лицензия" = "Lizenz";
 "Лучшие идеи часто приходят утром. Проверим?" = "Die besten Ideen kommen oft morgens. Probieren wir’s aus?";
@@ -712,6 +712,7 @@
 "Обновления" = "Updates";
 "Обновления с GitHub" = "Updates von GitHub";
 "Обычно телефон молчит, пока вы за Mac, и включается, когда Mac заблокирован или вас нет у него пару минут." = "Normalerweise bleibt das Telefon still, solange du am Mac bist, und übernimmt, wenn der Mac gesperrt ist oder du ein paar Minuten weg bist.";
+"Одна или две линии, в порядке Codex, Claude, Antigravity. Чтобы выбрать другую, сначала снимите одну из отмеченных." = "Eine oder zwei Linien, in der Reihenfolge Codex, Claude, Antigravity. Um eine andere zu wählen, schalte zuerst eine der aktiven aus.";
 "Одобрить" = "Genehmigen";
 "Окно" = "Fenster";
 "Окно Claude Desktop" = "Claude-Desktop-Fenster";
@@ -847,7 +848,6 @@
 "Показать" = "Zeigen";
 "Показать все (%@)" = "Alle zeigen (%@)";
 "Показать примеры карточек" = "Beispielkarten zeigen";
-"Показывать" = "Anzeigen";
 "Показывать %@ в Cooldown" = "%@ in Cooldown zeigen";
 "Показывать карточки на снимках экрана" = "Karten auf Bildschirmfotos zeigen";
 "Показывать, когда агент работает" = "Anzeigen, wenn ein Agent arbeitet";
@@ -1049,7 +1049,7 @@
 "Сходите за водой — к возвращению сброс станет ближе." = "Hol dir Wasser – wenn du zurück bist, ist der Reset näher.";
 "Таблица по дням" = "Tabelle nach Tagen";
 "Так выглядит завершённая задача." = "So sieht eine beendete Aufgabe aus.";
-"Так значок выглядит сейчас. Верхняя линия — Codex, нижняя — Claude; длина — сколько осталось в выбранном окне." = "So sieht das Symbol jetzt aus. Obere Linie — Codex, untere — Claude; die Länge zeigt den Rest im gewählten Fenster.";
+"Так значок выглядит сейчас. Длина линии — сколько осталось в выбранном окне." = "So sieht das Symbol gerade aus. Die Länge einer Linie zeigt, wie viel im gewählten Fenster übrig ist.";
 "Так приходит «готово», когда агент закончил, а вас нет у Mac. Live Activity при этом закрывается." = "So kommt „fertig“, wenn ein Agent fertig ist, während du nicht am Mac bist. Die Live-Aktivität schließt sich dabei.";
 "Такой ответ здесь не поддерживается." = "Diese Antwort wird hier nicht unterstützt.";
 "Тариф %@ с %@ — обычный темп считается заново." = "Tarif %@ seit %@ – dein übliches Tempo wird neu gelernt.";
@@ -1066,9 +1066,6 @@
 "Токены" = "Tokens";
 "Токены считаются по Claude Code на этом Mac. Чаты и Cowork в Claude Desktop расход токенов локально не хранят, их активность на вкладке «Диалоги»." = "Tokens werden aus Claude Code auf diesem Mac gezählt. Chats und Cowork in Claude Desktop speichern den Tokenverbrauch nicht lokal; ihre Aktivität steht im Tab „Unterhaltungen“.";
 "Токены, деньги и доля недели для Codex и Claude — CSV для Numbers или Excel." = "Tokens, Geld und Wochenanteil für Codex und Claude — als CSV für Numbers oder Excel.";
-"Только Antigravity" = "Nur Antigravity";
-"Только Claude" = "Nur Claude";
-"Только Codex" = "Nur Codex";
 "Только для Claude Code" = "Nur für Claude Code";
 "Только для Codex." = "Nur für Codex.";
 "Только когда вас нет за Mac или карточка может что-то изменить." = "Nur wenn du nicht am Mac bist oder die Karte etwas bewirken kann.";

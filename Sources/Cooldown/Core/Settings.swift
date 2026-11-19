@@ -80,8 +80,16 @@ enum Settings {
     static var codexPath: String { defaults.string(forKey: SettingsKey.codexPath) ?? "" }
     static var claudePath: String { defaults.string(forKey: SettingsKey.claudePath) ?? "" }
     static var showPercent: Bool { bool(SettingsKey.showPercent, true) }
-    /// "lowest" across all agents, or one agent's id.
+    /// Which agents have a line in the menu bar: their ids joined by commas ("codex,antigravity").
+    /// "lowest", the old default, means Codex and Claude; a single id is one line as before.
     static var menuSource: String { defaults.string(forKey: SettingsKey.menuSource) ?? "lowest" }
+    static var menuProviders: [ProviderID] { menuProviders(menuSource) }
+    /// At most two, always in the same order (Codex, Claude, Antigravity): two lines is all the
+    /// menu bar's height holds with readable numbers.
+    static func menuProviders(_ raw: String) -> [ProviderID] {
+        let ids = Set((raw == "lowest" ? "codex,claude" : raw).split(separator: ",").compactMap { ProviderID(rawValue: String($0)) })
+        return Array(ProviderID.allCases.filter(ids.contains).prefix(2))
+    }
     /// "session" (5 hours) or "weekly" for the line/number in the menu bar.
     static var menuWindow: String { defaults.string(forKey: SettingsKey.menuWindow) ?? "session" }
     static var notifyThresholds: Bool { bool(SettingsKey.notifyThresholds, true) }

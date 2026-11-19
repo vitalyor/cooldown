@@ -373,6 +373,22 @@ private struct MenuBarPane: View {
     @AppStorage(SettingsKey.showActivity) private var showActivity = true
     @State private var image: NSImage?
 
+    /// The agents with a line now, as the menu bar draws them (hidden or missing ones left out).
+    private var chosen: [ProviderID] {
+        let picked = Settings.menuProviders(menuSource).filter(ProviderID.shown.contains)
+        return picked.isEmpty ? Array(ProviderID.shown.prefix(2)) : picked
+    }
+
+    /// On adds a line (up to two); off removes one, but never the last.
+    private func lineBinding(_ provider: ProviderID) -> Binding<Bool> {
+        Binding(get: { chosen.contains(provider) }, set: { on in
+            var next = chosen.filter { $0 != provider }
+            if on { next.append(provider) }
+            guard !next.isEmpty else { return }
+            menuSource = ProviderID.allCases.filter(next.contains).map(\.rawValue).joined(separator: ",")
+        })
+    }
+
     var body: some View {
         Section {
             HStack {
@@ -392,16 +408,18 @@ private struct MenuBarPane: View {
             }
             .padding(.vertical, 10)
         } footer: {
-            Footnote(text: L("Так значок выглядит сейчас. Верхняя линия — Codex, нижняя — Claude; длина — сколько осталось в выбранном окне."))
+            Footnote(text: L("Так значок выглядит сейчас. Длина линии — сколько осталось в выбранном окне."))
+        }
+        Section {
+            ForEach(ProviderID.shown) { provider in
+                Toggle(provider.displayName, isOn: lineBinding(provider))
+                    .disabled(!chosen.contains(provider) && chosen.count >= 2)
+            }
+        } header: { Text(L("Линии в строке меню")) } footer: {
+            Footnote(text: L("Одна или две линии, в порядке Codex, Claude, Antigravity. Чтобы выбрать другую, сначала снимите одну из отмеченных."))
         }
         Section {
             OptionToggle(title: L("Проценты рядом с линиями"), isOn: $showPercent)
-            Picker(L("Показывать"), selection: $menuSource) {
-                Text(L("Codex и Claude")).tag("lowest")
-                Text(L("Только Codex")).tag("codex")
-                Text(L("Только Claude")).tag("claude")
-                if AntigravityLimits.installed || menuSource == "antigravity" { Text(L("Только Antigravity")).tag("antigravity") }
-            }
             Picker(L("Окно в строке меню"), selection: $menuWindow) {
                 Text(L("5 часов")).tag("session")
                 Text(L("Неделя")).tag("weekly")
