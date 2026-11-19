@@ -15,3 +15,5 @@ Relay/relay
 
 # A pairing link for the UI test: fresh and private every time
 iOS/UITests/InviteURL.txt
+/build
+build.noindex/
