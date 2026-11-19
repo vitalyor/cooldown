@@ -177,6 +177,7 @@ enum ClaudeSender {
     static func send(_ message: String, to chat: ClaudeChat?, promptForPermission: Bool = true,
                      retryIfStopped: Bool = false, onlyIfStopped: Bool = false) async throws {
         guard !sending else { throw SendError.busy }
+        try RouteGuard.check(.claude)
         sending = true
         defer { sending = false }
         guard hasPermission else {

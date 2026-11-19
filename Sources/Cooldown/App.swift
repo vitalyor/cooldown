@@ -76,6 +76,26 @@ enum Entry {
             print(String(format: "%.0f ms", Date().timeIntervalSince(started) * 1000))
             exit(0)
         }
+        if arguments.contains("--guard-hooks-test") {
+            let failures = MainActor.assumeIsolated { GuardTest.hooks() }
+            print(failures.isEmpty ? "guard-hooks-test: all passed" : "FAILED:\n" + failures.joined(separator: "\n"))
+            exit(failures.isEmpty ? 0 : 1)
+        }
+        if let index = arguments.firstIndex(where: { $0 == "--guard-test" || $0 == "--guard-test-hold" }), index + 2 < arguments.count {
+            let home = arguments[index + 1], dummy = arguments[index + 2]
+            if arguments[index] == "--guard-test-hold" { MainActor.assumeIsolated { GuardTest.hold(home: home, dummy: dummy) } }
+            if arguments.contains("--tree") {
+                let failures = MainActor.assumeIsolated { GuardTest.tree(home: home, dummy: dummy) }
+                print(failures.isEmpty ? "guard-tree-test: all passed" : "FAILED:\n" + failures.joined(separator: "\n"))
+                exit(failures.isEmpty ? 0 : 1)
+            }
+            Task { @MainActor in
+                let failures = await GuardTest.run(home: home, dummy: dummy)
+                print(failures.isEmpty ? "guard-test: all passed" : "FAILED:\n" + failures.joined(separator: "\n"))
+                exit(failures.isEmpty ? 0 : 1)
+            }
+            dispatchMain()
+        }
         if arguments.contains("--selftest") || arguments.contains("--resume-selftest") {
             let failures = MainActor.assumeIsolated { SelfTest.run() }
             print(failures.isEmpty ? "self-test: all passed" : "FAILED:\n" + failures.joined(separator: "\n"))

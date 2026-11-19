@@ -137,13 +137,15 @@ enum AgentHooks {
 
     // MARK: Status
 
-    static func status(_ agent: Agent) -> Status {
+    static func status(_ agent: Agent) -> Status { status(agent, mark: marker) }
+
+    private static func status(_ agent: Agent, mark: String) -> Status {
         guard let root = try? read(agent), let hooks = root["hooks"] as? [String: Any] else { return .off }
         var ours: [(event: String, group: Int, handler: Int)] = []
         for (event, value) in hooks {
             guard let groups = value as? [[String: Any]] else { continue }
             for (index, group) in groups.enumerated() {
-                for (handler, value) in ((group["hooks"] as? [[String: Any]]) ?? []).enumerated() where isOurHandler(value) {
+                for (handler, value) in ((group["hooks"] as? [[String: Any]]) ?? []).enumerated() where (value["command"] as? String)?.contains(mark) == true {
                     ours.append((event, index, handler))
                 }
             }
@@ -235,6 +237,145 @@ enum AgentHooks {
             let groups = existing.compactMap { updatedGroup($0, handler: nil) }
             if groups.isEmpty { hooks.removeValue(forKey: event) } else { hooks[event] = groups }
         }
+        root["hooks"] = hooks
+        try write(agent, root)
+    }
+
+    // MARK: VPN guard hooks
+
+    /// The guard's own hooks, kept apart from the ones above: another marker, their own groups,
+    /// installed and removed only with the guard. They are the one thing here that may stop the
+    /// agent: a prompt is held, or work stops between steps, while the route is wrong.
+    static let guardMarker = "cooldown-guard"
+    static var guardScript: URL { directory.appendingPathComponent("cooldown-guard") }
+
+    /// `$1`: anthropic or openai; `$2`: prompt (before a prompt goes out) or step (before the
+    /// next model request inside a turn). Cooldown's fresh reading first; with none (Cooldown
+    /// closed, or more than 30 s old) the hook checks the route itself.
+    private static let guardText = """
+    #!/bin/sh
+    # Cooldown VPN guard: lets the agent's request out only while its route is right.
+    dir="$HOME/Library/Application Support/Cooldown/guard"
+    service="$1"; when="$2"
+    [ -f "$dir/on" ] || exit 0
+    # Cooldown moved to the Trash or deleted: the guard is gone, nothing is held.
+    app=$(head -n 1 "$dir/on" 2>/dev/null)
+    if [ -n "$app" ] && [ ! -d "$app" ]; then exit 0; fi
+    now=$(date +%s)
+    state=""; at=0
+    [ -f "$dir/$service" ] && read -r state at < "$dir/$service"
+    case "$at" in ''|*[!0-9]*) at=0;; esac
+    # A fresh answer from Cooldown counts; "unchecked" (a network just changed) is checked here,
+    # and so is everything when this terminal names a proxy: its route is not Cooldown's.
+    proxy="$HTTPS_PROXY$https_proxy$ALL_PROXY$all_proxy"
+    if [ -z "$proxy" ] && [ -n "$state" ] && [ "$state" != unchecked ] && [ $((now - at)) -le 30 ]; then
+      verdict="$state"
+    else
+      case "$service" in anthropic) host=api.anthropic.com;; openai) host=chatgpt.com;; *) exit 0;; esac
+      # IPv4 and IPv6 apart: a VPN that carries only one lets the other out directly.
+      verdict=unchecked
+      for family in -4 -6; do
+        trace=$(curl -s "$family" -m 3 --proto =https "https://$host/cdn-cgi/trace" 2>/dev/null)
+        loc=$(printf '%s\n' "$trace" | sed -n 's/^loc=//p')
+        ip=$(printf '%s\n' "$trace" | sed -n 's/^ip=//p')
+        [ -n "$loc" ] || continue
+        if grep -qw "$loc" "$dir/forbidden" 2>/dev/null; then verdict=block; break; fi
+        if [ -n "$ip" ] && grep -qxF "$ip" "$dir/refused" 2>/dev/null; then verdict=block; break; fi
+        verdict=ok
+      done
+    fi
+    [ "$verdict" = ok ] && exit 0
+    msg=$(cat "$dir/msg-$service-$verdict" 2>/dev/null)
+    [ -n "$msg" ] || msg="Cooldown: the route is not confirmed, the request was held."
+    if [ "$when" = step ]; then
+      printf '{"continue":false,"stopReason":"%s"}\n' "$msg"
+      exit 0
+    fi
+    printf '%s\n' "$msg" >&2
+    exit 2
+    """
+
+    static func writeGuardScript() throws {
+        let fm = FileManager.default
+        try fm.createDirectory(at: directory, withIntermediateDirectories: true)
+        try fm.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directory.path)
+        if (try? String(contentsOf: guardScript, encoding: .utf8)) != guardText {
+            try guardText.write(to: guardScript, atomically: true, encoding: .utf8)
+        }
+        try fm.setAttributes([.posixPermissions: 0o700], ofItemAtPath: guardScript.path)
+    }
+
+    /// If Cooldown is removed, the command finds no script and lets everything through, so an
+    /// agent is never left blocked by a guard that no longer exists.
+    static func guardCommand(_ service: String, _ when: String) -> String {
+        "/bin/sh -c 'f=\"$HOME/Library/Application Support/Cooldown/hooks/\(guardMarker)\"; [ -x \"$f\" ] || exit 0; exec \"$f\" \(service) \(when)'"
+    }
+
+    private static func guardPlan(_ agent: Agent) -> [(event: String, handler: [String: Any])] {
+        switch agent {
+        case .claude:
+            // "block" on failure: a hook that crashed or ran out of time does not let the prompt out.
+            func handler(_ when: String) -> [String: Any] {
+                ["type": "command", "command": guardCommand("anthropic", when), "timeout": 8, "onFailure": "block"]
+            }
+            return [("UserPromptSubmit", handler("prompt")), ("PostToolBatch", handler("step"))]
+        case .codex:
+            return [("UserPromptSubmit", ["type": "command", "command": guardCommand("openai", "prompt"), "timeout": 8,
+                                          "statusMessage": "Cooldown: проверяет, что Codex выходит в сеть через VPN"])] // l10n:skip
+        }
+    }
+
+    static func guardStatus(_ agent: Agent) -> Status { status(agent, mark: guardMarker) }
+
+    private static func isGuard(_ handler: [String: Any]) -> Bool {
+        (handler["command"] as? String)?.contains(guardMarker) == true
+    }
+
+    static func installGuard(_ agent: Agent) throws {
+        try writeGuardScript()
+        var root = try read(agent)
+        var hooks = root["hooks"] as? [String: Any] ?? [:]
+        for item in guardPlan(agent) {
+            var groups = hooks[item.event] as? [[String: Any]] ?? []
+            if let index = groups.firstIndex(where: { (($0["hooks"] as? [[String: Any]]) ?? []).contains(where: isGuard) }) {
+                var group = groups[index]
+                group["hooks"] = ((group["hooks"] as? [[String: Any]]) ?? []).map { isGuard($0) ? item.handler : $0 }
+                groups[index] = group
+            } else {
+                // Last, after everything already there: other hooks keep their places (and Codex's trust).
+                groups.append(["hooks": [item.handler]])
+            }
+            hooks[item.event] = groups
+        }
+        root["hooks"] = hooks
+        try write(agent, root)
+    }
+
+    static func uninstallGuard(_ agent: Agent) throws {
+        var root = try read(agent)
+        guard var hooks = root["hooks"] as? [String: Any] else { return }
+        var changed = false
+        for (event, value) in hooks {
+            guard let existing = value as? [[String: Any]] else { continue }
+            // Codex trusts a hook by its position. A guard group with others after it stays where it
+            // is (it does nothing once the guard is off), so theirs keep their places and their trust.
+            if agent == .codex, let index = existing.lastIndex(where: { (($0["hooks"] as? [[String: Any]]) ?? []).contains(where: isGuard) }),
+               index < existing.count - 1 {
+                continue
+            }
+            let groups = existing.compactMap { group -> [String: Any]? in
+                let handlers = (group["hooks"] as? [[String: Any]]) ?? []
+                guard handlers.contains(where: isGuard) else { return group }
+                changed = true
+                let kept = handlers.filter { !isGuard($0) }
+                guard !kept.isEmpty else { return nil }
+                var updated = group
+                updated["hooks"] = kept
+                return updated
+            }
+            if groups.isEmpty { hooks.removeValue(forKey: event) } else { hooks[event] = groups }
+        }
+        guard changed else { return }
         root["hooks"] = hooks
         try write(agent, root)
     }

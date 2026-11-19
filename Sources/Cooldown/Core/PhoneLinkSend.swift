@@ -311,6 +311,8 @@ extension PhoneLink {
         case .continueAllClaude: return "continueAll"
         case .continueAfterReset: return "afterReset"
         case .restartAgent(let provider): return "restart:" + provider.rawValue
+        case .guardExit(let choice, let key): return "guardExit:" + choice.rawValue + ":" + key
+        case .guardPause: return "guardPause"
         default: return nil
         }
     }
@@ -335,6 +337,11 @@ extension PhoneLink {
             guard let id = actionID(action) else { return nil }
             // Quitting an app on the Mac from afar: Face ID first.
             if case .restartAgent = action { return LinkAction(id: id, title: action.title, style: .normal, auth: true) }
+            // Letting work go on past the VPN guard from afar: Face ID too.
+            if case .guardPause = action { return LinkAction(id: id, title: action.title, style: .normal, auth: true) }
+            if case .guardExit(let choice, _) = action {
+                return LinkAction(id: id, title: action.title, style: choice == .refuse ? .destructive : .primary, auth: choice != .refuse)
+            }
             return LinkAction(id: id, title: action.title, style: .primary)
         }
         for choice in content.choices where choice.role != .open {

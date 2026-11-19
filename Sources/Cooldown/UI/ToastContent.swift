@@ -25,6 +25,10 @@ enum ToastAction: Equatable {
     case openFile(URL)
     /// Quit and open the agent's app again — only when nothing is going on in it (AgentRestart).
     case restartAgent(ProviderID)
+    /// A new exit for a service: allow it for good, for now, or refuse it (RouteGuard).
+    case guardExit(GuardExitChoice, String)
+    /// The VPN guard off for an hour.
+    case guardPause
 
     /// The agent's own app: where a chat or task about it can actually be looked at.
     static func app(_ provider: ProviderID) -> ToastAction { provider == .codex ? .openCodex : .openClaude }
@@ -38,6 +42,10 @@ enum ToastAction: Equatable {
         case .continueAfterReset: return L("Продолжить после сброса")
         case .openFile: return L("Открыть отчёт")
         case .restartAgent(let provider): return L("Перезапустить %@", provider.displayName)
+        case .guardExit(.remember, _): return L("Разрешить и запомнить")
+        case .guardExit(.once, _): return L("Только сейчас")
+        case .guardExit(.refuse, _): return L("Запретить")
+        case .guardPause: return L("Выключить защиту на час")
         case .openSchedule: return L("Отложить задачу")
         case .installUpdate: return L("Перезапустить")
         case .installRelease: return L("Обновить")

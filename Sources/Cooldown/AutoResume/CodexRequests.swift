@@ -378,6 +378,7 @@ final class CodexRequestWatcher: @unchecked Sendable {
     }
 
     private static func send(_ choice: RequestChoice, thread: String, shown: [String: Any]) throws {
+        try RouteGuard.check(.codex)
         let connection = CodexIPCConnection(timeout: 8)
         try connection.open()
         defer { connection.close() }

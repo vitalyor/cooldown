@@ -19,9 +19,12 @@ enum ProviderID: String, Codable, CaseIterable, Identifiable {
 
     /// The agents Cooldown drives: setup, hooks, tasks, history.
     static let agents: [ProviderID] = [.codex, .claude]
+    /// `--guard-test` only: which agents count as shown, whatever this Mac's settings say.
+    @MainActor static var testShown: [ProviderID]?
     /// What the window and the menu bar show: the agents the person uses (not marked "I don't use
     /// it"), plus Antigravity once it is installed. Never empty: with everything hidden, both agents.
     @MainActor static var shown: [ProviderID] {
+        if let testShown { return testShown }
         let used = agents.filter { !AgentSetup.shared.skipped.contains($0) }
         let all = used + (AntigravityLimits.installed ? [.antigravity] : [])
         return all.isEmpty ? agents : all

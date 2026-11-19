@@ -75,7 +75,7 @@ final class ScheduledRunner: ObservableObject {
               let snapshot = limits, let session = snapshot.session else { return }
         let now = Date()
         let room = session.remaining(at: now) >= 5 && (snapshot.weekly?.remaining(at: now) ?? 100) >= 2
-        guard room, let index = tasks.lastIndex(where: { $0.state == .waiting }) else { return }
+        guard room, RouteGuard.allows(.codex), let index = tasks.lastIndex(where: { $0.state == .waiting }) else { return }
         start(index)
     }
 

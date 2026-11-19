@@ -78,6 +78,8 @@ final class AgentSetup: ObservableObject {
     }
 
     private func check(_ provider: ProviderID) async {
+        // Asking the agent whether it is signed in may reach its servers: not while the route is wrong.
+        guard RouteGuard.allows(provider) else { return }
         guard let binary = binary(provider) else {
             agents[provider]?.stage = .missing
             return

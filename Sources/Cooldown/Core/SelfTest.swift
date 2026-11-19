@@ -21,6 +21,26 @@ enum SelfTest {
             expect(AppModel.menuRemaining(snap, weekly: false, now) == 70, "menu: 5h window shown")
             expect(AppModel.menuRemaining(nil, weekly: false, now) == nil, "menu: no data stays blank")
         }
+        // VPN guard: a Cloudflare trace read right, and the verdicts it leads to.
+        do {
+            let exit = RouteExit.parse("fl=1\nh=api.anthropic.com\nip=64.188.1.2\nts=1.0\ncolo=ORD\nloc=us\nwarp=off\n")
+            expect(exit == RouteExit(ip: "64.188.1.2", country: "US", colo: "ORD"), "guard: trace parsed")
+            expect(RouteExit.parse("<html>blocked</html>") == nil, "guard: not a trace")
+            let forbidden: Set<String> = ["RU", "BY"]
+            expect(RouteVerdict.judge(exit, forbidden: forbidden, refused: []) == .ok, "guard: allowed country")
+            expect(RouteVerdict.judge(RouteExit(ip: "1.1.1.1", country: "RU", colo: "ARN"), forbidden: forbidden, refused: []) == .forbidden, "guard: forbidden country")
+            expect(RouteVerdict.judge(exit, forbidden: forbidden, refused: ["64.188.1.2"]) == .refused, "guard: refused address")
+            expect(RouteVerdict.judge(nil, forbidden: forbidden, refused: []) == .unchecked, "guard: no answer is not ok")
+            // IPv4 and IPv6 judged together: a forbidden family wins, a missing one does not count.
+            let ruExit = RouteExit(ip: "2a00::1", country: "RU", colo: "ARN")
+            expect(RouteGuard.worst(exit, ruExit, forbidden: forbidden) == ruExit, "guard: IPv6 leaking to RU wins")
+            expect(RouteGuard.worst(ruExit, exit, forbidden: forbidden) == ruExit, "guard: IPv4 leaking to RU wins")
+            expect(RouteGuard.worst(nil, exit, forbidden: forbidden) == exit, "guard: IPv6 only is enough")
+            expect(RouteGuard.worst(exit, nil, forbidden: forbidden) == exit, "guard: no IPv6 is fine")
+            expect(RouteGuard.worst(nil, nil, forbidden: forbidden) == nil, "guard: no answer on either family")
+            expect(AgentHooks.guardCommand("anthropic", "prompt").contains("[ -x"), "guard: missing script lets the agent go")
+            expect(!AgentHooks.guardCommand("anthropic", "prompt").contains(AgentHooks.marker), "guard: hook kept apart from the others")
+        }
         // Menu bar lines: old single choices still read the same, any two can be chosen, order is fixed.
         expect(Settings.menuProviders("lowest") == [.codex, .claude], "menu lines: old default")
         expect(Settings.menuProviders("claude") == [.claude], "menu lines: old single choice")

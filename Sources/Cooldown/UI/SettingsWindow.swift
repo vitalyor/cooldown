@@ -57,7 +57,7 @@ final class SettingsNavigation: ObservableObject {
 }
 
 enum SettingsPane: String, CaseIterable, Identifiable {
-    case general, menubar, notifications, iphone, quiet, codex, claude, updates, data, diagnostics, about
+    case general, menubar, notifications, iphone, quiet, vpn, codex, claude, updates, data, diagnostics, about
 
     var id: String { rawValue }
 
@@ -68,6 +68,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .notifications: return L("Уведомления")
         case .iphone: return "iPhone"
         case .quiet: return L("Тишина")
+        case .vpn: return L("Защита VPN")
         case .codex: return "Codex"
         case .claude: return "Claude"
         case .updates: return L("Обновления")
@@ -84,6 +85,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .notifications: return L("Карточки, баннеры и звуки")
         case .iphone: return L("Пульт Cooldown в кармане")
         case .quiet: return L("Фокусировка и тихие часы")
+        case .vpn: return L("Агенты не выходят в сеть мимо VPN")
         case .codex: return L("Программа, хуки и автопродолжение")
         case .claude: return L("Источники лимитов, Claude Desktop и Claude Code")
         case .updates: return L("Новые версии с GitHub")
@@ -100,6 +102,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .notifications: return "bell.badge.fill"
         case .iphone: return "iphone"
         case .quiet: return "moon.fill"
+        case .vpn: return "checkmark.shield.fill"
         case .codex: return "chevron.left.forwardslash.chevron.right"
         case .claude: return "sparkle"
         case .updates: return "arrow.down.circle.fill"
@@ -116,6 +119,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .notifications: return Color(red: 0.98, green: 0.27, blue: 0.3)
         case .iphone: return Color(red: 0.15, green: 0.15, blue: 0.17)
         case .quiet: return Color(red: 0.36, green: 0.33, blue: 0.9)
+        case .vpn: return Color(red: 0.12, green: 0.62, blue: 0.42)
         case .codex: return Color(red: 0.25, green: 0.36, blue: 0.92)
         case .claude: return Color(red: 0.86, green: 0.47, blue: 0.32)
         case .updates: return Color(red: 0.2, green: 0.72, blue: 0.4)
@@ -133,6 +137,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .notifications: return L("карточки баннеры звуки лимит сброс задачи запросы разрешения итоги проекты")
         case .iphone: return L("телефон пульт qr код подключить live activity уведомления кнопки")
         case .quiet: return L("фокус не беспокоить сон ночь тихие часы")
+        case .vpn: return L("vpn маршрут страна бан блокировка защита заморозка адрес сервер роутер")
         case .codex: return L("codex путь хуки автопродолжение")
         case .claude: return L("claude code desktop usage аккаунт строка статуса хуки окно")
         case .updates: return L("версия github обновить скачивать")
@@ -220,6 +225,7 @@ private struct PaneView: View {
             case .notifications: NotificationsPane()
             case .iphone: PhonePane()
             case .quiet: QuietPane()
+            case .vpn: GuardPane()
             case .codex: CodexPane()
             case .claude: ClaudePane()
             case .updates: UpdatesPane()

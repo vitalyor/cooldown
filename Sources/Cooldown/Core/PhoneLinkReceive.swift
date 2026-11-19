@@ -211,6 +211,15 @@ extension PhoneLink {
             case .restartAgent(let provider):
                 let text = await AgentRestart.shared.restart(provider, whenFree: true, from: "iPhone")
                 return LinkResult(cmd: cmd.id, code: "ok", text: text)
+            case .guardExit(let choice, let key):
+                // The card on the phone may be older than what waits now: then nothing is changed.
+                guard RouteGuard.shared.answerExit(choice, key: key) else {
+                    return LinkResult(cmd: cmd.id, code: "stale", text: L("Уже не актуально."))
+                }
+                return LinkResult(cmd: cmd.id, code: "ok", text: choice == .refuse ? L("Адрес запрещён.") : L("Адрес разрешён."))
+            case .guardPause:
+                RouteGuard.shared.pause(3600)
+                return LinkResult(cmd: cmd.id, code: "ok", text: L("Защита выключена на час."))
             default:
                 return LinkResult(cmd: cmd.id, code: "unknown", text: L("Это действие доступно только на Mac."))
             }

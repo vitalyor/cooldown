@@ -196,13 +196,13 @@ final class AppModel: ObservableObject {
     static let shared = AppModel()
 
     let codex = ProviderStore(id: .codex,
-                              fetch: { _ in try await CodexLimits.fetch(binaryOverride: Settings.codexPath) },
+                              fetch: { _ in try await RouteGuard.gate(.codex); return try await CodexLimits.fetch(binaryOverride: Settings.codexPath) },
                               scanner: { CodexHistoryScanner(root: CodexPaths.sessions) })
     let claude = ProviderStore(id: .claude,
-                               fetch: { force in try await ClaudeLimits.fetch(force: force) },
+                               fetch: { force in try await RouteGuard.gate(.claude); return try await ClaudeLimits.fetch(force: force) },
                                scanner: { ClaudeHistoryScanner(root: ClaudePaths.projects) })
     /// Limits only: Antigravity keeps no history Cooldown reads.
-    let antigravity = ProviderStore(id: .antigravity, fetch: { _ in try await AntigravityLimits.fetch() }, scanner: { NoHistory() })
+    let antigravity = ProviderStore(id: .antigravity, fetch: { _ in try await RouteGuard.gate(.antigravity); return try await AntigravityLimits.fetch() }, scanner: { NoHistory() })
     let claudeTasks = ClaudeTaskManager()
 
     @Published var selected: ProviderID {
@@ -263,6 +263,7 @@ final class AppModel: ObservableObject {
         claude.load()
         antigravity.load()
         if !ProviderID.shown.contains(selected) { selected = ProviderID.shown[0] }
+        RouteGuard.shared.start()
         // A local command without a model turn, but still a process of its own: once a minute while
         // the window is open, every five minutes otherwise.
         antigravity.freshFor = { AppModel.shared.panelVisible ? Settings.refreshInterval : 5 * 60 }
@@ -679,7 +680,12 @@ final class AppModel: ObservableObject {
         }
         let shown = ProviderID.shown
         let chosen = Settings.menuProviders.filter(shown.contains)
-        return (chosen.isEmpty ? Array(shown.prefix(2)) : chosen).map(line)
+        return (chosen.isEmpty ? Array(shown.prefix(2)) : chosen).map { provider in
+            var drawn = line(provider)
+            // Stopped by the VPN guard: the line turns red until the route is right again.
+            if !RouteGuard.allows(provider) { drawn.color = .systemRed }
+            return drawn
+        }
     }
 
     /// The agent's limit is spent and it stopped: the moment work can go on.

@@ -341,6 +341,11 @@ final class ClaudeTaskManager: ObservableObject {
     }
 
     private func resume(_ task: ClaudeTask, stopID: String) {
+        // Wrong route (VPN down): tried again on a later tick, nothing counted as an attempt.
+        guard RouteGuard.allows(.claude) else {
+            update(task.id) { $0.reason = L("Жду, пока маршрут к Claude придёт в норму (VPN).") }
+            return
+        }
         guard let claude = ClaudePaths.binary(override: Settings.claudePath) else {
             update(task.id) { $0.status = "blocked"; $0.reason = ClaudeTaskError.noBinary.localizedDescription }
             return

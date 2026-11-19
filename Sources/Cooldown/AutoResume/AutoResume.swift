@@ -187,6 +187,7 @@ final class AutoResume: @unchecked Sendable {
     }
 
     func reply(_ raw: String, text: String) async throws {
+        try RouteGuard.check(.codex)
         let id = raw.lowercased()
         guard ResumeRules.isThreadId(id), !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw ResumeError.refused(L("Нужен точный номер диалога Codex и непустое сообщение."))
@@ -598,6 +599,10 @@ final class AutoResume: @unchecked Sendable {
             }
         }
 
+        // The VPN guard says the route to OpenAI is wrong: not even the limits are asked for.
+        if !RouteGuard.allows(.codex) {
+            return Outcome(status: "waiting_quota", reason: L("Жду, пока маршрут к Codex придёт в норму (VPN)."), kind: .temporary, next: 30)
+        }
         // Only a fresh reading of the limits may say they are back, never the clock alone.
         let limits: [String: Any]
         do {

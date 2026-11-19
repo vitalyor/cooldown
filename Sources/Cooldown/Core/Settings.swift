@@ -24,6 +24,12 @@ enum SettingsKey {
     static let quietWithFocus = "quietWithFocus"
     static let cardsWhenFront = "cardsWhenFront"
     static let cardsInCapture = "cardsInCapture"
+    static let guardEnabled = "guardEnabled"
+    static let guardFreeze = "guardFreeze"
+    static let guardForbidden = "guardForbidden"
+    static let guardExits = "guardExits"
+    static let guardRefused = "guardRefused"
+    static let guardPausedUntil = "guardPausedUntil"
     static let notifyPace = "notifyPace"
     static let notifyProjects = "notifyProjects"
     static let weeklySummary = "weeklySummary"
@@ -51,9 +57,13 @@ enum SettingsKey {
 
 /// Reads the same keys the settings screen writes with @AppStorage, with the same defaults.
 enum Settings {
-    private static var defaults: UserDefaults { .standard }
+    private static var defaults: UserDefaults { testDefaults ?? .standard }
+    /// `--guard-test` only: settings and files of its own, never the real ones.
+    nonisolated(unsafe) static var testDefaults: UserDefaults?
+    nonisolated(unsafe) static var testRoot: URL?
 
     static var appSupport: URL {
+        if let testRoot { return testRoot }
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let directory = base.appendingPathComponent("Cooldown", isDirectory: true)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -114,6 +124,33 @@ enum Settings {
     static var cardsWhenFront: Bool { bool(SettingsKey.cardsWhenFront, false) }
     /// Let screenshots, recordings and screen sharing see the cards. Off by default: a card may carry a prompt.
     static var cardsInCapture: Bool { bool(SettingsKey.cardsInCapture, false) }
+
+    // VPN guard (RouteGuard). Off until the person turns it on.
+    static var guardEnabled: Bool { bool(SettingsKey.guardEnabled, false) }
+    /// Freeze the agents' apps while their route is wrong.
+    static var guardFreeze: Bool { bool(SettingsKey.guardFreeze, true) }
+    /// Countries the services do not serve: a route through one of them stops the agents.
+    static let guardForbiddenDefault = "RU BY CN HK MO IR KP CU SY"
+    static var guardForbiddenText: String { defaults.string(forKey: SettingsKey.guardForbidden) ?? guardForbiddenDefault }
+    static var guardForbidden: Set<String> {
+        Set(guardForbiddenText.uppercased().split(whereSeparator: { !$0.isLetter }).map(String.init).filter { $0.count == 2 })
+    }
+    /// Exits seen and allowed, per service: address → the person's name for it ("" for none).
+    static var guardExits: [String: [String: String]] {
+        get { defaults.dictionary(forKey: SettingsKey.guardExits) as? [String: [String: String]] ?? [:] }
+        set { defaults.set(newValue, forKey: SettingsKey.guardExits) }
+    }
+    /// Addresses the person said no to.
+    static var guardRefused: [String] {
+        get { defaults.stringArray(forKey: SettingsKey.guardRefused) ?? [] }
+        set { defaults.set(newValue, forKey: SettingsKey.guardRefused) }
+    }
+    static var guardPausedUntil: Date? {
+        get { defaults.object(forKey: SettingsKey.guardPausedUntil) as? Date }
+        set { defaults.set(newValue, forKey: SettingsKey.guardPausedUntil) }
+    }
+    static func guardPaused(_ now: Date) -> Bool { guardPausedUntil.map { $0 > now } ?? false }
+    static func set(_ value: Any?, forKey key: String) { defaults.set(value, forKey: key) }
     /// Warn while an agent works if the 5-hour limit will run out before it resets.
     static var notifyPace: Bool { bool(SettingsKey.notifyPace, true) }
     /// Say when one project takes a large part of the weekly limit.

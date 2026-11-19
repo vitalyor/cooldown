@@ -7,15 +7,19 @@
 "%.1f с" = "%.1f s";
 "%@ %@" = "%@ %@";
 "%@ %@ не расходовал токены." = "%@ n’a dépensé aucun token %@.";
+"%@ · %@ · %@ назад" = "%@ · %@ · il y a %@";
 "%@ · выполняется с %@" = "%@ · en cours depuis %@";
 "%@ · ждёт вашего решения" = "%@ · attend votre décision";
 "%@ · ждёт лимита" = "%@ · attend la limite";
 "%@ · обновлено %@" = "%@ · mis à jour %@";
 "%@ · отменено" = "%@ · annulée";
 "%@ · работает" = "%@ · travaille";
+"%@ в Терминале без прокси пошёл бы напрямую — его сообщения задерживаются. Задайте HTTPS_PROXY в Терминале, и хук пропустит их." = "Sans proxy, %@ dans le Terminal partirait en direct — ses messages sont retenus. Définissez HTTPS_PROXY dans le Terminal et le hook les laissera passer.";
 "%@ в запасе" = "%@ en réserve";
 "%@ в неожиданном формате, Cooldown его не трогает." = "%@ a un format inattendu ; Cooldown ne modifie pas le fichier.";
 "%@ в час" = "%@ par heure";
+"%@ видит %@." = "%@ voit %@.";
+"%@ видят %@." = "%@ voient %@.";
 "%@ д" = "%@ j";
 "%@ д %@ ч" = "%@ j %@ h";
 "%@ ждут разрешения в Codex" = "%@ en attente d’approbation dans Codex";
@@ -35,6 +39,8 @@
 "%@ не в сети" = "%@ est hors ligne";
 "%@ не в сети · был %@" = "%@ est hors ligne · vu %@";
 "%@ не закрылся за 30 секунд — возможно, он что-то спросил на экране. Ничего не делал принудительно." = "%@ ne s'est pas fermé en 30 secondes — il demande peut-être quelque chose à l'écran. Rien n'a été forcé.";
+"%@ не отправит сообщения, пока маршрут не придёт в норму." = "%@ n’enverra pas de messages tant que la route n’est pas rétablie.";
+"%@ не отправят сообщения, пока маршрут не придёт в норму." = "%@ n’enverront pas de messages tant que l’itinéraire n’est pas rétabli.";
 "%@ не установлен" = "%@ n’est pas installé";
 "%@ недельного лимита" = "%@ de la limite hebdomadaire";
 "%@ остановился с ошибкой" = "%@ s’est arrêté avec une erreur";
@@ -63,15 +69,18 @@
 "%@ упёрся в лимит" = "%@ a atteint la limite";
 "%@ ч" = "%@ h";
 "%@ ч %@ мин" = "%@ h %@ min";
+"%@ — работа остановлена" = "%@ — travail arrêté";
 "%@, источник: %@." = "%@, source : %@.";
 "%@, попыток %@ из %@, %@" = "%@, tentatives %@ sur %@, %@";
 "%@: автопродолжение остановлено." = "%@ : reprise automatique arrêtée.";
+"%@: адрес %@ вы запретили." = "%@ : vous avez bloqué l’adresse %@.";
 "%@: задача" = "%@ : tâche";
 "%@: задача ждёт проверки" = "%@ : la tâche demande un coup d’œil";
 "%@: задача ждёт сброса" = "%@ : la tâche attend la réinitialisation";
 "%@: задача продолжена" = "%@ : tâche reprise";
 "%@: лимит восстановился, продолжение отправлено." = "%@ : la limite est réinitialisée, la reprise a été envoyée.";
 "%@: лимит кончится около %@" = "%@ : la limite s’épuisera vers %@";
+"%@: не удалось проверить маршрут." = "%@ : impossible de vérifier la route.";
 "%@: осталось %@" = "%@ : %@ restants";
 "%@: попытки закончились" = "%@ : tentatives épuisées";
 "%@: сегодня ушло %@ недели" = "%@ : %@ de la semaine consommée aujourd’hui";
@@ -98,6 +107,7 @@
 "Antigravity не ответил за 30 секунд." = "Antigravity n’a pas répondu en 30 secondes.";
 "Antigravity прислал ответ в незнакомом формате." = "Antigravity a répondu dans un format inconnu.";
 "Apple доставляет уведомления на этот iPhone с задержкой в минуты. Так бывает на мобильных сетях с ограничениями: телефон подключается к сервису уведомлений Apple только время от времени. Помогает Wi‑Fi или VPN на телефоне." = "Apple livre les notifications à cet iPhone avec des minutes de retard. Cela arrive sur les réseaux mobiles restreints : le téléphone ne joint le service de notifications d’Apple que de temps en temps. Le Wi‑Fi ou un VPN sur le téléphone aide.";
+"Claude Code %@ устарел: при сбое проверки сообщение может уйти. Обновите его (claude update)." = "Claude Code %@ est obsolète : si la vérification échoue, un message peut quand même partir. Mettez-le à jour (claude update).";
 "Claude Code ждёт разрешения работать в пустой папке Cooldown." = "Claude Code attend l’autorisation de travailler dans le dossier vide de Cooldown.";
 "Claude Code не вошёл в аккаунт. Откройте настройку Cooldown и нажмите «Войти»." = "Claude Code n’est pas connecté. Ouvrez la configuration de Cooldown et appuyez sur Se connecter.";
 "Claude Code не найден. Откройте настройку Cooldown: она установит его по одной кнопке." = "Claude Code est introuvable. Ouvrez la configuration de Cooldown : elle l’installe en un bouton.";
@@ -124,6 +134,8 @@
 "Claude хочет открыть страницу" = "Claude veut ouvrir une page";
 "Claude хочет поискать в интернете" = "Claude veut chercher sur le web";
 "Claude хочет создать или перезаписать файл" = "Claude veut créer ou écraser un fichier";
+"Claude, ChatGPT (Codex) и Antigravity замирают, пока маршрут неправильный: ничего не закрывается и не теряется, ответ продолжится с того же места. Выключено — останавливаются только Claude Code и Codex." = "Claude, ChatGPT (Codex) et Antigravity se figent tant que la route est incorrecte : rien n’est fermé ni perdu, la réponse reprend là où elle s’était arrêtée. Désactivé, seuls Claude Code et Codex s’arrêtent.";
+"Claude, Codex и другие сервисы блокируют аккаунты, которыми пользуются из неподдерживаемых стран. Если VPN отвалился, Cooldown не даст агентам отправить запрос с вашего настоящего адреса." = "Claude, Codex et d’autres services bloquent les comptes utilisés depuis des pays non pris en charge. Si votre VPN se coupe, Cooldown empêche les agents d’envoyer une requête depuis votre véritable adresse.";
 "Claude: лимит восстановился" = "Claude : limite réinitialisée";
 "Claude: осталось 20%" = "Claude : 20 % restants";
 "Codex Cooldown продолжает сам, Claude — по одному вашему нажатию. Нажмите «Выйти», и вернутся ваши настоящие данные." = "Codex est repris par Cooldown tout seul, Claude d’un clic de votre part. Appuyez sur « Quitter » et vos vraies données reviendront.";
@@ -136,6 +148,7 @@
 "Codex завершился с ошибкой (код %@). Подробности в журнале." = "Codex s’est terminé avec une erreur (code %@). Détails dans le journal.";
 "Codex завершился, не прислав ответ." = "Codex s’est terminé sans réponse.";
 "Codex задал %@ вопроса" = "Codex a posé %@ questions";
+"Codex запускает новый хук только после одобрения: откройте Codex, введите /hooks и отметьте хук Cooldown как доверенный." = "Codex n’exécute un nouveau hook qu’après approbation : ouvrez Codex, saisissez /hooks et marquez le hook Cooldown comme fiable.";
 "Codex меняет состояние диалога." = "Codex modifie l’état de la conversation.";
 "Codex молчит 15 минут" = "Codex est silencieux depuis 15 minutes";
 "Codex молчит 15 минут: «%@»" = "Codex est silencieux depuis 15 minutes : « %@ »";
@@ -209,6 +222,8 @@
 "Cooldown скачает официальную программу Anthropic в вашу домашнюю папку. Пароль не понадобится. Нужен платный тариф Claude: в бесплатный Claude Code не входит." = "Cooldown téléchargera le programme officiel d’Anthropic dans votre dossier personnel. Aucun mot de passe requis. Un forfait Claude payant est nécessaire : le forfait gratuit n’inclut pas Claude Code.";
 "Cooldown скачает официальную программу OpenAI в вашу домашнюю папку. Пароль не понадобится." = "Cooldown téléchargera le programme officiel d’OpenAI dans votre dossier personnel. Aucun mot de passe requis.";
 "Cooldown уже отправляет сообщение в Claude. Дождитесь конца и повторите." = "Cooldown envoie déjà un message à Claude. Attendez la fin, puis réessayez.";
+"Cooldown: %@ сейчас видит вас не через VPN. Запрос не отправлен — повторите, когда VPN заработает." = "Cooldown : %@ vous voit actuellement en dehors du VPN. La requête n’a pas été envoyée — réessayez quand le VPN fonctionnera.";
+"Cooldown: не удалось проверить маршрут к %@. Запрос не отправлен — проверьте VPN и повторите." = "Cooldown : impossible de vérifier la route vers %@. La requête n’a pas été envoyée — vérifiez votre VPN et réessayez.";
 "Live Activity: пока агент работает — сколько он уже работает; ответы агентам и «Продолжить» — с кнопками; когда лимит кончился — отсчёт до сброса. Без лишних цифр." = "Activité en direct : pendant qu’un agent travaille, depuis combien de temps ; réponses aux agents et « Reprendre » avec des boutons ; quand une limite est épuisée, un compte à rebours jusqu’à la réinitialisation. Sans chiffres superflus.";
 "MCP-мост" = "Pont MCP";
 "MCP-мост отключён. Конфигурация Claude сохранена без него." = "Pont MCP déconnecté. La configuration de Claude est enregistrée sans lui.";
@@ -223,6 +238,8 @@
 "Mac не на связи — то, что ждёт сброса лимита, не продолжится, пока он не вернётся" = "Le Mac est hors ligne — ce qui attend la réinitialisation de la limite ne reprendra pas tant qu’il n’est pas revenu";
 "Mac пока не ответил. Ответ придёт уведомлением." = "Le Mac n’a pas encore répondu. La réponse arrivera en notification.";
 "Mac уходит в сон" = "Le Mac se met en veille";
+"VPN не работает — работа остановлена" = "Le VPN ne fonctionne pas — travail arrêté";
+"VPN снова работает" = "Le VPN fonctionne de nouveau";
 "claude code desktop usage аккаунт строка статуса хуки окно" = "claude code desktop usage utilisation compte ligne d’état hooks fenêtre";
 "codex путь хуки автопродолжение" = "codex chemin hooks reprise automatique";
 "csv таблица экспорт пересобрать демо" = "csv tableau export reconstruire démo";
@@ -231,6 +248,7 @@
 "iPhone не подтвердил уведомление. Проверьте, что уведомления Cooldown на iPhone включены и у телефона есть интернет." = "L’iPhone n’a pas confirmé la notification. Vérifiez que les notifications de Cooldown sont activées et que le téléphone est connecté.";
 "iPhone не получает уведомления" = "L’iPhone ne reçoit pas les notifications";
 "settings.json Claude Code имеет неожиданный формат, Cooldown его не трогает." = "Le settings.json de Claude Code a un format inattendu ; Cooldown ne le modifie pas.";
+"vpn маршрут страна бан блокировка защита заморозка адрес сервер роутер" = "vpn route pays bannissement blocage protection gel pause adresse serveur routeur";
 "«%@» больше не ждёт сброса." = "« %@ » n’attend plus la réinitialisation.";
 "«%@» больше не отслеживается." = "« %@ » n’est plus suivi.";
 "«%@» ждёт вашего решения" = "« %@ » attend votre décision";
@@ -263,8 +281,12 @@
 "Агент просит разрешение" = "L’agent demande une autorisation";
 "Агенты" = "Agents";
 "Агенты ждут, когда вы вернётесь." = "Les agents attendent votre retour.";
+"Агенты не выходят в сеть мимо VPN" = "Les agents ne se connectent jamais en contournant le VPN";
 "Агенты не устают, а вы — да. Может, на сегодня всё?" = "Les agents ne se fatiguent pas, vous si. On s’arrête là ?";
 "Агенты скучают без дела." = "Les agents s’ennuient sans rien à faire.";
+"Адрес запрещён." = "Adresse bloquée.";
+"Адрес разрешён." = "Adresse autorisée.";
+"Адреса выхода" = "Adresses de sortie";
 "Без названия" = "Sans titre";
 "Без них Cooldown не сможет сообщить, когда экран заблокирован." = "Sans elles, Cooldown ne pourra rien vous signaler quand l’écran est verrouillé.";
 "Без приложения Codex не работают автопродолжение и карточки запросов; лимиты читаются через codex." = "Sans l’app Codex, la reprise automatique et les cartes de demande ne fonctionnent pas ; les limites sont lues via codex.";
@@ -299,6 +321,7 @@
 "Включаю…" = "Activation…";
 "Включите «Cooldown для iPhone» и нажмите «Добавить iPhone»" = "Activez « Cooldown pour iPhone » et cliquez sur « Ajouter un iPhone »";
 "Включить автопродолжение" = "Activer la reprise automatique";
+"Включить снова" = "Réactiver";
 "Включённый звук сразу проигрывается, чтобы его можно было услышать." = "Un son activé est joué tout de suite pour que vous puissiez l’entendre.";
 "Войдите в %@" = "Se connecter à %@";
 "Войдите в аккаунт. Откроется браузер, подтвердите вход:" = "Connectez-vous à votre compte. Un navigateur s’ouvre, confirmez-y :";
@@ -338,6 +361,8 @@
 "Выключены в Системных настройках" = "Désactivées dans les Réglages Système";
 "Выключены в Системных настройках." = "Désactivées dans les Réglages Système.";
 "Выключить" = "Désactiver";
+"Выключить защиту на час" = "Désactiver la protection pendant une heure";
+"Выключить на час" = "Désactiver pendant une heure";
 "Выполнено: «" = "Terminée : « ";
 "Где Codex" = "Emplacement de Codex";
 "Год работы" = "Année de travail";
@@ -405,6 +430,8 @@
 "Жду подтверждения в браузере…" = "En attente de confirmation dans le navigateur…";
 "Жду сброса лимита Codex." = "J’attends la réinitialisation de la limite Codex.";
 "Жду, пока Codex обновит данные о лимите." = "J’attends que Codex mette à jour les données de limite.";
+"Жду, пока маршрут к Claude придёт в норму (VPN)." = "En attente du rétablissement de la route vers Claude (VPN).";
+"Жду, пока маршрут к Codex придёт в норму (VPN)." = "En attente du rétablissement de la route vers Codex (VPN).";
 "Ждут вашего разрешения в Codex" = "En attente de votre approbation dans Codex";
 "Ждут продолжения" = "En attente de reprise";
 "Ждут продолжения: " = "En attente de reprise : ";
@@ -426,6 +453,7 @@
 "За сутки дошло %@ из %@" = "Dernières 24 h : %@ sur %@ arrivées";
 "За сутки пришло %@, обычно за %@ с" = "Dernières 24 h : %@ arrivées, en général en %@ s";
 "За этот период данных о лимитах нет." = "Aucune donnée de limite pour cette période.";
+"Забыть адрес" = "Oublier l’adresse";
 "Завершено" = "Terminée";
 "Завтрашний вы скажет спасибо за сон." = "Le vous de demain vous remerciera d’avoir dormi.";
 "Загружаю %@…" = "Téléchargement de %@…";
@@ -462,6 +490,8 @@
 "Запланированная задача не удалась" = "Échec de la tâche planifiée";
 "Запланировать" = "Planifier";
 "Запланировать задачу Codex…" = "Planifier une tâche Codex…";
+"Запретить" = "Bloquer";
+"Запрещённые страны" = "Pays bloqués";
 "Запрос в чате уже закрыт или выглядит иначе." = "La demande dans le chat est déjà fermée ou a changé d’aspect.";
 "Запросов к модели нет: открывается только экран /usage" = "Aucune requête au modèle : seul l’écran /usage est ouvert";
 "Запуск" = "Lancement";
@@ -470,6 +500,10 @@
 "Запустите claude в Терминале и проверьте вход; затем повторите проверку." = "Lancez claude dans le Terminal et vérifiez la connexion, puis vérifiez de nouveau.";
 "Запустить" = "Lancer";
 "Запущено: «%@»" = "Lancée : « %@ »";
+"Защита VPN" = "Protection VPN";
+"Защита выключена до %@" = "Protection désactivée jusqu’à %@";
+"Защита выключена на час." = "Protection désactivée pendant une heure.";
+"Защита от работы без VPN" = "Protection contre le travail sans VPN";
 "Звук карточки" = "Son de la carte";
 "Звёзды на месте, лимит тоже. Можно и отдохнуть." = "Les étoiles sont là, la limite aussi. Reposez-vous.";
 "Здесь появится каждый день работы %@." = "Chaque jour de travail avec %@ apparaîtra ici.";
@@ -477,6 +511,7 @@
 "Идёте ровно, как по расписанию." = "Un rythme régulier, comme prévu.";
 "Из кеша" = "Depuis le cache";
 "Изменить…" = "Modifier…";
+"Имя, например США-1" = "Nom, par exemple US-1";
 "Иногда Codex теряет связь с Cooldown: вопросы и автопродолжение перестают работать. Cooldown перезапустит его сам — только когда в нём ничего не идёт, как ⌘Q, — и скажет об этом. С iPhone перезапуск можно запустить кнопкой на карточке (с Face ID)." = "Parfois Codex perd la connexion avec Cooldown : questions et reprise automatique cessent de marcher. Cooldown le redémarre lui-même — seulement quand rien n'y tourne, comme ⌘Q — et le signale. Depuis l'iPhone, le bouton de la carte lance le redémarrage (avec Face ID).";
 "Использованы все попытки продолжения." = "Toutes les tentatives de reprise sont épuisées.";
 "Исправить" = "Corriger";
@@ -500,6 +535,7 @@
 "Как обычно: к этому моменту недели уходит около %@." = "Comme d’habitude : à ce stade de la semaine, environ %@ est consommé.";
 "Как показывать" = "Affichage";
 "Как только Cooldown на Mac выйдет на связь, здесь появятся лимиты." = "Dès que Cooldown sur le Mac se connectera, vos limites apparaîtront ici.";
+"Как это работает: Cooldown спрашивает сами сервисы (Anthropic и OpenAI), из какой страны к ним приходят запросы, — по тому же пути, что и запросы агентов, поэтому неважно, где включён VPN: на Mac или на роутере. Запрос анонимный, без вашего аккаунта; своего сервера у Cooldown нет. Пока маршрут неправильный, Claude Code и Codex не отправляют сообщения, Cooldown сам не обращается к этим сервисам, а приложения агентов встают на паузу. Когда VPN вернётся, всё продолжится само." = "Comment ça marche : Cooldown demande aux services eux-mêmes (Anthropic et OpenAI) depuis quel pays leur arrivent les requêtes — par le même chemin que les requêtes des agents, donc peu importe où le VPN est activé : sur le Mac ou sur le routeur. La requête est anonyme, sans votre compte ; Cooldown n’a pas de serveur à lui. Tant que la route est incorrecte, Claude Code et Codex n’envoient pas de messages, Cooldown lui-même ne contacte pas ces services et les apps des agents sont mises en pause. Quand le VPN revient, tout reprend tout seul.";
 "Карточки и лимиты теперь приходят и на него." = "Les cartes et les limites arrivent désormais aussi sur cet appareil.";
 "Карточки и названия чатов шифруются на Mac и открываются только на этом iPhone. Сервер Cooldown передаёт их, не читая." = "Les cartes et les noms des chats sont chiffrés sur le Mac et ouverts uniquement sur cet iPhone. Le serveur Cooldown les transmet sans les lire.";
 "Карточки под значком" = "Cartes sous l’icône";
@@ -513,6 +549,7 @@
 "Код из браузера" = "Code du navigateur";
 "Код истёк" = "Le code a expiré";
 "Код устарел или уже использован. Нажмите на Mac «Новый код»." = "Le code a expiré ou a déjà servi. Cliquez sur « Nouveau code » sur le Mac.";
+"Коды стран через пробел (RU — Россия, BY — Беларусь, CN — Китай). Маршрут через одну из них останавливает работу." = "Codes pays séparés par des espaces (RU — Russie, BY — Biélorussie, CN — Chine). Une route passant par l’un d’eux arrête le travail.";
 "Команда устарела и не выполнена." = "La commande était trop ancienne et n’a pas été exécutée.";
 "Кончится" = "Épuisement";
 "Легче обычного: обычно к этому моменту %@, сейчас %@." = "Moins que d’habitude : d’ordinaire %@ à ce stade, maintenant %@.";
@@ -568,6 +605,10 @@
 "Линия" = "Ligne";
 "Лицензия" = "Licence";
 "Лучшие идеи часто приходят утром. Проверим?" = "Les meilleures idées viennent souvent le matin. On vérifie ?";
+"Маршрут в норме, всё продолжено." = "Route rétablie, tout a repris.";
+"Маршрут к %@ идёт мимо VPN" = "La route vers %@ contourne le VPN";
+"Маршрут к %@ сменился" = "La route vers %@ a changé";
+"Маршрут сейчас" = "Route actuelle";
 "Мелочи подождут, главное — сейчас." = "Les détails peuvent attendre, l’essentiel c’est maintenant.";
 "Модели" = "Modèles";
 "Модель не указана" = "Modèle non indiqué";
@@ -581,6 +622,7 @@
 "На аккаунте действует отдельный лимит — нужно ваше решение." = "Une limite propre s’applique au compte — votre décision est nécessaire.";
 "На всю сессию" = "Pour la session";
 "На мобильном интернете iPhone теряет связь с сервисом уведомлений Apple и получает уведомления пачкой раз в 10 минут. Пока агенты работают, Cooldown шлёт тихий сигнал: на мобильном интернете раз в 2,5 минуты — и уведомления приходят сразу, на Wi‑Fi раз в 10 минут, только чтобы заметить, что вы ушли. На телефоне его не видно." = "Sur le réseau mobile, l'iPhone perd la liaison avec le service de notifications d'Apple et reçoit les notifications par paquets toutes les 10 minutes. Tant que des agents travaillent, Cooldown envoie un signal silencieux : toutes les 2,5 minutes sur le réseau mobile, pour que les notifications arrivent tout de suite, et toutes les 10 minutes en Wi‑Fi, seulement pour remarquer que vous êtes parti. Il est invisible sur le téléphone.";
+"На паузе: %@." = "En pause : %@.";
 "На связи" = "En ligne";
 "На этот проект ушло %@ работы %@ с начала недели." = "Ce projet a pris %@ du travail de %@ depuis le début de la semaine.";
 "На этот проект ушло %@ работы %@ с начала недели. Всего неделя израсходована на %@." = "Ce projet a pris %@ du travail de %@ depuis le début de la semaine. Au total, %@ de la semaine est consommée.";
@@ -635,6 +677,7 @@
 "Не удалось подтвердить, что Claude принял сообщение. Проверьте чат — повторно оно не отправится." = "Impossible de confirmer que Claude a accepté le message. Vérifiez le chat — il ne sera pas renvoyé.";
 "Не удалось подтвердить, что продолжение дошло. Проверьте диалог — сам я туда больше не отправлю." = "Impossible de confirmer que la reprise est arrivée. Vérifiez la conversation — je n’y enverrai plus rien de moi-même.";
 "Не удалось понять состояние сессии." = "Impossible de déterminer l’état de la session.";
+"Не удалось проверить маршрут к %@" = "Impossible de vérifier la route vers %@";
 "Не удалось продолжить «%@»" = "Impossible de reprendre « %@ »";
 "Не удалось прочитать историю диалога." = "Impossible de lire l’historique de la conversation.";
 "Не удалось прочитать экран /usage в Claude Code." = "Impossible de lire l’écran /usage dans Claude Code.";
@@ -796,6 +839,7 @@
 "Папка проекта" = "Dossier du projet";
 "Папка сокета Codex доступна другим пользователям или не принадлежит вам." = "Le dossier du socket Codex est accessible à d’autres utilisateurs ou ne vous appartient pas.";
 "Пауза — тоже часть работы." = "La pause fait aussi partie du travail.";
+"Пауза: маршрут к %@ сейчас идёт мимо VPN или не проверен. Cooldown не обращается к нему, пока всё не придёт в норму." = "Pause : la route vers %@ contourne actuellement le VPN ou n’a pas été vérifiée. Cooldown ne le contacte pas tant que tout n’est pas rétabli.";
 "Перезапуск %@" = "Redémarrage de %@";
 "Перезапускать Codex, если он перестал отвечать" = "Redémarrer Codex s'il ne répond plus";
 "Перезапустите приложение Codex." = "Relancez l’app Codex.";
@@ -882,6 +926,7 @@
 "Приложение Codex не ответило вовремя." = "L’app Codex n’a pas répondu à temps.";
 "Приложение Codex не установлено." = "L’app Codex n’est pas installée.";
 "Приложение Codex слишком старое. Обновите его." = "L’app Codex est trop ancienne. Mettez-la à jour.";
+"Приложения работают через прокси" = "Les apps passent par le proxy";
 "Пример · ничего не отправлено" = "Exemple · rien n’a été envoyé";
 "Пример запроса. На компьютере ничего не запустится." = "Exemple de demande. Rien ne sera exécuté sur un ordinateur.";
 "Пример: на Mac ничего не отправлено" = "Exemple : rien n’a été envoyé à un Mac";
@@ -896,6 +941,7 @@
 "Проверить" = "Vérifier";
 "Проверить всё" = "Tout vérifier";
 "Проверить доставку" = "Vérifier la livraison";
+"Проверить сейчас" = "Vérifier maintenant";
 "Проверить снова" = "Vérifier de nouveau";
 "Проверить, что всё работает" = "Vérifier que tout fonctionne";
 "Проверка всех связей" = "Vérification de toutes les liaisons";
@@ -935,6 +981,7 @@
 "Продолжить все сейчас" = "Tout reprendre maintenant";
 "Продолжить после сброса" = "Continuer après la réinitialisation";
 "Продолжить сейчас" = "Reprendre maintenant";
+"Продолжу сам, когда всё наладится." = "Je reprendrai tout seul quand tout sera rétabli.";
 "Продумать структуру таблицы учёта" = "Concevoir la structure du tableau comptable";
 "Проект съедает много недели" = "Un projet consomme beaucoup de la semaine";
 "Проекты" = "Projets";
@@ -946,6 +993,8 @@
 "Пустой ответ." = "Réponse vide.";
 "Пятичасовое окно начнётся с первым запросом." = "La fenêtre de cinq heures commence à la prochaine requête.";
 "Работа не закончена, но новых шагов нет. Возможно, стоит заглянуть." = "Le travail n’est pas fini, mais il n’y a pas de nouvelles étapes. Ça vaut peut-être le coup d’œil.";
+"Работа не остановлена. Разрешить эти адреса?" = "Le travail n’est pas interrompu. Autoriser ces adresses ?";
+"Работа не остановлена. Разрешить этот адрес?" = "Le travail n’a pas été arrêté. Autoriser cette adresse ?";
 "Работает" = "Fonctionne";
 "Работал %@ мин." = "A travaillé %@ min.";
 "Работают · последнее событие %@" = "Actifs · dernier évènement %@";
@@ -957,6 +1006,7 @@
 "Разрешены" = "Autorisées";
 "Разрешить" = "Autoriser";
 "Разрешить в этом разговоре" = "Autoriser dans cette conversation";
+"Разрешить и запомнить" = "Autoriser et mémoriser";
 "Разрешить и подключить" = "Autoriser et connecter";
 "Расход" = "Consommation";
 "Раунд завершён" = "Tour terminé";
@@ -1036,6 +1086,7 @@
 "Спрашиваю Mac…" = "Je demande au Mac…";
 "Сразу после сброса Cooldown отправляет в тот же диалог Codex «продолжай» и сообщает об этом уведомлением. Задача снова выполняется." = "Juste après la réinitialisation, Cooldown envoie « continue » dans la même conversation Codex et vous prévient. La tâche tourne de nouveau.";
 "Ссылка для подключения" = "Lien de connexion";
+"Ставить приложения на паузу" = "Mettre les apps en pause";
 "Статистика" = "Statistiques";
 "Статистика пересобрана." = "Statistiques reconstruites.";
 "Статус неизвестен" = "État inconnu";
@@ -1069,6 +1120,7 @@
 "Только для Claude Code" = "Pour Claude Code uniquement";
 "Только для Codex." = "Codex uniquement.";
 "Только когда вас нет за Mac или карточка может что-то изменить." = "Seulement si vous n’êtes pas devant le Mac ou si la carte peut changer quelque chose.";
+"Только сейчас" = "Seulement cette fois";
 "Только скачивать" = "Télécharger seulement";
 "Только чтение: Codex изучит файлы и ответит, но ничего не изменит." = "Lecture seule : Codex étudiera les fichiers et répondra, sans rien modifier.";
 "Точно?" = "Sûr ?";
@@ -1108,6 +1160,7 @@
 "Хороший запал. Главное — не выдохнуться раньше лимита." = "Belle énergie. Ne vous épuisez pas avant la limite.";
 "Хороший момент перечитать, что уже сделано." = "Un bon moment pour relire ce qui est fait.";
 "Хороший ритм. Вы с агентом — отличная команда." = "Joli rythme. Vous et l’agent formez une belle équipe.";
+"Хук держит ваше сообщение, пока Cooldown проверяет маршрут (обычно меньше секунды), и останавливает агента между шагами, если VPN отвалился посреди работы. Если Cooldown закрыт, хук проверяет маршрут сам." = "Le hook retient votre message pendant que Cooldown vérifie la route (en général moins d’une seconde) et arrête l’agent entre deux étapes si le VPN se coupe en plein travail. Si Cooldown est fermé, le hook vérifie la route lui-même.";
 "Хуки" = "Hooks";
 "Хуки Claude Code" = "Hooks de Claude Code";
 "Хуки Codex" = "Hooks de Codex";
@@ -1123,6 +1176,7 @@
 "Через 10 минут лимит %@ восстановится" = "La limite de %@ se réinitialise dans 10 minutes";
 "Через Claude Code" = "Via Claude Code";
 "Через «Универсальный доступ» Cooldown видит, что Claude пишет ответ или просит разрешение. Ничего не уходит в сеть." = "Grâce à l’Accessibilité, Cooldown voit que Claude écrit une réponse ou demande une autorisation. Rien ne part sur le réseau.";
+"Через эти адреса агенты уже выходили в сеть. Новый адрес в разрешённой стране работу не останавливает, но Cooldown спросит, разрешить ли его. Имя помогает узнать сервер в карточке." = "Les agents se sont déjà connectés par ces adresses. Une nouvelle adresse dans un pays autorisé n’arrête pas le travail, mais Cooldown vous demandera s’il faut l’autoriser. Le nom aide à reconnaître le serveur sur la carte.";
 "Читаю лимиты %@…" = "Lecture des limites de %@…";
 "Читаю…" = "Lecture…";
 "Чтение через Claude Code выключено" = "La lecture via Claude Code est désactivée";
@@ -1150,6 +1204,7 @@
 "Этот диалог уже ведёт другая копия Cooldown." = "Une autre copie de Cooldown s’occupe déjà de cette conversation.";
 "Этот запрос уже закрыт или изменился." = "Cette demande est déjà fermée ou a changé.";
 "Я не пользуюсь %@" = "Je n’utilise pas %@";
+"адрес %@ запрещён" = "adresse %@ bloquée";
 "без названия" = "sans titre";
 "без описания" = "sans description";
 "без работы" = "sans travail";
@@ -1160,6 +1215,7 @@
 "в поле ввода Claude есть неотправленный текст" = "le champ de saisie de Claude contient du texte non envoyé";
 "в чат «%@»" = "dans le chat « %@ »";
 "версия github обновить скачивать" = "version github mise à jour télécharger";
+"включён" = "activé";
 "восстановлен" = "réinitialisée";
 "входа прочитано из кеша" = "de l’entrée lue depuis le cache";
 "вчера в %@" = "hier à %@";
@@ -1175,6 +1231,7 @@
 "ждут вашего решения: %@" = "en attente de votre décision : %@";
 "ждут продолжения: %@" = "en attente de reprise : %@";
 "ждёт вас" = "vous attend";
+"ждёт одобрения" = "en attente d’approbation";
 "ждёт сброса" = "attend la réinitialisation";
 "за 30 дней" = "au cours des 30 derniers jours";
 "за 7 дней" = "au cours des 7 derniers jours";
@@ -1190,6 +1247,7 @@
 "запись в " = "écriture dans ";
 "запись: " = "écriture : ";
 "запомнен при исчерпании лимита" = "retenu quand la limite s’est épuisée";
+"запрещён" = "bloquée";
 "значок проценты линии свечение активность" = "icône pourcentages lignes lueur activité barre des menus";
 "и ещё %@" = "et %@ de plus";
 "из боковой панели" = "depuis la barre latérale";
@@ -1205,7 +1263,9 @@
 "не отслеживать «%@»" = "ne plus suivre « %@ »";
 "не работает: %@" = "ne fonctionne pas : %@";
 "не удалось" = "échec";
+"не удалось проверить" = "vérification impossible";
 "не удалось продолжить" = "impossible de reprendre";
+"не установлен" = "non installé";
 "неделя" = "semaine";
 "неделя: %@%%" = "Semaine : %@ %%";
 "ни разу" = "jamais";
@@ -1225,9 +1285,11 @@
 "по API это стоило бы ≈%@" = "aux prix de l’API, cela aurait coûté ≈%@";
 "по ценам API" = "aux prix de l’API";
 "подряд %@" = "%@ d’affilée";
+"прежний адрес" = "adresse précédente";
 "пробую продолжить" = "tentative de reprise";
 "проверка отчёт ошибки не работает тест" = "vérification rapport erreurs ne marche pas test diagnostic";
 "проверьте, дошло ли сообщение" = "vérifiez si le message est arrivé";
+"проверяю…" = "vérification…";
 "прогноз" = "prévision";
 "продолжен %@" = "repris %@";
 "продолжено: %@" = "reprises : %@";

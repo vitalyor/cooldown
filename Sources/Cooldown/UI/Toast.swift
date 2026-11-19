@@ -275,6 +275,10 @@ final class ToastController: ObservableObject {
             Task { await AgentActivity.continueAfterReset(opener) }
         case .openFile(let url):
             NSWorkspace.shared.open(url)
+        case .guardExit(let choice, let key):
+            RouteGuard.shared.answerExit(choice, key: key)
+        case .guardPause:
+            RouteGuard.shared.pause(3600)
         case .restartAgent(let provider):
             Task {
                 let text = await AgentRestart.shared.restart(provider, whenFree: true, from: "Mac")
