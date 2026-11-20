@@ -36,6 +36,7 @@ enum SettingsKey {
     static let soundFinished = "soundFinished"
     static let autoUpdate = "autoUpdate"
     static let updateMode = "updateMode"
+    static let updateBeta = "updateBeta"
     static let soundAttention = "soundAttention"
     static let soundReset = "soundReset"
     static let finishedMinSeconds = "finishedMinSeconds"
@@ -166,6 +167,8 @@ enum Settings {
         // The earlier on/off switch: off meant "ask first", the nearest is "download only".
         return bool(SettingsKey.autoUpdate, true) ? "auto" : "download"
     }
+    /// Betas too: prereleases on GitHub, never offered to anyone who did not turn this on.
+    static var updateBeta: Bool { bool(SettingsKey.updateBeta, false) }
     static var soundAttention: Bool { bool(SettingsKey.soundAttention, false) }
     static var soundReset: Bool { bool(SettingsKey.soundReset, false) }
     static var finishedMinSeconds: Double {

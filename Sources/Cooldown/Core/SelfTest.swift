@@ -21,6 +21,14 @@ enum SelfTest {
             expect(AppModel.menuRemaining(snap, weekly: false, now) == 70, "menu: 5h window shown")
             expect(AppModel.menuRemaining(nil, weekly: false, now) == nil, "menu: no data stays blank")
         }
+        // Versions: betas sit between releases, a stable one is past its betas.
+        do {
+            let newer = GitHubUpdater.isNewer
+            expect(newer("1.2.10", "1.2.9") && !newer("1.2.9", "1.2.10") && !newer("1.4.5", "1.4.5"), "versions: numbers part by part")
+            expect(newer("1.4.6-beta.1", "1.4.5") && newer("1.4.6-beta.2", "1.4.6-beta.1") && newer("1.4.6-beta.10", "1.4.6-beta.9"), "versions: betas move on")
+            expect(newer("1.4.6", "1.4.6-beta.3") && !newer("1.4.6-beta.3", "1.4.6") && !newer("1.4.5", "1.4.6-beta.1"), "versions: stable past its betas")
+            expect(!newer("", "1.0") && newer("1.0", ""), "versions: nothing is oldest")
+        }
         // VPN guard: a Cloudflare trace read right, and the verdicts it leads to.
         do {
             let exit = RouteExit.parse("fl=1\nh=api.anthropic.com\nip=64.188.1.2\nts=1.0\ncolo=ORD\nloc=us\nwarp=off\n")

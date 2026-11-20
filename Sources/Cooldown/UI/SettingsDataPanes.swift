@@ -4,6 +4,7 @@ import SwiftUI
 
 struct UpdatesPane: View {
     @AppStorage(SettingsKey.updateMode) private var updateMode = Settings.updateMode
+    @AppStorage(SettingsKey.updateBeta) private var updateBeta = false
     @ObservedObject private var updater = GitHubUpdater.shared
 
     var body: some View {
@@ -45,6 +46,12 @@ struct UpdatesPane: View {
                      : updateMode == "download"
                      ? L("Новая версия загружается и проверяется заранее, а ставится одним нажатием — на карточке или здесь.")
                      : L("Новая версия ставится сама, когда Mac пару минут без дела. Перед установкой проверяются контрольная сумма и подпись тем же сертификатом."))
+        }
+        Section {
+            Toggle(L("Бета-версии"), isOn: $updateBeta)
+                .onChange(of: updateBeta) { _, _ in Task { await updater.check(manual: true) } }
+        } footer: {
+            Footnote(text: L("Новое раньше всех, но возможны шероховатости. Если выключить, следующей придёт обычная версия."))
         }
         if let release = updater.available, !release.notes.isEmpty {
             Section(L("Что нового в %@", "\(release.version)")) {

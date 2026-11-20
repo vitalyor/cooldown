@@ -663,8 +663,9 @@ final class RouteGuard: ObservableObject {
     }
 
     static func exitName(_ service: GuardService, _ ip: String) -> String? {
-        guard let name = Settings.guardExits[service.rawValue]?[ip], !name.isEmpty else { return nil }
-        return name
+        // A name given to an address counts for every service that goes out through it.
+        let names = [Settings.guardExits[service.rawValue]?[ip]] + Settings.guardExits.values.map { $0[ip] }
+        return names.compactMap { $0 }.first { !$0.isEmpty }
     }
 
     /// What a card asking about exits is about: an answer applies only to exactly these.

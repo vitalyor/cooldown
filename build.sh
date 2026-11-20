@@ -36,7 +36,9 @@ if [ -n "${COOLDOWN_RELEASE:-}" ]; then
 fi
 # Release builds carry the version being released and a build number from the history.
 if [ -n "${COOLDOWN_VERSION:-}" ]; then
-  /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $COOLDOWN_VERSION" "$APP/Contents/Info.plist"
+  # A beta (1.4.6-beta.1) keeps only its numbers in the system's field and its full name in Cooldown's own.
+  /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${COOLDOWN_VERSION%%-*}" "$APP/Contents/Info.plist"
+  /usr/libexec/PlistBuddy -c "Add :CooldownVersion string $COOLDOWN_VERSION" "$APP/Contents/Info.plist"
   /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(git rev-list --count HEAD 2>/dev/null || echo 1)" "$APP/Contents/Info.plist"
 fi
 # Translations: Russian is the source text; every other language has a Localizable.strings.

@@ -59,13 +59,15 @@ struct GuardPane: View {
             let exits = Settings.guardExits
             if !exits.isEmpty || !Settings.guardRefused.isEmpty {
                 Section {
-                    ForEach(GuardService.allCases, id: \.self) { service in
-                        ForEach((exits[service.rawValue] ?? [:]).keys.sorted(), id: \.self) { ip in
-                            ExitRow(service: service, ip: ip, name: exits[service.rawValue]?[ip] ?? "", refused: false)
-                        }
+                    // One row per address: a VPN usually takes every service out through the same one.
+                    ForEach(Set(exits.values.flatMap(\.keys)).sorted(), id: \.self) { ip in
+                        let services = GuardService.allCases.filter { exits[$0.rawValue]?[ip] != nil }
+                        ExitRow(services: services, ip: ip,
+                                name: services.compactMap { exits[$0.rawValue]?[ip] }.first { !$0.isEmpty } ?? "", refused: false)
+                            .id("exit-" + ip)
                     }
                     ForEach(Settings.guardRefused, id: \.self) { ip in
-                        ExitRow(service: .anthropic, ip: ip, name: "", refused: true)
+                        ExitRow(services: [], ip: ip, name: "", refused: true).id("refused-" + ip)
                     }
                 } header: { Text(L("Адреса выхода")) } footer: {
                     Footnote(text: L("Через эти адреса агенты уже выходили в сеть. Новый адрес в разрешённой стране работу не останавливает, но Cooldown спросит, разрешить ли его. Имя помогает узнать сервер в карточке."))
@@ -126,7 +128,7 @@ struct GuardPane: View {
 }
 
 private struct ExitRow: View {
-    let service: GuardService
+    let services: [GuardService]
     let ip: String
     @State var name: String
     let refused: Bool
@@ -135,16 +137,18 @@ private struct ExitRow: View {
         HStack {
             VStack(alignment: .leading, spacing: 1) {
                 Text(ip).font(.callout.monospacedDigit())
-                Text(refused ? L("запрещён") : service.name).font(.caption).foregroundStyle(refused ? Theme.signal : .secondary)
+                Text(refused ? L("запрещён") : services.map(\.name).joined(separator: ", ")).font(.caption).foregroundStyle(refused ? Theme.signal : .secondary)
             }
             Spacer()
             if !refused {
-                TextField(L("Имя, например США-1"), text: $name)
+                TextField("", text: $name, prompt: Text(L("Имя, например США-1")))
+                    .labelsHidden()
+                    .lineLimit(1)
                     .multilineTextAlignment(.trailing)
-                    .frame(maxWidth: 160)
-                    .onSubmit { RouteGuard.shared.rename(service, ip: ip, to: name) }
+                    .frame(width: 170)
+                    .onSubmit { services.forEach { RouteGuard.shared.rename($0, ip: ip, to: name) } }
             }
-            Button { RouteGuard.shared.forget(service, ip: ip) } label: { Image(systemName: "xmark.circle.fill") }
+            Button { (services.isEmpty ? [.anthropic] : services).forEach { RouteGuard.shared.forget($0, ip: ip) } } label: { Image(systemName: "xmark.circle.fill") }
                 .buttonStyle(.plain).foregroundStyle(.secondary)
                 .help(L("Забыть адрес"))
         }

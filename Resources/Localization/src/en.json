@@ -1404,5 +1404,7 @@
  "Приложения идут через прокси и работают; в Терминале запросы идут напрямую.": "The apps go through the proxy and keep working; in Terminal, requests go direct.",
  "Работа не остановлена. Разрешить эти адреса?": "Work hasn't stopped. Allow these addresses?",
  "%@ в Терминале без прокси пошёл бы напрямую — его сообщения задерживаются. Задайте HTTPS_PROXY в Терминале, и хук пропустит их.": "Without a proxy, %@ in Terminal would go direct — its messages are being held. Set HTTPS_PROXY in Terminal and the hook will let them through.",
- "Приложения работают через прокси": "Apps are working through the proxy"
+ "Приложения работают через прокси": "Apps are working through the proxy",
+ "Бета-версии": "Beta versions",
+ "Новое раньше всех, но возможны шероховатости. Если выключить, следующей придёт обычная версия.": "New things first, with a few rough edges possible. Turn it off and the next update is a regular version."
 }

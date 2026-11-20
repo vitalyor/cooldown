@@ -3,10 +3,13 @@
 # .zip, tags the commit and creates the release with the notes from docs/releases/<version>.md.
 # GitHub adds the source code archives to every release by itself.
 #   scripts/release.sh 1.0.0
+# A version with a suffix (1.4.6-beta.1) is a beta: a prerelease on GitHub, which only Cooldowns
+# with "Beta versions" on take, and no Homebrew update.
 set -eu
 cd "$(dirname "$0")/.."
 VERSION="${1:?usage: scripts/release.sh <version>}"
 TAG="v$VERSION"
+case "$VERSION" in *-*) BETA=1 ;; *) BETA= ;; esac
 NOTES="docs/releases/$VERSION.md"
 [ -f "$NOTES" ] || { echo "Write $NOTES first."; exit 1; }
 [ -z "$(git status --porcelain)" ] || { echo "Commit or stash changes first."; exit 1; }
@@ -14,7 +17,7 @@ git rev-parse "$TAG" >/dev/null 2>&1 && { echo "$TAG already exists."; exit 1; }
 
 # The version goes into the source too, so builds made from here know which release they are
 # (and the updater does not take a local build for an old one).
-/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" Resources/Info.plist
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${VERSION%%-*}" Resources/Info.plist
 if [ -n "$(git status --porcelain)" ]; then
   git commit -q -am "Version $VERSION"
   git push -q
@@ -66,12 +69,12 @@ ditto -c -k --keepParent build/Cooldown.app "$OUT/Cooldown-$VERSION.zip"
 git tag -a "$TAG" -m "Cooldown $VERSION"
 git push origin "$TAG"
 gh release create "$TAG" "$OUT/Cooldown-$VERSION.dmg" "$OUT/Cooldown-$VERSION.zip" "$OUT/SHA256SUMS.txt" \
-  --title "Cooldown $VERSION" --notes-file "$NOTES"
+  --title "Cooldown $VERSION" --notes-file "$NOTES" ${BETA:+--prerelease}
 echo "Released $TAG"
 
 # The Homebrew cask (github.com/vitalyor/homebrew-tap) follows the release, when its clone is next to this one.
 TAP="${COOLDOWN_TAP:-../homebrew-tap}"
-if [ -f "$TAP/Casks/cooldown.rb" ]; then
+if [ -z "$BETA" ] && [ -f "$TAP/Casks/cooldown.rb" ]; then
   SHA=$(shasum -a 256 "$OUT/Cooldown-$VERSION.dmg" | cut -d' ' -f1)
   sed -i '' -e "s/^  version \".*\"/  version \"$VERSION\"/" -e "s/^  sha256 \".*\"/  sha256 \"$SHA\"/" "$TAP/Casks/cooldown.rb"
   ( cd "$TAP" && git commit -qam "Cooldown $VERSION" && git push -q ) && echo "Homebrew tap updated"

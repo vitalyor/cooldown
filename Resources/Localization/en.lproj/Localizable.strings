@@ -293,6 +293,7 @@
 "Без этого Cooldown не может показать лимиты. Настройка займёт пару минут." = "Without this Cooldown can't show limits. Setup takes a couple of minutes.";
 "Без этого нажатие на кнопку Live Activity открывает Cooldown и выполняет действие там — так работает всегда. Прямо на экране удобнее, но iOS должна знать действия приложения; если кнопки молчат, перезагрузите iPhone." = "Otherwise a Live Activity button opens Cooldown and does the action there — that always works. Right on the screen is handier, but iOS has to know the app’s actions; if the buttons do nothing, restart the iPhone.";
 "Бесплатные сбросы лимита. Использовать их можно в Codex командой /usage." = "Free limit resets. You can use them in Codex with the /usage command.";
+"Бета-версии" = "Beta versions";
 "Браузер не открылся? Открыть страницу входа" = "Browser didn't open? Open the sign-in page";
 "Был на связи %@" = "Last online %@";
 "Была версия %@." = "It was version %@.";
@@ -721,6 +722,7 @@
 "Новая версия ставится сама, когда Mac пару минут без дела. Перед установкой проверяются контрольная сумма и подпись тем же сертификатом." = "A new version installs itself when the Mac has been idle for a couple of minutes. The checksum and the signature by the same certificate are checked before installing.";
 "Новая задача, %@" = "New task, %@";
 "Новая сборка не установлена" = "The new build was not installed";
+"Новое раньше всех, но возможны шероховатости. Если выключить, следующей придёт обычная версия." = "New things first, with a few rough edges possible. Turn it off and the next update is a regular version.";
 "Новое событие" = "New event";
 "Новые версии" = "New versions";
 "Новые версии с GitHub" = "New versions from GitHub";

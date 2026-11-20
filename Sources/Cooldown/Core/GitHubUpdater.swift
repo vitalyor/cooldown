@@ -30,7 +30,16 @@ final class GitHubUpdater: ObservableObject {
     @Published private(set) var installing = false
 
     static var repo: String? { Bundle.main.object(forInfoDictionaryKey: "CooldownUpdateRepo") as? String }
-    static var current: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0" }
+    /// The full version, "1.4.6-beta.1" for a beta (CFBundleShortVersionString keeps only "1.4.6").
+    static var current: String {
+        Bundle.main.object(forInfoDictionaryKey: "CooldownVersion") as? String
+            ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
+    }
+
+    static func version(_ release: [String: Any]) -> String {
+        let tag = release["tag_name"] as? String ?? ""
+        return tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
+    }
 
     func start() {
         guard Self.repo != nil, Settings.updateMode != "off" else { return }
@@ -46,18 +55,24 @@ final class GitHubUpdater: ObservableObject {
         checking = true
         defer { checking = false }
         do {
-            var request = URLRequest(url: URL(string: "https://api.github.com/repos/\(repo)/releases/latest")!)
+            // Stable: GitHub's latest release, which never is a beta. Betas: the newest of the
+            // recent releases, a beta or a stable one past it.
+            let beta = Settings.updateBeta
+            var request = URLRequest(url: URL(string: "https://api.github.com/repos/\(repo)/releases" + (beta ? "?per_page=20" : "/latest"))!)
             request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
             request.timeoutInterval = 20
             let (data, response) = try await URLSession.shared.data(for: request)
             guard (response as? HTTPURLResponse)?.statusCode == 200,
-                  let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-                  let tag = object["tag_name"] as? String,
+                  let parsed = try? JSONSerialization.jsonObject(with: data),
+                  let object = beta
+                    ? (parsed as? [[String: Any]])?.filter({ $0["draft"] as? Bool != true }).max(by: { Self.isNewer(Self.version($1), than: Self.version($0)) })
+                    : parsed as? [String: Any],
+                  object["tag_name"] is String,
                   let page = (object["html_url"] as? String).flatMap(URL.init(string:)) else {
                 if manual { state = L("Не удалось узнать о новых версиях.") }
                 return
             }
-            let version = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
+            let version = Self.version(object)
             guard Self.isNewer(version, than: Self.current) else {
                 available = nil
                 if manual { state = L("Установлена последняя версия %@.", "\(Self.current)") }
@@ -301,14 +316,20 @@ final class GitHubUpdater: ObservableObject {
         guard process.terminationStatus == 0 else { throw UpdateError.unpack }
     }
 
-    /// 1.2.10 > 1.2.9: numbers compared part by part.
+    /// 1.2.10 > 1.2.9: numbers compared part by part; 1.4.6 > 1.4.6-beta.2 > 1.4.6-beta.1 > 1.4.5.
     static func isNewer(_ candidate: String, than current: String) -> Bool {
-        let a = candidate.split(separator: ".").map { Int($0) ?? 0 }
-        let b = current.split(separator: ".").map { Int($0) ?? 0 }
+        func parts(_ version: String) -> (numbers: [Int], beta: Int) {
+            let halves = version.split(separator: "-", maxSplits: 1)
+            let numbers = (halves.first ?? "").split(separator: ".").map { Int($0) ?? 0 }
+            // A stable version is past every beta of it.
+            let beta = halves.count > 1 ? Int(halves[1].split(separator: ".").last ?? "") ?? 0 : Int.max
+            return (numbers, beta)
+        }
+        let (a, betaA) = parts(candidate), (b, betaB) = parts(current)
         for index in 0..<max(a.count, b.count) {
             let x = index < a.count ? a[index] : 0, y = index < b.count ? b[index] : 0
             if x != y { return x > y }
         }
-        return false
+        return betaA > betaB
     }
 }
