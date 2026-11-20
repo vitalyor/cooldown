@@ -6,7 +6,8 @@ enum AntigravityLimits {
     /// The `agy` command line: Antigravity installs it into ~/.gemini/bin.
     static var binary: URL? {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
-        let candidates = ["\(home)/.gemini/bin/agy", "\(home)/.local/bin/agy", "/opt/homebrew/bin/agy", "/usr/local/bin/agy"]
+        let chosen = Settings.antigravityPath
+        let candidates = (chosen.isEmpty ? [] : [chosen]) + ["\(home)/.gemini/bin/agy", "\(home)/.local/bin/agy", "/opt/homebrew/bin/agy", "/usr/local/bin/agy"]
         return candidates.first { FileManager.default.isExecutableFile(atPath: $0) }.map { URL(fileURLWithPath: $0) }
     }
 

@@ -241,6 +241,7 @@
 "Mac уходит в сон" = "O Mac vai entrar em repouso";
 "VPN не работает — работа остановлена" = "A VPN não está funcionando — trabalho parado";
 "VPN снова работает" = "A VPN voltou a funcionar";
+"antigravity agy google gemini лимиты путь хук" = "antigravity agy google gemini limites caminho hook";
 "claude code desktop usage аккаунт строка статуса хуки окно" = "claude code desktop usage uso conta linha de status hooks janela";
 "codex путь хуки автопродолжение" = "codex caminho hooks retomada automática";
 "csv таблица экспорт пересобрать демо" = "csv tabela exportar reconstruir demo";
@@ -248,6 +249,7 @@
 "iPhone не подтвердил уведомление за минуту. Проверьте, что уведомления Cooldown на iPhone включены и у телефона есть интернет." = "O iPhone não confirmou a notificação em um minuto. Verifique se as notificações do Cooldown estão ativadas e se o celular está conectado.";
 "iPhone не подтвердил уведомление. Проверьте, что уведомления Cooldown на iPhone включены и у телефона есть интернет." = "O iPhone não confirmou a notificação. Verifique se as notificações do Cooldown estão ativadas e se o celular está conectado.";
 "iPhone не получает уведомления" = "O iPhone não está recebendo notificações";
+"macOS попросит пароль администратора. Пока стоит пояс страны VPN, автоматический выбор пояса выключен; «Вернуть» включает его обратно." = "O macOS pede a senha de administrador. Enquanto o fuso do país da VPN estiver definido, o fuso automático fica desligado; “Restaurar” o liga de novo.";
 "settings.json Claude Code имеет неожиданный формат, Cooldown его не трогает." = "O settings.json do Claude Code tem um formato inesperado; o Cooldown não o altera.";
 "vpn маршрут страна бан блокировка защита заморозка адрес сервер роутер" = "vpn rota país banimento bloqueio proteção congelar pausa endereço servidor roteador";
 "«%@» больше не ждёт сброса." = "“%@” não espera mais o reinício.";
@@ -317,6 +319,7 @@
 "Введите ответ." = "Digite uma resposta.";
 "Ввести ссылку" = "Inserir link";
 "Вернитесь сюда и нажмите «Проверить снова»." = "Volte aqui e clique em “Verificar de novo”.";
+"Вернуть мой пояс (%@)" = "Restaurar meu fuso (%@)";
 "Версия %@" = "Versão %@";
 "Версия %@ загружена и готова" = "Versão %@ baixada e pronta";
 "Версия, лицензия и благодарности" = "Versão, licença e agradecimentos";
@@ -367,6 +370,7 @@
 "Выключить защиту на час" = "Desativar a proteção por uma hora";
 "Выключить на час" = "Desativar por uma hora";
 "Выполнено: «" = "Concluída: “";
+"Где Antigravity" = "Onde está o Antigravity";
 "Где Codex" = "Onde está o Codex";
 "Год работы" = "Ano de trabalho";
 "Готовность" = "Prontidão";
@@ -508,6 +512,7 @@
 "Защита VPN выключена" = "Proteção VPN desligada";
 "Защита выключена до %@" = "Proteção desativada até %@";
 "Защита выключена на час." = "A proteção está desativada por uma hora.";
+"Защита для %@" = "Proteção para %@";
 "Защита от работы без VPN" = "Proteção contra trabalhar sem VPN";
 "Защита снова включена." = "A proteção está ligada de novo.";
 "Звук карточки" = "Som do cartão";
@@ -607,6 +612,7 @@
 "Лимиты Claude читаются из Claude Code: его экран «Использование» и строка статуса. Вход в claude.ai не нужен, и Cooldown туда не ходит." = "Os limites do Claude são lidos do Claude Code: sua tela “Uso” e linha de status. Não é preciso entrar no claude.ai, e o Cooldown não acessa esse site.";
 "Лимиты Codex" = "Limites do Codex";
 "Лимиты Codex идут из его файлов сессий, пока он работает, и из `codex app-server` — в остальное время." = "Os limites do Codex vêm dos arquivos de sessão dele enquanto trabalha e do `codex app-server` no resto do tempo.";
+"Лимиты Cooldown читает командой agy /usage: локально, без обращения к модели и без расхода квоты. Команду agy ставит само приложение Antigravity при первом запуске." = "O Cooldown lê os limites com agy /usage: localmente, sem consultar o modelo e sem gastar cota. O app Antigravity instala o agy sozinho na primeira abertura.";
 "Лимиты на 5 часов и неделю, общие для всей подписки" = "Limites de 5 horas e semanal, comuns a toda a assinatura";
 "Лимиты на экране блокировки" = "Limites na Tela Bloqueada";
 "Лимиты, работа агентов и автопродолжение для Codex и Claude — в строке меню." = "Limites, trabalho dos agentes e retomada automática para Codex e Claude — na barra de menus.";
@@ -693,6 +699,7 @@
 "Не удалось прочитать историю диалога." = "Não foi possível ler o histórico da conversa.";
 "Не удалось прочитать экран /usage в Claude Code." = "Não foi possível ler a tela /usage no Claude Code.";
 "Не удалось распаковать новую версию." = "Não foi possível descompactar a nova versão.";
+"Не удалось сменить часовой пояс: %@" = "Não foi possível mudar o fuso horário: %@";
 "Не удалось сохранить ключ в Связке ключей." = "Não foi possível salvar a chave nas Chaves.";
 "Не удалось сохранить ключ." = "Não foi possível salvar a chave.";
 "Не удалось сохранить состояние автопродолжения: %@" = "Não foi possível salvar o estado da retomada automática: %@";
@@ -784,7 +791,9 @@
 "Осталось 20% и 5%" = "Restam 20% e 5%";
 "Осталось войти в аккаунт. Откроется браузер: подтвердите вход и вернитесь сюда, остальное Cooldown сделает сам. Пароль Cooldown не видит." = "Só falta entrar. Um navegador será aberto: confirme e volte aqui, o Cooldown faz o resto. O Cooldown nunca vê sua senha.";
 "Остальные" = "Outros";
+"Останавливает Antigravity перед обращением к модели, пока маршрут до Google неправильный." = "Para o Antigravity antes de chamar o modelo enquanto a rota até o Google estiver errada.";
 "Остановить" = "Parar";
+"Остановить примеры" = "Parar exemplos";
 "Остановлена из-за лимита" = "Parada pelo limite";
 "Остановлена лимитом" = "Parada pelo limite";
 "Остановлено на «%@»" = "Parou em “%@”";
@@ -821,6 +830,7 @@
 "Открыть в Codex" = "Abrir no Codex";
 "Открыть журнал" = "Abrir registro";
 "Открыть задачи" = "Abrir tarefas";
+"Открыть защиту VPN" = "Abrir proteção VPN";
 "Открыть мастер настройки" = "Abrir assistente de configuração";
 "Открыть на GitHub" = "Abrir no GitHub";
 "Открыть настройки" = "Abrir ajustes";
@@ -897,6 +907,7 @@
 "Пока вас не было" = "Enquanto você estava fora";
 "Пока включён «Не беспокоить», «Сон» или другой режим, всё копится в ленте, а потом приходит короткая сводка." = "Enquanto “Não Perturbe”, “Sono” ou outro Foco estiver ativo, tudo se acumula no histórico e depois chega um resumo curto.";
 "Пока ждали лимит, в диалоге поменялись настройки или состояние. Проверьте диалог и включите продолжение снова." = "Enquanto esperava o limite, as configurações ou o estado da conversa mudaram. Verifique-a e ative a continuação novamente.";
+"Пока маршрут до Google неправильный, хук в ~/.gemini/config/hooks.json останавливает Antigravity перед обращением к модели, а Cooldown ставит приложение на паузу. Хуки других программ остаются как были." = "Enquanto a rota até o Google estiver errada, um hook em ~/.gemini/config/hooks.json para o Antigravity antes de chamar o modelo, e o Cooldown pausa o app. Os hooks de outros programas ficam como estavam.";
 "Пока ни одного iPhone" = "Nenhum iPhone ainda";
 "Пока ничего не произошло. Здесь появятся сбросы лимитов, продолженные и законченные задачи." = "Nada aconteceu ainda. Aqui vão aparecer restaurações de limite e tarefas retomadas e concluídas.";
 "Пока он спит, ничего не продолжится и Cooldown ничего не пришлёт." = "Enquanto ele dorme, nada continua e o Cooldown não envia nada.";
@@ -925,6 +936,7 @@
 "Посмотреть" = "Ver";
 "Посмотреть пример" = "Ver um exemplo";
 "Посмотрите эти задачи в Codex: повторно Cooldown их не отправит." = "Verifique estas tarefas no Codex: o Cooldown não vai reenviá-las.";
+"Поставить пояс %@" = "Definir fuso %@";
 "Потрачено" = "Gasto";
 "Потянитесь, разомните шею — агент подождёт." = "Alongue-se, mexa o pescoço — o agente espera.";
 "Правила безопасности" = "Regras de segurança";
@@ -932,6 +944,7 @@
 "При 5% придёт второе уведомление. На нуле Codex останавливается, а задача переходит в «Ждёт сброса лимита». Ваш Mac можно оставить в покое." = "Com 5%, chega uma segunda notificação. No zero, o Codex para e a tarefa passa para “Aguarda restauração”. Pode deixar o Mac em paz.";
 "При таком темпе 5 часов закончатся раньше сброса в %@." = "Neste ritmo, as 5 horas acabam antes da restauração às %@.";
 "При таком темпе 5 часов закончатся раньше сброса в %@. Сейчас осталось %@." = "Neste ritmo, as 5 horas acabam antes da restauração às %@. Agora restam %@.";
+"Приложение Antigravity" = "App Antigravity";
 "Приложение Codex" = "App Codex";
 "Приложение Codex закрыто — продолжу, когда оно откроется." = "O app Codex está fechado — continuo quando ele abrir.";
 "Приложение Codex не запущено." = "O app Codex não está aberto.";
@@ -968,6 +981,8 @@
 "Проверяю задачу, для длинных диалогов до 15 секунд." = "Verificando a tarefa; até 15 segundos para conversas longas.";
 "Проверяю…" = "Verificando…";
 "Прогноз на 5 часов" = "Previsão para 5 horas";
+"Программа agy" = "Programa agy";
+"Программа agy, лимиты и защита VPN" = "Programa agy, limites e proteção VPN";
 "Программа claude" = "Programa claude";
 "Программа codex" = "Programa codex";
 "Программа, хуки и автопродолжение" = "Programa, hooks e retomada automática";
@@ -1176,6 +1191,7 @@
 "Хороший момент перечитать, что уже сделано." = "Bom momento para reler o que já foi feito.";
 "Хороший ритм. Вы с агентом — отличная команда." = "Bom ritmo. Você e o agente formam um ótimo time.";
 "Хук держит ваше сообщение, пока Cooldown проверяет маршрут (обычно меньше секунды), и останавливает агента между шагами, если VPN отвалился посреди работы. Если Cooldown закрыт, хук проверяет маршрут сам." = "O hook segura a sua mensagem enquanto o Cooldown verifica a rota (geralmente em menos de um segundo) e para o agente entre etapas se a VPN cair no meio do trabalho. Se o Cooldown estiver fechado, o próprio hook verifica a rota.";
+"Хук защиты" = "Hook de proteção";
 "Хуки" = "Hooks";
 "Хуки Claude Code" = "Hooks do Claude Code";
 "Хуки Codex" = "Hooks do Codex";
@@ -1265,6 +1281,7 @@
 "запись: " = "gravação: ";
 "запомнен при исчерпании лимита" = "lembrado quando o limite acabou";
 "запрещён" = "bloqueado";
+"защита выключена" = "proteção desligada";
 "значок проценты линии свечение активность" = "ícone porcentagens linhas brilho atividade barra de menus";
 "и ещё %@" = "e mais %@";
 "из боковой панели" = "da barra lateral";
@@ -1278,6 +1295,7 @@
 "не найдена" = "não encontrada";
 "не найдено" = "não encontrado";
 "не отслеживать «%@»" = "parar de acompanhar “%@”";
+"не проверяется" = "não verificado";
 "не работает: %@" = "não funciona: %@";
 "не удалось" = "falhou";
 "не удалось проверить" = "falha na verificação";
@@ -1302,6 +1320,7 @@
 "по API это стоило бы ≈%@" = "pelos preços da API, teria custado ≈%@";
 "по ценам API" = "pelos preços da API";
 "подряд %@" = "%@ seguidos";
+"пояс не изменён (отменено или нет прав)" = "fuso não alterado (cancelado ou sem permissão)";
 "прежний адрес" = "endereço anterior";
 "пробую продолжить" = "tentando continuar";
 "проверка отчёт ошибки не работает тест" = "verificação relatório erros não funciona teste diagnóstico";

@@ -356,7 +356,6 @@ final class ToastController: ObservableObject {
         return (info["CGSSessionScreenIsLocked"] as? Bool) ?? false
     }
 
-    /// A short tour of the card types, one after another.
     private static var sharing: NSWindow.SharingType { Settings.cardsInCapture ? .readOnly : .none }
 
     /// The setting changed: apply it to the cards already on screen too.
@@ -364,7 +363,23 @@ final class ToastController: ObservableObject {
         for card in cards { card.panel.sharingType = Self.sharing }
     }
 
+    /// The sample tour is running (Settings shows "stop" then).
+    @Published private(set) var showingExamples = false
+    private var exampleSteps: [DispatchWorkItem] = []
+
+    /// Stops the tour: the samples still to come are dropped, the ones on screen close.
+    func stopExamples() {
+        exampleSteps.forEach { $0.cancel() }
+        exampleSteps = []
+        showingExamples = false
+        for card in cards where card.content.key.hasPrefix("demo-") || card.content.key == "req-example" { remove(card) }
+        waiting.removeAll { $0.key.hasPrefix("demo-") || $0.key == "req-example" }
+    }
+
+    /// A short tour of the card types, one after another.
     func showExamples() {
+        stopExamples()
+        showingExamples = true
         let examples: [ToastContent] = [
             ToastCatalog.taskWaiting(.codex, title: L("Рефакторинг парсера"), until: Date().addingTimeInterval(7200)),
             ToastCatalog.taskResumed(.codex, title: L("Рефакторинг парсера")),
@@ -374,14 +389,20 @@ final class ToastController: ObservableObject {
             ToastCatalog.limitReset(.claude, demo: true),
         ]
         // Keys of their own ("demo-…"): samples never replace a real card, here or on the phone.
+        func later(_ delay: Double, _ block: @escaping () -> Void) {
+            let step = DispatchWorkItem(block: block)
+            exampleSteps.append(step)
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: step)
+        }
         for (index, example) in examples.enumerated() {
             var sample = example
             sample.key = "demo-" + example.key
             let shown = sample
-            DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 2.2) { ToastController.shared.show(shown) }
+            later(Double(index) * 2.2) { ToastController.shared.show(shown) }
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + Double(examples.count) * 2.2) {
+        later(Double(examples.count) * 2.2) {
             ToastController.shared.reveal(RequestCenter.exampleContent())
+            ToastController.shared.showingExamples = false
         }
     }
 }

@@ -55,8 +55,7 @@ struct UpdatesPane: View {
         }
         if let release = updater.available, !release.notes.isEmpty {
             Section(L("Что нового в %@", "\(release.version)")) {
-                Text(release.notes.components(separatedBy: "\n---").first ?? release.notes)
-                    .font(.callout).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                ReleaseNotesView(notes: release.notes)
                 Button(L("Открыть на GitHub")) { updater.openReleasePage() }.buttonStyle(.link)
             }
         }
@@ -133,5 +132,77 @@ struct DataPane: View {
         } catch {
             message = L("Не сохранилось: %@", "\(error.localizedDescription)")
         }
+    }
+}
+
+/// A release's notes as they are meant to read: headings, bullets and bold, not the Markdown
+/// marks. Releases carry English and Russian ("---" between them); the app's language comes first,
+/// the other one is a click away.
+struct ReleaseNotesView: View {
+    let notes: String
+    @State private var russian = AppLanguage.code.hasPrefix("ru") || AppLanguage.code.hasPrefix("uk")
+
+    var body: some View {
+        let parts = Self.parts(notes)
+        VStack(alignment: .leading, spacing: 6) {
+            if parts.russian != nil {
+                Picker("", selection: $russian) {
+                    Text("English").tag(false)
+                    Text("Русский").tag(true) // l10n:skip
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .fixedSize()
+            }
+            ForEach(Array(Self.blocks(russian ? (parts.russian ?? parts.english) : parts.english).enumerated()), id: \.offset) { _, block in
+                switch block {
+                case .heading(let text):
+                    Text(Self.inline(text)).font(.callout.weight(.semibold)).padding(.top, 4)
+                case .bullet(let text):
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text("•").foregroundStyle(.secondary)
+                        Text(Self.inline(text)).fixedSize(horizontal: false, vertical: true)
+                    }
+                    .font(.callout)
+                case .paragraph(let text):
+                    Text(Self.inline(text)).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .textSelection(.enabled)
+    }
+
+    enum Block: Equatable { case heading(String), bullet(String), paragraph(String) }
+
+    /// English before the first "---" line, Russian after it (if there is one).
+    static func parts(_ notes: String) -> (english: String, russian: String?) {
+        let lines = notes.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n")
+        guard let split = lines.firstIndex(where: { $0.trimmingCharacters(in: .whitespaces) == "---" }) else { return (notes, nil) }
+        return (lines[..<split].joined(separator: "\n"), lines[(split + 1)...].joined(separator: "\n"))
+    }
+
+    static func blocks(_ text: String) -> [Block] {
+        var result: [Block] = []
+        for raw in text.components(separatedBy: "\n") {
+            let line = raw.trimmingCharacters(in: .whitespaces)
+            if line.isEmpty { continue }
+            // The links between the two languages and their own headings are not needed here.
+            if line.hasPrefix("**English**") || line == "### Русский" || line == "### English" { continue } // l10n:skip
+            if line.hasPrefix("#") {
+                result.append(.heading(String(line.drop { $0 == "#" }).trimmingCharacters(in: .whitespaces)))
+            } else if line.hasPrefix("- ") || line.hasPrefix("* ") {
+                result.append(.bullet(String(line.dropFirst(2))))
+            } else if line.hasPrefix("**"), line.hasSuffix("**"), line.count > 4, !line.dropFirst(2).dropLast(2).contains("**") {
+                result.append(.heading(String(line.dropFirst(2).dropLast(2))))
+            } else {
+                result.append(.paragraph(line))
+            }
+        }
+        return result
+    }
+
+    /// Bold, italics, code and links inside a line.
+    static func inline(_ text: String) -> AttributedString {
+        (try? AttributedString(markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(text)
     }
 }

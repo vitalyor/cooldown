@@ -103,8 +103,15 @@ enum GuardService: String, CaseIterable {
         }
     }
 
-    /// The services of the agents the person uses (hidden ones are neither checked nor frozen).
-    @MainActor static var watched: [GuardService] { allCases.filter { ProviderID.shown.contains($0.provider) } }
+    /// The services of the agents the person uses (hidden ones, or ones the guard is switched off
+    /// for, are neither checked nor frozen).
+    @MainActor static var watched: [GuardService] {
+        let off = Settings.guardOff
+        return allCases.filter { ProviderID.shown.contains($0.provider) && !off.contains($0.rawValue) }
+    }
+
+    /// The guard is switched off for this agent alone.
+    var off: Bool { Settings.guardOff.contains(rawValue) }
 }
 
 /// Where requests leave for a service, as the service sees them.
@@ -269,7 +276,7 @@ final class RouteGuard: ObservableObject {
 
     /// Whether Cooldown and the agents may reach `provider` now: both routes right and fresh.
     nonisolated static func allows(_ provider: ProviderID, now: Date = Date()) -> Bool {
-        guard live(now) else { return true }
+        guard live(now), !GuardService.of(provider).off else { return true }
         guard let reading = state.get(GuardService.of(provider)), now.timeIntervalSince(reading.at) < freshFor else { return false }
         return reading.verdict == .ok && reading.appVerdict == .ok
     }
@@ -365,6 +372,15 @@ final class RouteGuard: ObservableObject {
                 problems.append(error.localizedDescription)
             }
         }
+        do {
+            if on {
+                if AntigravityGuard.present, AntigravityGuard.status == .off, installsHooks { try AntigravityGuard.install() }
+            } else {
+                try AntigravityGuard.uninstall()
+            }
+        } catch {
+            problems.append(error.localizedDescription)
+        }
         shared.apply()
         return problems.isEmpty ? nil : problems.joined(separator: "\n")
     }
@@ -401,6 +417,7 @@ final class RouteGuard: ObservableObject {
         for agent in AgentHooks.Agent.allCases where Self.installsHooks && Self.present(agent) && AgentHooks.guardStatus(agent) == .off {
             try? AgentHooks.installGuard(agent)
         }
+        if Self.installsHooks, AntigravityGuard.present, AntigravityGuard.status == .off { try? AntigravityGuard.install() }
         try? FileManager.default.createDirectory(at: Self.dir, withIntermediateDirectories: true)
         writeHookFiles()
         try? AgentHooks.writeGuardScript()
@@ -947,11 +964,18 @@ final class RouteGuard: ObservableObject {
 
     /// A word in Settings when the Mac's time zone does not fit the VPN's country (services see both).
     @Published private(set) var timeZoneNote: String?
+    /// The zone to switch the Mac to (the VPN country's main one), while it does not fit.
+    @Published private(set) var timeZoneTarget: String?
 
-    private func checkTimeZone() {
+    func checkTimeZone() {
         let exit = GuardService.watched.compactMap { readings[$0] }.first { $0.appVerdict == .ok && $0.at != .distantPast }?.appExit
         let zone = TimeZone.current
-        guard let exit, TimeZoneCheck.mismatch(country: exit.country, zone: zone) == true else { timeZoneNote = nil; return }
+        guard let exit, TimeZoneCheck.mismatch(country: exit.country, zone: zone) == true else {
+            timeZoneNote = nil
+            timeZoneTarget = nil
+            return
+        }
+        timeZoneTarget = TimeZoneCheck.zones[exit.country]?.first
         timeZoneNote = L("Часовой пояс Mac — %@, а VPN выходит в стране «%@». Приложения и сайты видят и то и другое, и несовпадение заметно. Поставьте пояс страны VPN: «Системные настройки → Основные → Дата и время».",
                          zone.identifier, exit.countryName)
         // Said once per country and zone; the note in Settings stays.
@@ -1049,9 +1073,9 @@ final class RouteGuard: ObservableObject {
         if !unchecked.isEmpty { lines.append(L("%@: не удалось проверить маршрут.", Self.names(unchecked))) }
         let frozen = Freezer.shared.frozenNames
         if !frozen.isEmpty { lines.append(L("На паузе: %@.", frozen.joined(separator: ", "))) }
-        // Antigravity has no hooks: only its app is held (frozen).
-        let tools = blocked.filter { $0 != .google && AgentHooks.guardStatus($0 == .anthropic ? .claude : .codex) == .on }
-            .map { $0.provider == .claude ? "Claude Code" : "Codex" }
+        let tools = blocked.filter {
+            $0 == .google ? AntigravityGuard.status == .on : AgentHooks.guardStatus($0 == .anthropic ? .claude : .codex) == .on
+        }.map { $0 == .google ? "Antigravity" : $0.terminalName }
         if tools.count == 1 { lines.append(L("%@ не отправит сообщения, пока маршрут не придёт в норму.", tools[0])) }
         if tools.count > 1 { lines.append(L("%@ не отправят сообщения, пока маршрут не придёт в норму.", tools.joined(separator: L(" и ")))) }
         lines.append(L("Продолжу сам, когда всё наладится."))
@@ -1070,6 +1094,24 @@ final class RouteGuard: ObservableObject {
         let names = services.map(\.name)
         guard names.count > 1 else { return names.first ?? "" }
         return names.dropLast().joined(separator: ", ") + L(" и ") + names.last!
+    }
+
+    /// The guard for one agent alone: off leaves its route unchecked, its apps and hooks alone.
+    func setOff(_ service: GuardService, _ off: Bool) {
+        var set = Settings.guardOff
+        if off { set.insert(service.rawValue) } else { set.remove(service.rawValue) }
+        Settings.guardOff = set
+        writeHookFiles()
+        objectWillChange.send()
+        if off {
+            // What waited for it goes: its card, its exit questions.
+            pending = pending.filter { $0.value.service != service }
+            showExitCard(notify: false)
+            enforce()
+        } else {
+            // Back on: nothing old counts, it is checked at once.
+            networkChanged()
+        }
     }
 
     /// "Turn the guard off for an hour", from the card or Settings; nil turns it back on.
@@ -1122,6 +1164,9 @@ final class RouteGuard: ObservableObject {
             text.replacingOccurrences(of: "\"", with: "'").replacingOccurrences(of: "\\", with: "/").replacingOccurrences(of: "\n", with: " ")
         }
         for service in GuardService.allCases {
+            // Switched off for this agent: its hook lets everything through.
+            let skip = dir.appendingPathComponent("skip-" + service.rawValue)
+            if service.off { Self.write("off\n", to: skip) } else { try? fm.removeItem(at: skip) }
             let block = L("Cooldown: %@ сейчас видит вас не через VPN. Запрос не отправлен — повторите, когда VPN заработает.", service.name)
             let unchecked = L("Cooldown: не удалось проверить маршрут к %@. Запрос не отправлен — проверьте VPN и повторите.", service.name)
             Self.write(clean(block), to: dir.appendingPathComponent("msg-\(service.rawValue)-block"))
@@ -1429,5 +1474,57 @@ final class OnceGate: @unchecked Sendable {
         guard !done else { return }
         done = true
         block()
+    }
+}
+
+/// Switching the Mac's time zone to the VPN country's and back. macOS asks for an administrator
+/// password each time (systemsetup needs it); the automatic time zone is turned off while the
+/// chosen one is in use, or it would put the real one back, and turned on again on return.
+enum TimeZoneSwitch {
+    /// The zone (and whether it was automatic) from before the first switch: what "back" restores.
+    static var saved: String? { Settings.strings("timeZoneSaved")?.first }
+    private static var savedAuto: Bool { Settings.strings("timeZoneSaved")?.dropFirst().first == "auto" }
+
+    static var automatic: Bool {
+        (NSDictionary(contentsOfFile: "/Library/Preferences/com.apple.timezone.auto.plist")?["Active"] as? Bool) ?? false
+    }
+
+    @MainActor static func set(_ zone: String) async throws {
+        if saved == nil { Settings.set([TimeZone.current.identifier, automatic ? "auto" : "manual"], forKey: "timeZoneSaved") }
+        try await run(zone, automatic: false)
+    }
+
+    @MainActor static func restore() async throws {
+        guard let zone = saved else { return }
+        try await run(zone, automatic: savedAuto)
+        Settings.set(nil, forKey: "timeZoneSaved")
+    }
+
+    /// Zone names are letters, digits, "/", "_", "+" and "-": nothing that could break the command.
+    static func valid(_ zone: String) -> Bool {
+        zone.range(of: #"^[A-Za-z0-9/_+-]+$"#, options: .regularExpression) != nil && TimeZone(identifier: zone) != nil
+    }
+
+    @MainActor private static func run(_ zone: String, automatic: Bool) async throws {
+        guard valid(zone) else { throw NSError(domain: "Cooldown", code: 1, userInfo: [NSLocalizedDescriptionKey: zone]) }
+        let auto = "/usr/bin/defaults write /Library/Preferences/com.apple.timezone.auto Active -bool \(automatic ? "true" : "false")"
+        // Automatic off before setting (else it puts the real zone back at once); on again after
+        // setting the old one.
+        let command = automatic ? "/usr/sbin/systemsetup -settimezone \(zone) && \(auto)" : "\(auto) && /usr/sbin/systemsetup -settimezone \(zone)"
+        let script = "do shell script \"\(command)\" with administrator privileges"
+        let status: Int32 = await withCheckedContinuation { continuation in
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+            process.arguments = ["-e", script]
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            process.terminationHandler = { continuation.resume(returning: $0.terminationStatus) }
+            if (try? process.run()) == nil { process.terminationHandler = nil; continuation.resume(returning: -1) }
+        }
+        guard status == 0 else {
+            throw NSError(domain: "Cooldown", code: Int(status), userInfo: [NSLocalizedDescriptionKey: L("пояс не изменён (отменено или нет прав)")])
+        }
+        NSTimeZone.resetSystemTimeZone()
+        RouteGuard.shared.checkTimeZone()
     }
 }

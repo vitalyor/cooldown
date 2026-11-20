@@ -46,6 +46,14 @@ enum SelfTest {
                    && TimeZoneCheck.mismatch(country: "RU", zone: moscow) == false && TimeZoneCheck.mismatch(country: "ZZ", zone: moscow) == nil,
                    "guard: time zone against the exit country")
             expect(NetWatch.fingerprint().contains("|"), "guard: network fingerprint")
+            expect(TimeZoneSwitch.valid("America/New_York") && !TimeZoneSwitch.valid("America/New_York; rm -rf /")
+                   && !TimeZoneSwitch.valid("Nowhere/Fake") && !TimeZoneSwitch.valid("UTC'\""), "time zone: only real zone names reach the command")
+            expect(TimeZoneCheck.zones["US"]?.first == "America/New_York", "time zone: a country's main zone")
+            let notes = "**English** · [Русский](#русский)\n\n### New\n- **Beta.** One\n\n---\n\n### Русский\n\n**Новое**\n- **Бета.** Одно\n" // l10n:skip
+            let parts = ReleaseNotesView.parts(notes)
+            expect(ReleaseNotesView.blocks(parts.english) == [.heading("New"), .bullet("**Beta.** One")], "release notes: English blocks")
+            expect(ReleaseNotesView.blocks(parts.russian ?? "") == [.heading("Новое"), .bullet("**Бета.** Одно")], "release notes: Russian blocks") // l10n:skip
+            expect(String(ReleaseNotesView.inline("**Бета.** Одно").characters) == "Бета. Одно", "release notes: no Markdown marks shown") // l10n:skip
             let forbidden: Set<String> = ["RU", "BY"]
             expect(RouteVerdict.judge(exit, forbidden: forbidden, refused: []) == .ok, "guard: allowed country")
             expect(RouteVerdict.judge(RouteExit(ip: "1.1.1.1", country: "RU", colo: "ARN"), forbidden: forbidden, refused: []) == .forbidden, "guard: forbidden country")

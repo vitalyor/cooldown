@@ -4,6 +4,7 @@ import ServiceManagement
 enum SettingsKey {
     static let refreshInterval = "refreshInterval"
     static let codexPath = "codexPath"
+    static let antigravityPath = "antigravityPath"
     static let claudePath = "claudePath"
     static let showPercent = "showPercent"
     static let menuSource = "menuSource"
@@ -27,6 +28,7 @@ enum SettingsKey {
     static let guardEnabled = "guardEnabled"
     static let guardFreeze = "guardFreeze"
     static let guardFreezeTerminal = "guardFreezeTerminal"
+    static let guardOff = "guardOff"
     static let guardTimeZoneWarned = "guardTimeZoneWarned"
     static let guardForbidden = "guardForbidden"
     static let guardExits = "guardExits"
@@ -91,6 +93,7 @@ enum Settings {
     }
 
     static var codexPath: String { defaults.string(forKey: SettingsKey.codexPath) ?? "" }
+    static var antigravityPath: String { defaults.string(forKey: SettingsKey.antigravityPath) ?? "" }
     static var claudePath: String { defaults.string(forKey: SettingsKey.claudePath) ?? "" }
     static var showPercent: Bool { bool(SettingsKey.showPercent, true) }
     /// Which agents have a line in the menu bar: their ids joined by commas ("codex,antigravity").
@@ -135,6 +138,11 @@ enum Settings {
     /// Command-line agents in a terminal paused too (off: their hooks hold messages instead).
     static var guardFreezeTerminal: Bool { bool(SettingsKey.guardFreezeTerminal, false) }
     static var guardTimeZoneWarned: String? { defaults.string(forKey: SettingsKey.guardTimeZoneWarned) }
+    /// Services the guard leaves alone (switched off for one agent in Settings).
+    static var guardOff: Set<String> {
+        get { Set(defaults.stringArray(forKey: SettingsKey.guardOff) ?? []) }
+        set { defaults.set(newValue.sorted(), forKey: SettingsKey.guardOff) }
+    }
     /// Countries the services do not serve: a route through one of them stops the agents.
     static let guardForbiddenDefault = "RU BY CN HK MO IR KP CU SY"
     static var guardForbiddenText: String { defaults.string(forKey: SettingsKey.guardForbidden) ?? guardForbiddenDefault }

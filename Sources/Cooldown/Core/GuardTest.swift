@@ -253,6 +253,19 @@ enum GuardTest {
         ProviderID.testShown = [.codex, .claude]
         await guardian.round()
 
+        // 12c. The guard switched off for one agent: not checked, allowed, its hook lets it through.
+        guardian.setOff(.openai, true)
+        calls = [:]
+        answers[.openai] = direct(ru)
+        await guardian.round()
+        expect(calls[.openai] == nil && RouteGuard.allows(.codex), "one agent off: not checked, allowed")
+        expect(hook("openai", "prompt").0 == 0, "one agent off: its hook lets prompts out")
+        guardian.setOff(.openai, false)
+        await guardian.round()
+        expect(!RouteGuard.allows(.codex) && hook("openai", "prompt").0 == 2, "one agent on again: checked and held")
+        answers[.openai] = direct(us)
+        await guardian.round()
+
         // 13. Two checks at once: the second waits its turn instead of running alongside.
         calls = [:]
         delay = .milliseconds(300)
@@ -414,8 +427,9 @@ enum GuardTest {
         let real = FileManager.default.homeDirectoryForCurrentUser
         func resolved(_ url: URL) -> String { url.resolvingSymlinksInPath().standardizedFileURL.path }
         guard resolved(ClaudePaths.home) != resolved(real.appendingPathComponent(".claude")),
-              resolved(CodexPaths.home) != resolved(real.appendingPathComponent(".codex")) else {
-            return ["refused: CLAUDE_CONFIG_DIR / CODEX_HOME point at the real folders"]
+              resolved(CodexPaths.home) != resolved(real.appendingPathComponent(".codex")),
+              resolved(AntigravityGuard.configFolder) != resolved(real.appendingPathComponent(".gemini/config")) else {
+            return ["refused: CLAUDE_CONFIG_DIR / CODEX_HOME / COOLDOWN_GEMINI_CONFIG point at the real folders"]
         }
         // The guard script goes to a scratch folder too, never the real Cooldown folder, and
         // settings to a scratch store.
@@ -506,6 +520,24 @@ enum GuardTest {
             failures.append("codex hooks: \(error)")
         }
         save(original, codex)
+        // Antigravity: its own named entry in hooks.json, others left as they were.
+        if let gemini = ProcessInfo.processInfo.environment["COOLDOWN_GEMINI_CONFIG"] {
+            let file = URL(fileURLWithPath: gemini).appendingPathComponent("hooks.json")
+            let other: [String: Any] = ["lint": ["PostToolUse": [["matcher": "*", "hooks": [["command": "./lint.sh"]]]]]]
+            save(other, file)
+            do {
+                try AntigravityGuard.install()
+                let root = json(file)
+                expect(root["lint"] != nil && (root[AntigravityGuard.name] as? [String: Any])?["PreInvocation"] != nil, "antigravity: guard hook added beside others")
+                expect(AntigravityGuard.status == .on, "antigravity: guard hook on")
+                try AntigravityGuard.uninstall()
+                expect(same(json(file), other), "antigravity: removing the guard restores the file exactly")
+            } catch {
+                failures.append("antigravity hooks: \(error)")
+            }
+        } else {
+            failures.append("COOLDOWN_GEMINI_CONFIG not set: the Antigravity part was not run")
+        }
         return failures
     }
 

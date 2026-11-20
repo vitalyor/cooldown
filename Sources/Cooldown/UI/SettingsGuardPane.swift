@@ -25,10 +25,23 @@ struct GuardPane: View {
         if enabled {
             Section {
                 ForEach(GuardService.allCases.filter { ProviderID.shown.contains($0.provider) }, id: \.self) { service in
-                    LabeledContent(service.name) { status(service) }
+                    LabeledContent(service.name) {
+                        HStack(spacing: 10) {
+                            status(service)
+                            // The guard for this agent alone (on by default).
+                            Toggle("", isOn: Binding(get: { !service.off }, set: { route.setOff(service, !$0) }))
+                                .labelsHidden()
+                                .toggleStyle(.switch)
+                                .controlSize(.mini)
+                                .help(L("Защита для %@", service.name))
+                        }
+                    }
                 }
                 if let note = route.timeZoneNote {
                     Note(symbol: "clock.badge.exclamationmark", text: note, color: Theme.amber).font(.caption)
+                }
+                if route.timeZoneTarget != nil || TimeZoneSwitch.saved != nil {
+                    TimeZoneButtons(target: route.timeZoneTarget)
                 }
                 HStack {
                     if let until = Settings.guardPausedUntil, until > now {
@@ -88,6 +101,10 @@ struct GuardPane: View {
                 hookRow("Claude Code", AgentHooks.guardStatus(.claude), extra: claudeVersionNote)
                 hookRow("Codex", AgentHooks.guardStatus(.codex),
                         extra: AgentHooks.guardStatus(.codex) != .on ? L("Codex запускает новый хук только после одобрения: откройте Codex, введите /hooks и отметьте хук Cooldown как доверенный.") : nil)
+                if AntigravityGuard.present {
+                    hookRow("Antigravity", AntigravityGuard.status,
+                            extra: L("Останавливает Antigravity перед обращением к модели, пока маршрут до Google неправильный."))
+                }
             } header: { Text(L("Хуки")) } footer: {
                 Footnote(text: L("Хук держит ваше сообщение, пока Cooldown проверяет маршрут (обычно меньше секунды), и останавливает агента между шагами, если VPN отвалился посреди работы. Если Cooldown закрыт, хук проверяет маршрут сам."))
             }
@@ -95,7 +112,9 @@ struct GuardPane: View {
     }
 
     @ViewBuilder private func status(_ service: GuardService) -> some View {
-        if let reading = route.readings[service], reading.at != .distantPast {
+        if service.off {
+            Text(L("не проверяется")).foregroundStyle(.secondary)
+        } else if let reading = route.readings[service], reading.at != .distantPast {
             let age = Format.duration(max(1, now.timeIntervalSince(reading.at)))
             switch reading.verdict {
             case .ok:
@@ -161,6 +180,38 @@ private struct ExitRow: View {
             Button { (services.isEmpty ? [.anthropic] : services).forEach { RouteGuard.shared.forget($0, ip: ip) } } label: { Image(systemName: "xmark.circle.fill") }
                 .buttonStyle(.plain).foregroundStyle(.secondary)
                 .help(L("Забыть адрес"))
+        }
+    }
+}
+
+/// "Put the VPN country's time zone" and "my zone back".
+private struct TimeZoneButtons: View {
+    let target: String?
+    @State private var busy = false
+    @State private var problem: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                if let target {
+                    Button(L("Поставить пояс %@", target)) { act { try await TimeZoneSwitch.set(target) } }
+                }
+                Spacer()
+                if let saved = TimeZoneSwitch.saved, saved != TimeZone.current.identifier {
+                    Button(L("Вернуть мой пояс (%@)", saved)) { act { try await TimeZoneSwitch.restore() } }
+                }
+            }
+            .disabled(busy)
+            Footnote(text: problem ?? L("macOS попросит пароль администратора. Пока стоит пояс страны VPN, автоматический выбор пояса выключен; «Вернуть» включает его обратно."))
+        }
+    }
+
+    private func act(_ work: @escaping () async throws -> Void) {
+        busy = true
+        problem = nil
+        Task {
+            do { try await work() } catch { problem = L("Не удалось сменить часовой пояс: %@", error.localizedDescription) }
+            busy = false
         }
     }
 }

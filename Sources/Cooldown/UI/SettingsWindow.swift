@@ -58,7 +58,7 @@ final class SettingsNavigation: ObservableObject {
 }
 
 enum SettingsPane: String, CaseIterable, Identifiable {
-    case general, menubar, notifications, iphone, quiet, vpn, codex, claude, updates, data, diagnostics, about
+    case general, menubar, notifications, iphone, quiet, vpn, codex, claude, antigravity, updates, data, diagnostics, about
 
     var id: String { rawValue }
 
@@ -72,6 +72,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .vpn: return L("Защита VPN")
         case .codex: return "Codex"
         case .claude: return "Claude"
+        case .antigravity: return "Antigravity"
         case .updates: return L("Обновления")
         case .data: return L("Статистика")
         case .diagnostics: return L("Диагностика")
@@ -89,6 +90,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .vpn: return L("Агенты не выходят в сеть мимо VPN")
         case .codex: return L("Программа, хуки и автопродолжение")
         case .claude: return L("Источники лимитов, Claude Desktop и Claude Code")
+        case .antigravity: return L("Программа agy, лимиты и защита VPN")
         case .updates: return L("Новые версии с GitHub")
         case .data: return L("История, таблица и демо")
         case .diagnostics: return L("Проверить, что всё работает")
@@ -106,6 +108,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .vpn: return "checkmark.shield.fill"
         case .codex: return "chevron.left.forwardslash.chevron.right"
         case .claude: return "sparkle"
+        case .antigravity: return "arrow.up.circle.fill"
         case .updates: return "arrow.down.circle.fill"
         case .data: return "chart.bar.fill"
         case .diagnostics: return "stethoscope"
@@ -123,6 +126,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .vpn: return Color(red: 0.12, green: 0.62, blue: 0.42)
         case .codex: return Color(red: 0.25, green: 0.36, blue: 0.92)
         case .claude: return Color(red: 0.86, green: 0.47, blue: 0.32)
+        case .antigravity: return Color(red: 0.47, green: 0.32, blue: 0.86)
         case .updates: return Color(red: 0.2, green: 0.72, blue: 0.4)
         case .data: return Color(red: 0.62, green: 0.36, blue: 0.9)
         case .diagnostics: return Color(red: 0.1, green: 0.66, blue: 0.7)
@@ -141,6 +145,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .vpn: return L("vpn маршрут страна бан блокировка защита заморозка адрес сервер роутер")
         case .codex: return L("codex путь хуки автопродолжение")
         case .claude: return L("claude code desktop usage аккаунт строка статуса хуки окно")
+        case .antigravity: return L("antigravity agy google gemini лимиты путь хук")
         case .updates: return L("версия github обновить скачивать")
         case .data: return L("csv таблица экспорт пересобрать демо")
         case .diagnostics: return L("проверка отчёт ошибки не работает тест")
@@ -229,6 +234,7 @@ private struct PaneView: View {
             case .vpn: GuardPane()
             case .codex: CodexPane()
             case .claude: ClaudePane()
+            case .antigravity: AntigravityPane()
             case .updates: UpdatesPane()
             case .data: DataPane()
             case .diagnostics: DiagnosticsPane()
@@ -474,7 +480,7 @@ private struct NotificationsPane: View {
                 .onChange(of: cardsInCapture) { ToastController.shared.applySharing() }
             HStack {
                 Spacer()
-                Button(L("Показать примеры карточек")) { ToastController.shared.showExamples() }
+                SamplesButton()
             }
         } header: { Text(L("Как показывать")) }
         Section(L("Лимиты")) {
@@ -589,6 +595,52 @@ private struct CodexPane: View {
             }
         } header: { Text(L("Автопродолжение")) } footer: {
             Footnote(text: L("Задача, упёршаяся в лимит, продолжается сама сразу после сброса — одно сообщение на раунд, без одобрений за вас. Включается для каждой задачи на вкладке «Задачи»."))
+        }
+    }
+}
+
+// MARK: Antigravity
+
+private struct AntigravityPane: View {
+    @EnvironmentObject private var model: AppModel
+    @AppStorage(SettingsKey.antigravityPath) private var antigravityPath = ""
+    @AppStorage(SettingsKey.guardEnabled) private var guardEnabled = false
+
+    private var app: URL? {
+        NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.google.antigravity")
+            ?? NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.google.antigravity-ide")
+    }
+
+    var body: some View {
+        ShownSection(provider: .antigravity)
+        Section {
+            PathRow(label: L("Программа agy"), path: AntigravityLimits.binary?.path, choose: {
+                if let path = chooseFile() {
+                    antigravityPath = path
+                    model.forceNext = true
+                    Task { await model.refreshLimits() }
+                }
+            })
+            LabeledContent(L("Приложение Antigravity")) {
+                Text(app.map { ($0.path as NSString).abbreviatingWithTildeInPath } ?? L("не найдено"))
+                    .foregroundStyle(app == nil ? Theme.amber : .secondary)
+            }
+        } header: { Text(L("Где Antigravity")) } footer: {
+            Footnote(text: L("Лимиты Cooldown читает командой agy /usage: локально, без обращения к модели и без расхода квоты. Команду agy ставит само приложение Antigravity при первом запуске."))
+        }
+        Section {
+            LabeledContent(L("Хук защиты")) {
+                switch AntigravityGuard.status {
+                case .on: Text(L("включён")).foregroundStyle(Theme.mint)
+                default: Text(guardEnabled ? L("не установлен") : L("защита выключена")).foregroundStyle(.secondary)
+                }
+            }
+            HStack {
+                Spacer()
+                Button(L("Открыть защиту VPN")) { SettingsWindow.shared.show(.vpn) }
+            }
+        } header: { Text(L("Защита VPN")) } footer: {
+            Footnote(text: L("Пока маршрут до Google неправильный, хук в ~/.gemini/config/hooks.json останавливает Antigravity перед обращением к модели, а Cooldown ставит приложение на паузу. Хуки других программ остаются как были."))
         }
     }
 }
@@ -885,5 +937,17 @@ enum AppWindows {
     @MainActor static func leftClosed(_ closing: NSWindow?) {
         let open = NSApp.windows.contains { $0 !== closing && $0.isVisible && $0.styleMask.contains(.titled) }
         if !open { NSApp.setActivationPolicy(.accessory) }
+    }
+}
+
+/// "Show sample cards", and "stop" while they are coming.
+private struct SamplesButton: View {
+    @ObservedObject private var toasts = ToastController.shared
+    var body: some View {
+        if toasts.showingExamples {
+            Button(L("Остановить примеры")) { toasts.stopExamples() }
+        } else {
+            Button(L("Показать примеры карточек")) { toasts.showExamples() }
+        }
     }
 }

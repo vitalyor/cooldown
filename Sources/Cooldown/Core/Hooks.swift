@@ -271,15 +271,19 @@ enum AgentHooks {
     if [ ! -t 0 ]; then exec 3<&0; cat <&3 >/dev/null 2>&1 & exec 3<&-; fi
     dir="$HOME/Library/Application Support/Cooldown/guard"
     service="$1"; when="$2"
-    [ -f "$dir/on" ] || exit 0
+    # Letting it through: Antigravity wants a JSON answer even then.
+    pass() { [ "$when" = invocation ] && printf '{}\n'; exit 0; }
+    [ -f "$dir/on" ] || pass
+    # Turned off for this agent in Cooldown.
+    [ -f "$dir/skip-$service" ] && pass
     # Cooldown moved to the Trash or deleted: the guard is gone, nothing is held.
     app=$(head -n 1 "$dir/on" 2>/dev/null)
-    if [ -n "$app" ] && [ ! -d "$app" ]; then exit 0; fi
+    if [ -n "$app" ] && [ ! -d "$app" ]; then pass; fi
     now=$(date +%s)
     # Paused (in Cooldown, on a card or from the phone): until the time on the second line, even
     # if Cooldown is closed meanwhile.
     until=$(sed -n 2p "$dir/on" 2>/dev/null)
-    case "$until" in ''|*[!0-9]*) ;; *) [ "$now" -lt "$until" ] && exit 0;; esac
+    case "$until" in ''|*[!0-9]*) ;; *) [ "$now" -lt "$until" ] && pass;; esac
     state=""; at=0
     [ -f "$dir/$service" ] && read -r state at < "$dir/$service"
     case "$at" in ''|*[!0-9]*) at=0;; esac
@@ -293,13 +297,15 @@ enum AgentHooks {
     # Cooldown says the network just changed (or never checked it): an own answer from before
     # does not count.
     if [ "$state" = unchecked ] || { [ -n "$state" ] && [ "$at" = 0 ]; }; then cached=""; fi
-    if [ -z "$proxy" ] && [ -n "$state" ] && [ "$state" != unchecked ] && [ $((now - at)) -le 30 ]; then
+    # Cooldown asks Google less often (it takes frequent requests for a robot): its answer lasts longer.
+    fresh=30; [ "$service" = google ] && fresh=75
+    if [ -z "$proxy" ] && [ -n "$state" ] && [ "$state" != unchecked ] && [ $((now - at)) -le $fresh ]; then
       verdict="$state"
     elif [ -n "$cached" ] && [ $((now - cached_at)) -le 15 ]; then
       # This hook's own check from a moment ago: not repeated on every step.
       verdict="$cached"
     else
-      case "$service" in anthropic) hosts="api.anthropic.com claude.ai";; openai) hosts="chatgpt.com api.openai.com";; *) exit 0;; esac
+      case "$service" in anthropic) hosts="api.anthropic.com claude.ai";; openai) hosts="chatgpt.com api.openai.com";; google) hosts="cloudcode-pa.googleapis.com";; *) pass;; esac
       # Each address the agent talks to, IPv4 and IPv6 apart (per-site VPN rules may let one of
       # them out directly; a VPN that carries one family lets the other out), all at once.
       verdict=unchecked
@@ -309,13 +315,21 @@ enum AgentHooks {
         for host in $hosts; do
           for family in -4 -6; do
             n=$((n + 1))
-            curl -s "$family" -m 3 --connect-timeout 2 --proto =https "https://$host/cdn-cgi/trace" > "$tmp/$n" 2>/dev/null &
+            if [ "$service" = google ]; then
+              # Google's own view (YouTube's service data names the country), along Antigravity's route.
+              curl -s "$family" -m 3 --connect-timeout 2 --proto =https --connect-to "www.youtube.com:443:$host:443" \\
+                "https://www.youtube.com/sw.js_data" 2>/dev/null \\
+                | sed -n 's/.*"yt\\.sw\\.adr",null,\\[\\[\\["[^"]*","\\([A-Za-z][A-Za-z]\\)",null,"\\([0-9a-fA-F.:]*\\)".*/loc=\\1\\
+    ip=\\2/p' > "$tmp/$n" &
+            else
+              curl -s "$family" -m 3 --connect-timeout 2 --proto =https "https://$host/cdn-cgi/trace" > "$tmp/$n" 2>/dev/null &
+            fi
             jobs="$jobs $!"
           done
         done
         wait $jobs
         for answer in "$tmp"/*; do
-          loc=$(sed -n 's/^loc=//p' "$answer")
+          loc=$(sed -n 's/^loc=//p' "$answer" | tr '[:lower:]' '[:upper:]')
           ip=$(sed -n 's/^ip=//p' "$answer")
           [ -n "$loc" ] || continue
           if grep -qw "$loc" "$dir/forbidden" 2>/dev/null; then verdict=block; break; fi
@@ -326,11 +340,16 @@ enum AgentHooks {
       fi
       [ -z "$proxy" ] && printf '%s %s' "$verdict" "$now" > "$cache" 2>/dev/null
     fi
-    [ "$verdict" = ok ] && exit 0
+    [ "$verdict" = ok ] && pass
     msg=$(cat "$dir/msg-$service-$verdict" 2>/dev/null)
     [ -n "$msg" ] || msg="Cooldown: the route is not confirmed, the request was held."
     if [ "$when" = step ]; then
       printf '{"continue":false,"stopReason":"%s"}\n' "$msg"
+      exit 0
+    fi
+    if [ "$when" = invocation ]; then
+      # Antigravity: the model is not called; the person sees why.
+      printf '{"injectSteps":[{"errorMessage":{"userMessage":"%s"}}],"terminationBehavior":"terminate"}\n' "$msg"
       exit 0
     fi
     printf '%s\n' "$msg" >&2
@@ -638,5 +657,59 @@ final class HookEventReader {
         default:
             break
         }
+    }
+}
+
+/// The VPN guard in Antigravity: its global hooks file (`~/.gemini/config/hooks.json`, one named
+/// entry per tool) runs a `PreInvocation` hook before every model call, in the app and in `agy`
+/// alike. Cooldown's entry runs the same guard script; while Google's route is wrong it ends the
+/// turn with a message instead of calling the model.
+enum AntigravityGuard {
+    static let name = "cooldown-guard"
+
+    /// `COOLDOWN_GEMINI_CONFIG` points the hooks test at a copy.
+    static var configFolder: URL {
+        if let custom = ProcessInfo.processInfo.environment["COOLDOWN_GEMINI_CONFIG"], !custom.isEmpty { return URL(fileURLWithPath: custom) }
+        return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".gemini/config", isDirectory: true)
+    }
+
+    static var file: URL { configFolder.appendingPathComponent("hooks.json") }
+
+    /// Antigravity (or its command line) is on this Mac.
+    static var present: Bool {
+        AntigravityLimits.installed || FileManager.default.fileExists(atPath: configFolder.path)
+    }
+
+    static var status: AgentHooks.Status { (try? read())?[name] != nil ? .on : .off }
+
+    static func install() throws {
+        try AgentHooks.writeGuardScript()
+        var root = try read()
+        root[name] = ["PreInvocation": [["type": "command", "command": AgentHooks.guardCommand("google", "invocation"), "timeout": 10]]]
+        try write(root)
+    }
+
+    static func uninstall() throws {
+        var root = try read()
+        guard root[name] != nil else { return }
+        root[name] = nil
+        try write(root)
+    }
+
+    private static func read() throws -> [String: Any] {
+        guard FileManager.default.fileExists(atPath: file.path) else { return [:] }
+        let data = try Data(contentsOf: file)
+        if data.isEmpty { return [:] }
+        guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw NSError(domain: "Cooldown", code: 1, userInfo: [NSLocalizedDescriptionKey: L("%@ в неожиданном формате, Cooldown его не трогает.", file.lastPathComponent)])
+        }
+        return object
+    }
+
+    private static func write(_ root: [String: Any]) throws {
+        AgentHooks.backup(file)
+        try FileManager.default.createDirectory(at: configFolder, withIntermediateDirectories: true)
+        let data = try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
+        try data.write(to: file, options: .atomic)
     }
 }
