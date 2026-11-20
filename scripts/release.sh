@@ -20,8 +20,9 @@ git rev-parse "$TAG" >/dev/null 2>&1 && { echo "$TAG already exists."; exit 1; }
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${VERSION%%-*}" Resources/Info.plist
 if [ -n "$(git status --porcelain)" ]; then
   git commit -q -am "Version $VERSION"
-  git push -q
 fi
+# Always: the release's commits must be on GitHub's main, not only under the tag.
+git push -q
 
 # Everything that can be checked without a Mac app bundle is checked before publishing.
 python3 scripts/l10n_build.py
