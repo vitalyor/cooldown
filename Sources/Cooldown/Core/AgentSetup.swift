@@ -122,6 +122,7 @@ final class AgentSetup: ObservableObject {
         var environment = ProcessInfo.processInfo.environment
         let home = NSHomeDirectory()
         environment["PATH"] = "\(home)/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+        environment["CLAUDE_CODE_ENABLE_CFC"] = "false" // no look into browsers' folders (macOS 27 blames Cooldown)
         return environment
     }
 

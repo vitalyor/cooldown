@@ -434,6 +434,7 @@ private struct ToastView: View {
         .background(alignment: .trailing) {
             RadialGradient(colors: [content.tint.opacity(0.28), .clear], center: .trailing, startRadius: 0, endRadius: 220)
         }
+        .background(GlassVeil())
         .onHover(perform: hover)
     }
 }

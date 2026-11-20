@@ -32,7 +32,6 @@ enum GuardTest {
         var failures: [String] = []
         func expect(_ ok: Bool, _ name: String) { if !ok { failures.append(name) } }
         let guardian = RouteGuard.shared
-        let defaults = Settings.testDefaults!
         let us = RouteExit(ip: "64.0.0.1", country: "US", colo: "ORD")
         let us2 = RouteExit(ip: "64.0.0.2", country: "US", colo: "ORD")
         let ru = RouteExit(ip: "95.0.0.1", country: "RU", colo: "ARN")

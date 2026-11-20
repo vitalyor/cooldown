@@ -80,6 +80,7 @@ struct RootView: View {
             }
         }
         .frame(width: StatusController.size.width, height: render ? nil : StatusController.size.height, alignment: .top)
+        .background(GlassVeil())
         .animation(.smooth(duration: 0.32), value: screen)
         .onChange(of: model.openCount) { _, _ in
             if let route = model.route {

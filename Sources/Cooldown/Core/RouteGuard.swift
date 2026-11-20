@@ -295,6 +295,7 @@ final class RouteGuard: ObservableObject {
             let process = Process()
             process.executableURL = binary
             process.arguments = ["--version"]
+            process.environment = ProcessInfo.processInfo.environment.merging(["CLAUDE_CODE_ENABLE_CFC": "false"]) { $1 }
             let out = Pipe()
             process.standardOutput = out
             process.standardError = FileHandle.nullDevice

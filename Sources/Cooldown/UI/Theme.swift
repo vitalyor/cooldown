@@ -332,6 +332,36 @@ struct Note: View {
     }
 }
 
+/// Keeps text legible on Liquid Glass however clear the person made it (macOS 26 "Clear",
+/// the macOS 27 slider): a soft veil in the appearance's own tone between the glass and the
+/// content, the dimming Apple recommends for clear glass, a little stronger at the top where
+/// the large numbers are. The glass and its blur stay; only what shows through is calmed.
+struct GlassVeil: View {
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    var body: some View {
+        if reduceTransparency {
+            Color(nsColor: .windowBackgroundColor)
+        } else {
+            let dark = scheme == .dark
+            let tone: Color = dark ? .black : .white
+            let base = (dark ? 0.40 : 0.48) * Self.strength * (contrast == .increased ? 1.4 : 1)
+            LinearGradient(colors: [tone.opacity(min(0.85, base * 1.12)), tone.opacity(min(0.85, base * 0.86))],
+                           startPoint: .top, endPoint: .bottom)
+        }
+    }
+
+    /// How much the system's own glass already covers: the Liquid Glass setting's amount
+    /// (`NSGlassTintAmount`, 0 most clear … 1 most opaque, undocumented). The clearer the glass,
+    /// the more veil; without the key, the middle of the scale.
+    static var strength: Double {
+        let amount = UserDefaults.standard.object(forKey: "NSGlassTintAmount") as? Double ?? 0.5
+        return max(0.5, min(1.15, 1.15 - 0.65 * max(0, min(1, amount))))
+    }
+}
+
 /// A grouped block of content: a soft well with generous corners, as in System Settings.
 struct Well<Content: View>: View {
     var padding: CGFloat = 14

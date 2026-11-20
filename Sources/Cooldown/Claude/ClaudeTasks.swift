@@ -371,6 +371,7 @@ final class ClaudeTaskManager: ObservableObject {
         let home = NSHomeDirectory()
         environment["PATH"] = [claude.deletingLastPathComponent().path, "\(home)/.local/bin", "/opt/homebrew/bin", "/usr/local/bin",
                                "/usr/bin", "/bin", "/usr/sbin", "/sbin"].joined(separator: ":")
+        environment["CLAUDE_CODE_ENABLE_CFC"] = "false" // no look into browsers' folders (macOS 27 blames Cooldown)
         process.environment = environment
         process.standardInput = FileHandle.nullDevice
         let log = logsURL.appendingPathComponent("claude-\(task.sessionId).log")

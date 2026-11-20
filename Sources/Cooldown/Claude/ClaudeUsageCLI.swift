@@ -199,6 +199,9 @@ actor ClaudeUsageCLI {
         environment["TERM"] = "xterm-256color"
         // Not CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: with it, /usage only shows its cached
         // numbers (marked "Refreshing…") and never fetches fresh ones.
+        // Claude Code looks into Chrome's, Brave's and Edge's folders for its browser extension at start;
+        // macOS 27 takes that for Cooldown reading other apps' data. Not wanted here: turned off.
+        environment["CLAUDE_CODE_ENABLE_CFC"] = "false"
         environment["DISABLE_AUTOUPDATER"] = "1"
         environment["COLUMNS"] = "120"
         environment["LINES"] = String(Self.rows)
@@ -467,6 +470,7 @@ private final class Terminal {
         var environment = ProcessInfo.processInfo.environment
         environment["TERM"] = "xterm-256color"
         environment["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = "1"
+        environment["CLAUDE_CODE_ENABLE_CFC"] = "false" // no look into browsers' folders
         environment["DISABLE_AUTOUPDATER"] = "1"
         process.environment = environment
         let handle = FileHandle(fileDescriptor: slave, closeOnDealloc: true)

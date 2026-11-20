@@ -33,8 +33,8 @@ final class AgentRestart {
             }
         case .claude:
             if ClaudeAutoContinue.shared.running { reasons.append(L("Cooldown продолжает чат")) }
-        case .antigravity: break
             if await ClaudeSender.draftInOpenChat() == true { reasons.append(L("в поле ввода Claude есть неотправленный текст")) }
+        case .antigravity: break
         }
         return reasons
     }

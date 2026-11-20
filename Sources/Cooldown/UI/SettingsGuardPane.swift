@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 
 /// Settings → VPN guard: what it is for, what it does now, and the few choices it needs.
