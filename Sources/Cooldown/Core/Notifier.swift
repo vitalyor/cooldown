@@ -72,6 +72,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
 
     /// A card answered or closed: its system notifications (ids start with its key) go away too.
     static func withdraw(prefix: String) {
+        // Outside the app bundle (unit tests, command-line runs) there is no notification center.
+        guard Bundle.main.bundleURL.pathExtension == "app", !CommandLine.arguments.contains("--snapshot") else { return }
         let center = UNUserNotificationCenter.current()
         center.getDeliveredNotifications { delivered in
             let ids = delivered.map(\.request.identifier).filter { $0.hasPrefix(prefix) }
