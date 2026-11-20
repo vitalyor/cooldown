@@ -27,7 +27,9 @@ enum ToastCatalog {
         if provider == .codex { actions.append(.openSchedule) }
         return ToastContent(key: "out-\(provider.rawValue)", kind: .warning, provider: provider,
                             title: L("Лимит %@ исчерпан", "\(provider.displayName)"),
-                            body: L("Снова можно работать в %@ — через %@.", "\(Format.clock(reset))", "\(Format.duration(max(60, reset.timeIntervalSinceNow)))"),
+                            body: Calendar.current.isDateInToday(reset)
+                                ? L("Снова можно работать в %@ — через %@.", "\(Format.clock(reset))", "\(Format.duration(max(60, reset.timeIntervalSinceNow)))")
+                                : L("Снова можно работать: %@ (через %@).", "\(Format.time(reset))", "\(Format.duration(max(60, reset.timeIntervalSinceNow)))"),
                             actions: actions.isEmpty ? [.openPanel] : actions, life: .sticky)
     }
 
@@ -85,13 +87,19 @@ enum ToastCatalog {
         if AgentActivity.canContinueAfterReset(opener) { actions.append(.continueAfterReset(opener)) }
         if let reset, ResetReminder.possible(before: reset) { actions.append(.remindBeforeReset(provider, reset)) }
         if provider == .codex { actions.append(.openSchedule) }
-        let when = reset.map { L("Снова можно работать в %@ — через %@.", "\(Format.clock($0))", "\(Format.duration(max(60, $0.timeIntervalSinceNow)))") }
-            ?? L("Снова можно работать после сброса лимита.")
+        let when = reset.map { reset in
+            Calendar.current.isDateInToday(reset)
+                ? L("Снова можно работать в %@ — через %@.", "\(Format.clock(reset))", "\(Format.duration(max(60, reset.timeIntervalSinceNow)))")
+                : L("Снова можно работать: %@ (через %@).", "\(Format.time(reset))", "\(Format.duration(max(60, reset.timeIntervalSinceNow)))")
+        } ?? L("Снова можно работать после сброса лимита.")
+        // A reset further away than a five-hour window can be: the week is spent.
+        let weekly = reset.map { $0.timeIntervalSinceNow > 5.5 * 3600 } ?? false
         let next = provider == .claude ? L("После сброса придёт карточка «Продолжить».")
                                        : (AppModel.shared.watches.contains(where: \.enabled) ? L("Отслеживаемые задачи Cooldown продолжит сам.") : "")
         return ToastContent(key: "out-\(provider.rawValue)", kind: .warning, provider: provider,
                             title: L("%@ упёрся в лимит", "\(provider.displayName)"),
-                            body: L("«%@» остановлен: лимит на 5 часов исчерпан. %@", "\(name)", "\(when)") + (next.isEmpty ? "" : " " + next),
+                            body: (weekly ? L("«%@» остановлен: недельный лимит исчерпан. %@", "\(name)", "\(when)")
+                                          : L("«%@» остановлен: лимит на 5 часов исчерпан. %@", "\(name)", "\(when)")) + (next.isEmpty ? "" : " " + next),
                             actions: actions.isEmpty ? [.openPanel] : actions, life: .sticky)
     }
 

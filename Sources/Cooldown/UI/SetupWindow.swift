@@ -45,7 +45,8 @@ final class SetupWindow: NSObject, NSWindowDelegate {
     func windowDidBecomeKey(_ notification: Notification) { Task { await AgentSetup.shared.refresh() } }
 
     func windowWillClose(_ notification: Notification) {
-        DispatchQueue.main.async { NSApp.setActivationPolicy(.accessory) }
+        let closing = notification.object as? NSWindow
+        DispatchQueue.main.async { AppWindows.leftClosed(closing) }
     }
 }
 

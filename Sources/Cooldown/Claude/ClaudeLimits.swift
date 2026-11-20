@@ -179,6 +179,8 @@ enum ClaudeLimits {
         result.plan = recent.compactMap(\.plan).first
         if let richest = recent.filter({ !$0.extras.isEmpty }).max(by: { $0.fetchedAt < $1.fetchedAt }) { result.extras = richest.extras }
         result.fetchedAt = newest
+        // From the merged windows, not from whichever reading came last (the status line never says it).
+        result.limitReached = (result.session?.usedPercent ?? 0) >= 100 || (result.weekly?.usedPercent ?? 0) >= 100
         let names = Array(Set((session?.1 ?? []) + (weekly?.1 ?? []))).filter { !$0.isEmpty }.sorted()
         result.source = names.isEmpty ? result.source : names.joined(separator: L(" и "))
         return result

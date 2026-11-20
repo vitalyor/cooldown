@@ -55,11 +55,39 @@ enum GuardService: String, CaseIterable {
         }
     }
 
-    /// What curl asks for: where a request along this service's route comes from.
-    var probe: [String] {
+    /// Every address the agents of this service talk to: under per-site VPN rules one may go
+    /// through the tunnel and another past it, so each is checked and the worst one counts.
+    var hosts: [String] {
+        switch self {
+        case .anthropic: return ["api.anthropic.com", "claude.ai"]
+        case .openai: return ["chatgpt.com", "api.openai.com"]
+        case .google: return [host]
+        }
+    }
+
+    /// What curl asks for: where a request to `host` comes from, along that host's route.
+    func probe(_ host: String) -> [String] {
         switch self {
         case .anthropic, .openai: return ["https://\(host)/cdn-cgi/trace"]
         case .google: return ["--connect-to", "www.youtube.com:443:\(host):443", Self.googleURL]
+        }
+    }
+
+    /// Command-line agents of this service, for freezing in a terminal: program names, parts of
+    /// the program's path, and, for scripts run by node and the like, parts of the command line.
+    var terminalAgents: (names: [String], paths: [String], args: [String]) {
+        switch self {
+        case .anthropic: return (["claude"], ["/.local/share/claude/versions/"], ["@anthropic-ai/claude-code"])
+        case .openai: return (["codex"], ["/@openai/codex/"], ["@openai/codex"])
+        case .google: return (["agy", "gemini"], ["/.gemini/bin/"], ["@google/gemini-cli"])
+        }
+    }
+
+    var terminalName: String {
+        switch self {
+        case .anthropic: return "Claude Code"
+        case .openai: return "Codex"
+        case .google: return "Antigravity CLI"
         }
     }
 
@@ -114,6 +142,10 @@ struct RouteTrace: Equatable {
     var direct: RouteExit?
     var viaProxy: RouteExit?
     var proxied = false
+    /// The usual path's answer (the first host over IPv4, or IPv6 where there is no IPv4), the one
+    /// asked about when new: a fallback answer while that one timed out is not a new exit.
+    var primary: RouteExit?
+    var primaryProxy: RouteExit?
 }
 
 enum RouteVerdict: String {
@@ -183,7 +215,14 @@ final class RouteGuard: ObservableObject {
     private var activity: NSObjectProtocol?
     private var online = true
     private var timer: Timer?
-    private var failures = 0
+    /// When the route went wrong (or could not be checked), for the pace of checks after it.
+    private var problemSince: Date?
+    /// The network as last seen (see NetWatch.fingerprint): a change freezes the apps until checked.
+    private var lastFingerprint: String?
+    /// After a network change or a wake, a check that could not answer keeps the apps paused
+    /// this long without alarm: the VPN may still be connecting.
+    private var settlingSince: Date?
+    private var sleepObservers: [NSObjectProtocol] = []
     /// Bumped by every network change and by turning the guard off: a round that started before
     /// is out of date, its results are dropped, and a new round follows.
     private var generation = 0
@@ -245,10 +284,19 @@ final class RouteGuard: ObservableObject {
     /// after a network change, and not one lost answer).
     private func appsStopped(_ service: GuardService) -> Bool {
         guard Self.live(Date()), let reading = readings[service] else { return false }
-        switch reading.appVerdict {
+        return holds(reading.appVerdict, reading)
+    }
+
+    /// What a verdict means: a forbidden or refused route holds at once; no answer holds once it
+    /// repeats, and not in the first 15 s after a network change (the VPN may still be connecting:
+    /// `settling` keeps the apps paused meanwhile, without a card).
+    private func holds(_ verdict: RouteVerdict, _ reading: RouteReading) -> Bool {
+        switch verdict {
         case .ok: return false
         case .forbidden, .refused: return true
-        case .unchecked: return reading.misses >= 2
+        case .unchecked:
+            if let since = settlingSince, Date().timeIntervalSince(since) < 15 { return false }
+            return reading.misses >= 2
         }
     }
 
@@ -259,11 +307,7 @@ final class RouteGuard: ObservableObject {
         // Through a proxy the apps are fine: a wrong direct route holds only command-line agents
         // without a proxy of their own, which a quiet note says (see cliOnly).
         if reading.proxied && reading.appVerdict == .ok { return false }
-        switch reading.verdict {
-        case .ok: return false
-        case .forbidden, .refused: return true
-        case .unchecked: return reading.misses >= 2
-        }
+        return holds(reading.verdict, reading)
     }
 
     struct Blocked: LocalizedError {
@@ -369,6 +413,28 @@ final class RouteGuard: ObservableObject {
             monitor.start(queue: .global(qos: .utility))
             self.monitor = monitor
         }
+        if !Self.quiet {
+            NetWatch.start { RouteGuard.shared.netEvent() }
+            lastFingerprint = NetWatch.fingerprint()
+        }
+        if sleepObservers.isEmpty, !Self.quiet {
+            let center = NSWorkspace.shared.notificationCenter
+            // Before sleep the apps are paused, so on waking nothing leaves before the route is checked
+            // (the VPN usually reconnects a few seconds after the Mac does).
+            sleepObservers.append(center.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { _ in
+                MainActor.assumeIsolated { RouteGuard.shared.goingToSleep() }
+            })
+            sleepObservers.append(center.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { _ in
+                MainActor.assumeIsolated { RouteGuard.shared.woke() }
+            })
+        }
+        // Until the first check the apps wait, as after any network change.
+        for service in GuardService.watched where readings[service] == nil {
+            readings[service] = RouteReading(verdict: .unchecked, exit: nil, appVerdict: .unchecked, appExit: nil, at: .distantPast)
+        }
+        settlingSince = Date()
+        problemSince = nil
+        enforce()
         if launchObserver == nil {
             // An agent's app opened while its route is wrong: frozen before it gets going.
             launchObserver = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didLaunchApplicationNotification, object: nil, queue: .main) { _ in
@@ -398,7 +464,8 @@ final class RouteGuard: ObservableObject {
         episode = nil
         announced = false
         lastCard = ""
-        failures = 0
+        problemSince = nil
+        settlingSince = nil
         rerun = false
         pending = [:]
         cliNoted = false
@@ -410,21 +477,88 @@ final class RouteGuard: ObservableObject {
     func pathChanged(_ online: Bool) {
         let wasOnline = self.online
         self.online = online
-        guard Self.live(Date()), online || wasOnline else { return }
-        // A new network, a VPN up or down, waking from sleep: until checked again, the old
-        // readings let nothing through (requests and hooks wait), but freeze nothing either.
+        guard Self.live(Date()) else { return }
+        // Online or offline is a change by itself; anything else the system reports (roaming, a
+        // new flag) counts only if the network's fingerprint moved.
+        guard online != wasOnline else { netEvent(); return }
+        lastFingerprint = NetWatch.fingerprint()
+        networkChanged()
+    }
+
+    /// The routing table or the proxy settings moved (NetWatch): a real change if the network's
+    /// fingerprint is new.
+    func netEvent() {
+        guard Self.live(Date()) else { return }
+        let fingerprint = NetWatch.fingerprint()
+        guard fingerprint != lastFingerprint else { return }
+        lastFingerprint = fingerprint
+        networkChanged()
+    }
+
+    /// A new network, a VPN up or down, a proxy switched, waking from sleep: until checked again
+    /// the old readings let nothing through (requests and hooks wait), and the apps pause for the
+    /// moment the check takes (if the route is the same, they hardly notice).
+    func networkChanged(check: Bool = true) {
+        guard Self.live(Date()), !sleeping else { return }
         generation += 1
+        settlingSince = Date()
+        age()
+        enforce()
+        guard check else { return }
+        if checking {
+            rerun = true
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { Task { await RouteGuard.shared.round() } }
+        }
+    }
+
+    /// Going to sleep: the readings no longer count, but nothing is frozen now (a stopped app could
+    /// not answer the system and would hold the sleep up); the apps pause first thing on waking.
+    func goingToSleep() {
+        guard Self.live(Date()) else { return }
+        sleeping = true
+        generation += 1
+        settlingSince = Date()
+        age()
+    }
+
+    /// Awake: the apps pause at once and go on after the first check (the VPN usually
+    /// reconnects a few seconds after the Mac does).
+    func woke() {
+        sleeping = false
+        networkChanged(check: false)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { Task { await RouteGuard.shared.round() } }
+    }
+
+    /// Between going to sleep and waking: nothing is frozen (a stopped app could not answer the
+    /// system and would hold the sleep up), whatever the network does meanwhile.
+    private var sleeping = false
+
+    private func age() {
+        // The hooks' own answers from before the change no longer count either.
+        for service in GuardService.allCases { try? FileManager.default.removeItem(at: Self.dir.appendingPathComponent("self-" + service.rawValue)) }
         for (service, var reading) in readings {
+            reading.misses = 0
             reading.at = .distantPast
             readings[service] = reading
             Self.state.set(service, reading)
             writeState(service, reading)
         }
-        if checking {
-            rerun = true
-        } else {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { Task { await RouteGuard.shared.round() } }
-        }
+    }
+
+    /// Paused for the moment a check after a network change takes, or (no answer yet) while the
+    /// VPN may still be connecting; no card for this. `app`: the apps' route, else the direct one.
+    private func settling(_ service: GuardService, app: Bool) -> Bool {
+        guard Self.live(Date()), !sleeping, let reading = readings[service] else { return false }
+        if reading.at == .distantPast { return true }
+        guard let since = settlingSince, Date().timeIntervalSince(since) < 15 else { return false }
+        return (app ? reading.appVerdict : reading.verdict) == .unchecked
+    }
+
+    /// Whether command-line agents of `service` (they go direct) must be frozen.
+    private func cliStopped(_ service: GuardService) -> Bool {
+        guard Self.live(Date()), let reading = readings[service] else { return false }
+        return holds(reading.verdict, reading)
     }
 
     /// `--guard-test` only: as if the person had closed a card.
@@ -434,6 +568,11 @@ final class RouteGuard: ObservableObject {
     func forgetReadings() {
         readings = [:]
         for service in GuardService.allCases { Self.state.set(service, nil) }
+    }
+
+    /// "Check now" (a card, the phone): a fresh round, or the one already running, to its end.
+    func checkNow() async {
+        if checking { await nextReading() } else { await round() }
     }
 
     /// Waits for the next round to finish (at most a few seconds).
@@ -448,6 +587,7 @@ final class RouteGuard: ObservableObject {
             if !checking { releaseWaiters() }
             return
         }
+        if !Settings.guardPaused(Date()), shown["route-paused"] != nil { dismiss("route-paused") }
         if Settings.guardPaused(Date()) {
             // Paused: nothing is checked; the timer wakes when the pause ends.
             releaseWaiters()
@@ -457,9 +597,10 @@ final class RouteGuard: ObservableObject {
         checking = true
         timer?.invalidate()
         writeHookFiles()
+        var started = generation
         repeat {
             rerun = false
-            let started = generation
+            started = generation
             let services = GuardService.watched.filter(due)
             await withTaskGroup(of: (GuardService, RouteTrace).self) { group in
                 for service in services {
@@ -469,15 +610,17 @@ final class RouteGuard: ObservableObject {
                     record(service, trace)
                 }
             }
-        } while rerun && Self.live(Date())
+        } while (rerun || started != generation) && Self.live(Date())
         checking = false
         // Paced by what must be caught quickly: the apps' route, and the direct one unless a proxy
         // carries the apps (a terminal going direct through Clash is not a reason to slow down).
         let all = GuardService.watched.allSatisfy { service in
-            guard let reading = readings[service], reading.appVerdict == .ok else { return false }
+            guard let reading = readings[service], reading.appVerdict == .ok, reading.at != .distantPast else { return false }
             return reading.proxied || reading.verdict == .ok
         }
-        failures = all ? 0 : failures + 1
+        if all { problemSince = nil; settlingSince = nil } else if problemSince == nil { problemSince = Date() }
+        checkTimeZone()
+        expirePending()
         announce()
         releaseWaiters()
         scheduleNext(allGood: all)
@@ -489,8 +632,14 @@ final class RouteGuard: ObservableObject {
     private func due(_ service: GuardService) -> Bool {
         guard service == .google, let reading = readings[service] else { return true }
         let running = NSWorkspace.shared.runningApplications.contains { service.apps.contains($0.bundleIdentifier ?? "") }
-        // No answer (Google may be slowing us down): not pressed harder, once a minute.
-        let every: TimeInterval = running && reading.verdict != .unchecked ? 15 : 60
+        let every: TimeInterval
+        if reading.verdict == .unchecked || reading.appVerdict == .unchecked {
+            // One lost answer is asked again soon (a dropped VPN often looks just like that from
+            // here); once it repeats, Google may be slowing us down: once a minute.
+            every = reading.misses < 2 ? 5 : 60
+        } else {
+            every = running || reading.verdict != .ok ? 15 : 60
+        }
         return Date().timeIntervalSince(reading.at) >= every * 0.9
     }
 
@@ -505,7 +654,10 @@ final class RouteGuard: ObservableObject {
         // Every 5 s while an agent works or its app is in front (a VPN on the router drops without
         // the Mac noticing), 15 s otherwise; with a growing pause while something is wrong, so a
         // broken route does not keep knocking on the service from the real address.
-        let base: TimeInterval = allGood ? (Self.agentsBusy ? 5 : 15) : [5, 15, 30, 60][min(max(failures, 1) - 1, 3)]
+        // While wrong: every 5 s the first minute (a VPN that comes back is noticed at once and the
+        // apps go on), then every 15 s.
+        let wrongFor = problemSince.map { Date().timeIntervalSince($0) } ?? 0
+        let base: TimeInterval = allGood ? (Self.agentsBusy ? 5 : 15) : (wrongFor < 60 ? 5 : 15)
         var wait = base * Double.random(in: 0.8...1.2)
         if let until = Settings.guardPausedUntil, until > Date() { wait = max(wait, until.timeIntervalSinceNow + 1) }
         timer = Timer.scheduledTimer(withTimeInterval: wait, repeats: false) { _ in
@@ -525,20 +677,41 @@ final class RouteGuard: ObservableObject {
     /// The direct route over IPv4 and IPv6 (a VPN that carries only one lets the other out), and,
     /// with a system proxy set, the route the apps take through it.
     nonisolated static func trace(_ service: GuardService) async -> RouteTrace {
-        async let v4 = traceOnce(service, family: "-4")
-        async let v6 = traceOnce(service, family: "-6")
         let proxied = systemProxy
-        async let viaProxy: RouteExit? = proxied ? traceThroughSystem(service) : nil
-        let direct = worst(await v4, await v6, forbidden: Settings.guardForbidden)
-        return RouteTrace(direct: direct, viaProxy: await viaProxy, proxied: proxied)
+        let forbidden = Settings.guardForbidden
+        // Per host, in order: IPv4, IPv6, the system proxy. The order picks which exit is shown
+        // and learned when all are fine: the first host's IPv4, the usual path.
+        let answers = await withTaskGroup(of: (Int, RouteExit?).self) { group in
+            for (index, host) in service.hosts.enumerated() {
+                group.addTask { (index * 3, await traceOnce(service, host, family: "-4")) }
+                group.addTask { (index * 3 + 1, await traceOnce(service, host, family: "-6")) }
+                if proxied { group.addTask { (index * 3 + 2, await traceThroughSystem(service, host)) } }
+            }
+            var all: [Int: RouteExit] = [:]
+            for await (slot, exit) in group { all[slot] = exit }
+            return all
+        }
+        let ordered = answers.keys.sorted()
+        let direct = ordered.filter { $0 % 3 != 2 }.map { answers[$0] }
+        let viaProxy = ordered.filter { $0 % 3 == 2 }.map { answers[$0] }
+        let refused = Set(Settings.guardRefused)
+        let hasIPv4 = answers.keys.contains { $0 % 3 == 0 }
+        return RouteTrace(direct: worst(direct, forbidden: forbidden, refused: refused),
+                          viaProxy: proxied ? worst(viaProxy, forbidden: forbidden, refused: refused) : nil, proxied: proxied,
+                          primary: hasIPv4 ? answers[0] : answers[1], primaryProxy: answers[2])
     }
 
     /// The exit to judge by: a forbidden one wins, then IPv4 (the usual path), then IPv6.
     /// A family with no connection at all does not count (many networks have no IPv6).
     nonisolated static func worst(_ v4: RouteExit?, _ v6: RouteExit?, forbidden: Set<String>) -> RouteExit? {
-        if let v6, forbidden.contains(v6.country) { return v6 }
-        if let v4, forbidden.contains(v4.country) { return v4 }
-        return v4 ?? v6
+        worst([v4, v6], forbidden: forbidden)
+    }
+
+    /// The same over several answers (hosts, families): a forbidden country wins, then an address
+    /// the person refused, otherwise the first that answered.
+    nonisolated static func worst(_ exits: [RouteExit?], forbidden: Set<String>, refused: Set<String> = []) -> RouteExit? {
+        let answered = exits.compactMap { $0 }
+        return answered.first { forbidden.contains($0.country) } ?? answered.first { refused.contains($0.ip) } ?? answered.first
     }
 
     /// A proxy in System Settings (or a PAC file): what Clash, V2Ray and the like set up.
@@ -561,35 +734,51 @@ final class RouteGuard: ObservableObject {
 
     /// `curl`, the same as the hooks use: no cookies, no account, nothing but the request line
     /// and curl's own headers. It does not follow the system proxy: the direct route.
-    nonisolated private static func traceOnce(_ service: GuardService, family: String) async -> RouteExit? {
-        await curl([family] + service.probe).flatMap(service.parse)
+    nonisolated private static func traceOnce(_ service: GuardService, _ host: String, family: String) async -> RouteExit? {
+        await curl([family] + service.probe(host)).flatMap(service.parse)
     }
 
+    /// Waits for curl without holding a thread of Swift's shared pool: while routes time out a
+    /// round runs up to a dozen of these at once.
+    /// The answer goes to a file (a block page of any size can never stall curl on a full pipe),
+    /// and a watchdog ends the wait in any case: a round must always finish.
     nonisolated private static func curl(_ arguments: [String]) async -> String? {
-        await Task.detached(priority: .utility) { () -> String? in
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("cooldown-route-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: file) }
+        return await withCheckedContinuation { continuation in
+            let once = OnceGate()
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/curl")
-            process.arguments = ["-s", "-m", "3", "--proto", "=https"] + arguments
+            process.arguments = ["-s", "-m", "3", "--connect-timeout", "2", "--max-filesize", "1048576", "--proto", "=https",
+                                 "-o", file.path] + arguments
             process.environment = ["PATH": "/usr/bin:/bin"] // no proxy from Cooldown's own environment
-            let out = Pipe()
-            process.standardOutput = out
+            process.standardOutput = FileHandle.nullDevice
             process.standardError = FileHandle.nullDevice
             process.standardInput = FileHandle.nullDevice
-            guard (try? process.run()) != nil else { return nil }
-            let data = out.fileHandleForReading.readDataToEndOfFile()
-            process.waitUntilExit()
-            guard process.terminationStatus == 0 else { return nil }
-            return String(decoding: data, as: UTF8.self)
-        }.value
+            process.terminationHandler = { finished in
+                let text = finished.terminationStatus == 0 ? (try? String(contentsOf: file, encoding: .utf8)) : nil
+                once.run { continuation.resume(returning: text) }
+            }
+            if (try? process.run()) == nil {
+                once.run { continuation.resume(returning: nil) }
+                return
+            }
+            DispatchQueue.global().asyncAfter(deadline: .now() + 6) {
+                once.run {
+                    if process.isRunning { process.terminate() }
+                    continuation.resume(returning: nil)
+                }
+            }
+        }
     }
 
     /// The apps' route: URLSession follows the system proxy and PAC as Chromium and WebKit do.
     /// A new session each time: no connection is reused across a network change, and the request
     /// names no app (the same headers as the curl checks). Google's check must go to its API
     /// address, which only curl can do: through the system's proxy given to curl by hand.
-    nonisolated private static func traceThroughSystem(_ service: GuardService) async -> RouteExit? {
+    nonisolated private static func traceThroughSystem(_ service: GuardService, _ host: String) async -> RouteExit? {
         if service == .google, let proxy = systemProxyForCurl {
-            return await curl(proxy + service.probe).flatMap(service.parse)
+            return await curl(proxy + service.probe(host)).flatMap(service.parse)
         }
         // ponytail: with only a PAC file Google is asked at youtube.com itself, whose route may
         // differ from googleapis.com under per-site rules; read the PAC with CFNetwork if that matters.
@@ -604,7 +793,7 @@ final class RouteGuard: ObservableObject {
         config.httpAdditionalHeaders = ["User-Agent": "curl/8.7.1", "Accept": "*/*"]
         let session = URLSession(configuration: config)
         defer { session.invalidateAndCancel() }
-        guard let url = URL(string: service == .google ? GuardService.googleURL : "https://\(service.host)/cdn-cgi/trace"),
+        guard let url = URL(string: service == .google ? GuardService.googleURL : "https://\(host)/cdn-cgi/trace"),
               let (data, response) = try? await session.data(from: url),
               (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
         return service.parse(String(decoding: data, as: UTF8.self))
@@ -618,11 +807,11 @@ final class RouteGuard: ObservableObject {
         let appVerdict = trace.proxied ? RouteVerdict.judge(trace.viaProxy, forbidden: forbidden, refused: refused) : verdict
         let lost = verdict == .unchecked || appVerdict == .unchecked
         let misses = lost ? (readings[service]?.misses ?? 0) + 1 : 0
-        // Another service seen from a new address: the VPN switched, so Google is asked again now.
-        if service != .google, let before = readings[service]?.exit?.ip, let now = trace.direct?.ip, before != now,
-           var google = readings[.google], Date().timeIntervalSince(google.at) > 15 {
-            // ponytail: a VPN rotating exits each request would otherwise ask Google every round.
-            google.at = .distantPast
+        // Another service seen from a new country: the VPN switched, so Google is due again now
+        // (its reading stays valid meanwhile; at most every 15 s).
+        if service != .google, let before = readings[service]?.exit?.country, let now = trace.direct?.country, before != now,
+           var google = readings[.google], google.at != .distantPast, Date().timeIntervalSince(google.at) > 15 {
+            google.at = min(google.at, Date().addingTimeInterval(-60))
             readings[.google] = google
             Self.state.set(.google, google)
             rerun = true
@@ -632,7 +821,9 @@ final class RouteGuard: ObservableObject {
         readings[service] = reading
         Self.state.set(service, reading)
         writeState(service, reading)
-        for exit in [trace.direct, appExit].compactMap({ $0 }) where RouteVerdict.judge(exit, forbidden: forbidden, refused: refused) == .ok {
+        // Tests hand in traces without a primary: the chosen exit stands in.
+        let primaries = trace.primary == nil && trace.primaryProxy == nil ? [trace.direct, appExit] : [trace.primary, trace.proxied ? trace.primaryProxy : nil]
+        for exit in primaries.compactMap({ $0 }) where RouteVerdict.judge(exit, forbidden: forbidden, refused: refused) == .ok {
             noteExit(service, exit)
         }
         enforce()
@@ -657,9 +848,23 @@ final class RouteGuard: ObservableObject {
             return
         }
         // Asked once per address: the same one seen again changes nothing.
+        pendingSeen[key] = Date()
         guard pending[key] == nil else { return }
         pending[key] = (service, exit)
-        showExitCard(notify: true)
+        showExitCard(notify: notified.insert(key).inserted)
+    }
+
+    /// An address asked about but not seen for a while (one answer that came over IPv6 or the
+    /// other host while IPv4 timed out) is not asked about any more.
+    private var pendingSeen: [String: Date] = [:]
+    /// Addresses already announced with a notification in this run: a card again, but no new alert.
+    private var notified: Set<String> = []
+
+    private func expirePending() {
+        let stale = pending.keys.filter { (pendingSeen[$0] ?? .distantPast) < Date().addingTimeInterval(-90) }
+        guard !stale.isEmpty else { return }
+        stale.forEach { pending[$0] = nil; pendingSeen[$0] = nil }
+        showExitCard(notify: false)
     }
 
     static func exitName(_ service: GuardService, _ ip: String) -> String? {
@@ -738,19 +943,43 @@ final class RouteGuard: ObservableObject {
         objectWillChange.send()
     }
 
+    // MARK: Time zone
+
+    /// A word in Settings when the Mac's time zone does not fit the VPN's country (services see both).
+    @Published private(set) var timeZoneNote: String?
+
+    private func checkTimeZone() {
+        let exit = GuardService.watched.compactMap { readings[$0] }.first { $0.appVerdict == .ok && $0.at != .distantPast }?.appExit
+        let zone = TimeZone.current
+        guard let exit, TimeZoneCheck.mismatch(country: exit.country, zone: zone) == true else { timeZoneNote = nil; return }
+        timeZoneNote = L("Часовой пояс Mac — %@, а VPN выходит в стране «%@». Приложения и сайты видят и то и другое, и несовпадение заметно. Поставьте пояс страны VPN: «Системные настройки → Основные → Дата и время».",
+                         zone.identifier, exit.countryName)
+        // Said once per country and zone; the note in Settings stays.
+        let key = exit.country + "|" + zone.identifier
+        guard Settings.guardTimeZoneWarned != key else { return }
+        Settings.set(key, forKey: SettingsKey.guardTimeZoneWarned)
+        present(ToastContent(key: "route-tz", kind: .info, provider: nil, title: L("Часовой пояс выдаёт VPN"),
+                             body: timeZoneNote ?? "", actions: [.openSettings(.vpn)], life: .auto(15)), notify: false)
+    }
+
     // MARK: What a wrong route does
+
+    /// Something is held now: apps frozen or a route wrong (an update waits for it to pass).
+    var holding: Bool { !Freezer.shared.frozen.isEmpty || !blocked.isEmpty }
 
     /// Services whose agents are held now, among the agents the person uses.
     var blocked: [GuardService] { GuardService.watched.filter(stopped) }
 
     func enforce() {
         guard Settings.guardEnabled else { return }
-        // Offline altogether: nothing can leave anyway, so apps are not frozen for it.
         if Settings.guardFreeze {
-            if online {
-                let services = GuardService.watched.filter(appsStopped)
-                Freezer.shared.set(Set(services.flatMap(\.apps)))
-            }
+            let services = GuardService.watched.filter { appsStopped($0) || settling($0, app: true) }
+            let terminal = Settings.guardFreezeTerminal ? GuardService.watched.filter { cliStopped($0) || settling($0, app: false) } : []
+            // Cooldown's own `codex exec` tasks go direct and have no hook between steps: they pause
+            // with the route (an exception to "never Cooldown's own").
+            let own = cliStopped(.openai) || settling(.openai, app: false) ? ScheduledRunner.shared.runningPids : []
+            // Offline nothing can leave: nothing new is frozen, but what no longer needs it goes on.
+            Freezer.shared.set(Set(services.flatMap(\.apps)), terminal: terminal, own: own, onlyThaw: !online)
         } else {
             Freezer.shared.thawAll()
         }
@@ -764,7 +993,7 @@ final class RouteGuard: ObservableObject {
             cliNoted = false
         } else if !cliNoted {
             cliNoted = true
-            let tools = quietOnes.map { $0.provider == .claude ? "Claude Code" : "Codex" }.joined(separator: L(" и "))
+            let tools = quietOnes.map(\.terminalName).joined(separator: L(" и "))
             present(ToastContent(key: "route-cli", kind: .info, provider: quietOnes.count == 1 ? quietOnes[0].provider : nil,
                                  title: L("Приложения работают через прокси"),
                                  body: L("%@ в Терминале без прокси пошёл бы напрямую — его сообщения задерживаются. Задайте HTTPS_PROXY в Терминале, и хук пропустит их.", tools),
@@ -834,7 +1063,7 @@ final class RouteGuard: ObservableObject {
         }
         return ToastContent(key: "route-guard", kind: .warning, provider: blocked.count == 1 ? blocked[0].provider : nil,
                             title: title, body: lines.joined(separator: "\n"),
-                            actions: [.guardPause, .openSettings(.vpn)], life: .sticky)
+                            actions: [.guardPause, .guardCheck, .openSettings(.vpn)], life: .sticky)
     }
 
     static func names(_ services: [GuardService]) -> String {
@@ -853,6 +1082,16 @@ final class RouteGuard: ObservableObject {
             episode = nil
             lastCard = ""
             dismiss("route-guard")
+            // Said on a card (and on the phone), with the way back.
+            present(ToastContent(key: "route-paused", kind: .info, provider: nil, title: L("Защита VPN выключена"),
+                                 body: L("До %@. Пока она выключена, агенты работают без проверки маршрута.", Format.clock(Date().addingTimeInterval(seconds ?? 0))),
+                                 actions: [.guardResume], life: .sticky), notify: false)
+        } else {
+            dismiss("route-paused")
+            // Back on: whatever happened during the pause, nothing old counts; checked at once.
+            writeHookFiles()
+            networkChanged()
+            return
         }
         writeHookFiles()
         enforce()
@@ -869,20 +1108,24 @@ final class RouteGuard: ObservableObject {
         try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
         let on = dir.appendingPathComponent("on")
         if Self.live(Date()) {
-            try? (Bundle.main.bundlePath + "\n").write(to: on, atomically: true, encoding: .utf8)
+            Self.write(Bundle.main.bundlePath + "\n", to: on)
+        } else if Settings.guardEnabled, let until = Settings.guardPausedUntil, until > Date() {
+            // Paused: the end of the pause on the second line, so the hooks come back on time by
+            // themselves even if Cooldown is closed meanwhile.
+            Self.write(Bundle.main.bundlePath + "\n" + "\(Int(until.timeIntervalSince1970))\n", to: on)
         } else {
             try? fm.removeItem(at: on)
         }
-        try? (Settings.guardForbidden.sorted().joined(separator: " ") + "\n").write(to: dir.appendingPathComponent("forbidden"), atomically: true, encoding: .utf8)
-        try? (Settings.guardRefused.joined(separator: "\n") + "\n").write(to: dir.appendingPathComponent("refused"), atomically: true, encoding: .utf8)
+        Self.write(Settings.guardForbidden.sorted().joined(separator: " ") + "\n", to: dir.appendingPathComponent("forbidden"))
+        Self.write(Settings.guardRefused.joined(separator: "\n") + "\n", to: dir.appendingPathComponent("refused"))
         func clean(_ text: String) -> String {
             text.replacingOccurrences(of: "\"", with: "'").replacingOccurrences(of: "\\", with: "/").replacingOccurrences(of: "\n", with: " ")
         }
         for service in GuardService.allCases {
             let block = L("Cooldown: %@ сейчас видит вас не через VPN. Запрос не отправлен — повторите, когда VPN заработает.", service.name)
             let unchecked = L("Cooldown: не удалось проверить маршрут к %@. Запрос не отправлен — проверьте VPN и повторите.", service.name)
-            try? clean(block).write(to: dir.appendingPathComponent("msg-\(service.rawValue)-block"), atomically: true, encoding: .utf8)
-            try? clean(unchecked).write(to: dir.appendingPathComponent("msg-\(service.rawValue)-unchecked"), atomically: true, encoding: .utf8)
+            Self.write(clean(block), to: dir.appendingPathComponent("msg-\(service.rawValue)-block"))
+            Self.write(clean(unchecked), to: dir.appendingPathComponent("msg-\(service.rawValue)-unchecked"))
         }
     }
 
@@ -890,7 +1133,13 @@ final class RouteGuard: ObservableObject {
     private func writeState(_ service: GuardService, _ reading: RouteReading) {
         let word = reading.verdict == .ok ? "ok" : reading.verdict == .unchecked ? "unchecked" : "block"
         let at = reading.at == .distantPast ? 0 : Int(reading.at.timeIntervalSince1970)
-        try? "\(word) \(at)\n".write(to: Self.dir.appendingPathComponent(service.rawValue), atomically: true, encoding: .utf8)
+        Self.write("\(word) \(at)\n", to: Self.dir.appendingPathComponent(service.rawValue))
+    }
+
+    /// Written only when it changed: these files are rewritten on every check otherwise.
+    private static func write(_ text: String, to url: URL) {
+        guard (try? String(contentsOf: url, encoding: .utf8)) != text else { return }
+        try? text.write(to: url, atomically: true, encoding: .utf8)
     }
 }
 
@@ -908,8 +1157,9 @@ final class Freezer {
     static let shared = Freezer()
 
     private(set) var frozen: [pid_t] = []
+    /// Shells held so the agent they run in the foreground stays their job (see `terminal`).
+    private(set) var shells: [pid_t] = []
     private(set) var frozenNames: [String] = []
-    private var watcher: Process?
 
     static var file: URL { RouteGuard.dir.appendingPathComponent("frozen") }
 
@@ -930,15 +1180,42 @@ final class Freezer {
         }
     }
 
-    /// Exactly these apps frozen, every other one let go.
-    func set(_ bundleIDs: Set<String>) {
+    /// Exactly these apps frozen (with the command-line agents of `terminal` running in a
+    /// terminal, and `own`: Cooldown's own processes that must pause too), every other one let go.
+    /// `onlyThaw` (offline): nothing new is frozen, what no longer needs it goes on.
+    func set(_ bundleIDs: Set<String>, terminal: [GuardService] = [], own: [pid_t] = [], onlyThaw: Bool = false) {
         let running = Self.resolve(bundleIDs)
-        let targets = Self.processes(in: running.map(\.folders))
+        let table = running.isEmpty && terminal.isEmpty && own.isEmpty ? [:] : Self.table()
+        var targets = Set(Self.processes(in: running.map(\.folders), table: table))
+        // Cooldown's own processes with what they started (npm's codex runs the real one as a child).
+        var queue = own
+        while let pid = queue.popLast() {
+            guard targets.insert(pid).inserted else { continue }
+            queue.append(contentsOf: table.filter { $0.value.parent == pid }.map(\.key))
+        }
+        var names = Set(running.map(\.name))
+        var held = Set<pid_t>()
+        if !terminal.isEmpty {
+            let agents = Self.terminal(terminal, table: table)
+            targets.formUnion(agents.pids)
+            held = agents.shells.subtracting(targets)
+            names.formUnion(agents.names)
+        }
+        if onlyThaw {
+            targets.formIntersection(frozen)
+            held.formIntersection(shells)
+        }
+        let newTargets = targets.sorted(), newShells = held.sorted()
+        // A shell that saw its job stop would take the terminal back and leave the agent in the
+        // background: the shell is held first and let go last.
+        for pid in newShells where !shells.contains(pid) { kill(pid, SIGSTOP) }
         for pid in frozen where !targets.contains(pid) { kill(pid, SIGCONT) }
-        for pid in targets where !frozen.contains(pid) { kill(pid, SIGSTOP) }
-        let changed = targets != frozen
-        frozen = targets
-        frozenNames = targets.isEmpty ? [] : Array(Set(running.map(\.name))).sorted()
+        for pid in newTargets where !frozen.contains(pid) { kill(pid, SIGSTOP) }
+        for pid in shells where !held.contains(pid) { kill(pid, SIGCONT) }
+        let changed = newTargets != frozen || newShells != shells
+        frozen = newTargets
+        shells = newShells
+        frozenNames = targets.isEmpty ? [] : names.sorted()
         guard changed else { return }
         persist()
         restartWatcher()
@@ -953,71 +1230,164 @@ final class Freezer {
         try? FileManager.default.removeItem(at: file)
     }
 
+    /// The agents first, their shells last: the order they are let go in.
+    private var all: [pid_t] { frozen + shells }
+
     private func persist() {
-        if frozen.isEmpty {
+        if all.isEmpty {
             try? FileManager.default.removeItem(at: Self.file)
         } else {
-            try? frozen.map(String.init).joined(separator: " ").write(to: Self.file, atomically: true, encoding: .utf8)
+            try? all.map(String.init).joined(separator: " ").write(to: Self.file, atomically: true, encoding: .utf8)
         }
     }
 
+    /// A small shell outside Cooldown: once Cooldown is gone (crash, force quit) the frozen apps go
+    /// on within two seconds. Started in a session of its own, so whatever ends Cooldown's process
+    /// group does not take it along.
     private func restartWatcher() {
-        watcher?.terminate()
-        watcher = nil
-        guard !frozen.isEmpty else { return }
-        let list = frozen.map(String.init).joined(separator: " ")
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/sh")
-        // Cooldown gone (crash, force quit): the frozen apps go on within two seconds.
-        process.arguments = ["-c", "while kill -0 \(getpid()) 2>/dev/null; do sleep 2; done; kill -CONT \(list) 2>/dev/null; rm -f \"$0\"", Self.file.path]
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-        try? process.run()
-        watcher = process
+        if watcher > 0 {
+            // At once (a TERM would wait out its `sleep`), and reaped: no zombie per freeze.
+            kill(watcher, SIGKILL)
+            waitpid(watcher, nil, 0)
+            watcher = 0
+        }
+        guard !all.isEmpty else { return }
+        let list = all.map(String.init).joined(separator: " ")
+        let script = "while kill -0 \(getpid()) 2>/dev/null; do sleep 2; done; kill -CONT \(list) 2>/dev/null; rm -f \"$0\""
+        var attributes: posix_spawnattr_t?
+        posix_spawnattr_init(&attributes)
+        defer { posix_spawnattr_destroy(&attributes) }
+        // Its own session, and none of Cooldown's open files (a pipe it held open would keep a
+        // read elsewhere waiting).
+        posix_spawnattr_setflags(&attributes, Int16(POSIX_SPAWN_SETSID | POSIX_SPAWN_CLOEXEC_DEFAULT))
+        var actions: posix_spawn_file_actions_t?
+        posix_spawn_file_actions_init(&actions)
+        defer { posix_spawn_file_actions_destroy(&actions) }
+        for fd: Int32 in 0...2 { posix_spawn_file_actions_addopen(&actions, fd, "/dev/null", fd == 0 ? O_RDONLY : O_WRONLY, 0) }
+        let arguments = ["/bin/sh", "-c", script, Self.file.path]
+        var argv: [UnsafeMutablePointer<CChar>?] = arguments.map { strdup($0) } + [nil]
+        defer { argv.forEach { free($0) } }
+        var pid: pid_t = 0
+        if posix_spawn(&pid, "/bin/sh", &actions, &attributes, &argv, environ) == 0 { watcher = pid }
     }
 
-    private struct Info { var parent: pid_t; var terminal: Bool; var program: String }
+    private var watcher: pid_t = 0
+
+    struct Entry { var parent: pid_t; var group: pid_t; var foreground: pid_t; var tty: UInt32; var terminal: Bool; var program: String }
+
+    /// Every process once: parent, process group, terminal and program.
+    static func table() -> [pid_t: Entry] {
+        var table: [pid_t: Entry] = [:]
+        var path = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))
+        for pid in allPids() {
+            var info = proc_bsdinfo()
+            guard proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, Int32(MemoryLayout<proc_bsdinfo>.size)) > 0 else { continue }
+            let program = proc_pidpath(pid, &path, UInt32(path.count)) > 0 ? String(cString: path) : ""
+            table[pid] = Entry(parent: pid_t(info.pbi_ppid), group: pid_t(info.pbi_pgid), foreground: pid_t(info.e_tpgid),
+                               tty: info.e_tdev, terminal: info.pbi_flags & 0xC0 != 0, // PROC_FLAG_CONTROLT | PROC_FLAG_CTTY
+                               program: program)
+        }
+        return table
+    }
+
+    /// Whether a process is Cooldown or was started by it (never frozen, except `own`).
+    private static func descendsFromMe(_ pid: pid_t, _ table: [pid_t: Entry]) -> Bool {
+        let me = onlyUnderForTest != nil ? -1 : getpid()
+        var current = pid
+        for _ in 0..<64 {
+            if current == me { return true }
+            guard let parent = table[current]?.parent, parent > 1, parent != current else { return false }
+            current = parent
+        }
+        return false
+    }
 
     /// The processes of these apps. Each app is a list of folders: its bundle first, then what
     /// else belongs to it. Taken: processes running a program from the bundle, and their
     /// descendants running a program from any of the folders. Never taken: Cooldown and
     /// anything it started, processes attached to a terminal (stopping those hands the terminal
     /// back to the shell), and other programs an agent started (dev servers, tunnels, proxies).
-    static func processes(in apps: [[String]]) -> [pid_t] {
+    static func processes(in apps: [[String]], table given: [pid_t: Entry]? = nil) -> [pid_t] {
         let apps = apps.filter { !$0.isEmpty }
         guard !apps.isEmpty else { return [] }
-        let me = getpid()
-        var table: [pid_t: Info] = [:]
-        var path = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))
-        for pid in allPids() {
-            var info = proc_bsdinfo()
-            guard proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, Int32(MemoryLayout<proc_bsdinfo>.size)) > 0 else { continue }
-            let program = proc_pidpath(pid, &path, UInt32(path.count)) > 0 ? String(cString: path) : ""
-            table[pid] = Info(parent: pid_t(info.pbi_ppid), terminal: info.pbi_flags & 0xC0 != 0, program: program) // PROC_FLAG_CONTROLT | PROC_FLAG_CTTY
-        }
-        func descendsFromMe(_ pid: pid_t) -> Bool {
-            var current = pid
-            for _ in 0..<64 {
-                if current == me { return true }
-                guard let parent = table[current]?.parent, parent > 1, parent != current else { return false }
-                current = parent
-            }
-            return false
-        }
+        let table = given ?? Self.table()
         var children: [pid_t: [pid_t]] = [:]
         for (pid, info) in table { children[info.parent, default: []].append(pid) }
         var result = Set<pid_t>()
         for folders in apps {
             let bundle = folders[0]
-            let roots = table.filter { $0.value.program.hasPrefix(bundle) }.map(\.key)
-            var queue = roots
+            var queue = table.filter { $0.value.program.hasPrefix(bundle) }.map(\.key)
             while let pid = queue.popLast() {
-                guard let info = table[pid], !info.terminal, !descendsFromMe(pid),
+                guard let info = table[pid], !info.terminal, !descendsFromMe(pid, table),
                       folders.contains(where: { info.program.hasPrefix($0) }), result.insert(pid).inserted else { continue }
                 queue.append(contentsOf: children[pid] ?? [])
             }
         }
-        return result.subtracting([me]).sorted()
+        return result.subtracting([getpid()]).sorted()
+    }
+
+    /// Command-line agents of these services running in a terminal (`claude`, `codex`, `agy`…,
+    /// or node running their package), never Cooldown's own; and for an agent that is its
+    /// terminal's foreground job, the shell it was started from. Only the agents themselves:
+    /// what they started (dev servers, tunnels, proxies) runs on.
+    static func terminal(_ services: [GuardService], table given: [pid_t: Entry]? = nil) -> (pids: Set<pid_t>, shells: Set<pid_t>, names: Set<String>) {
+        let table = given ?? Self.table()
+        func matches(_ pid: pid_t, _ entry: Entry, _ service: GuardService) -> Bool {
+            let agent = service.terminalAgents
+            let name = (entry.program as NSString).lastPathComponent
+            if agent.names.contains(name) || agent.paths.contains(where: entry.program.contains) { return true }
+            guard ["node", "bun", "deno", "python", "python3"].contains(name) else { return false }
+            // `node /opt/homebrew/bin/claude`: the script named like the agent, or its real place
+            // inside the package (the bin entry is a link into node_modules).
+            let argv = arguments(pid)
+            let scripts = argv.dropFirst().prefix(1).flatMap { [$0, URL(fileURLWithPath: $0).resolvingSymlinksInPath().path] }
+            if scripts.contains(where: { agent.names.contains(($0 as NSString).lastPathComponent) }) { return true }
+            let line = (argv + scripts).joined(separator: " ")
+            return agent.args.contains(where: line.contains)
+        }
+        var pids = Set<pid_t>(), shells = Set<pid_t>(), names = Set<String>()
+        for (pid, entry) in table where entry.terminal && pid != getpid() && !descendsFromMe(pid, table) {
+            if let only = onlyUnderForTest, !entry.program.hasPrefix(only) { continue }
+            guard let service = services.first(where: { matches(pid, entry, $0) }) else { continue }
+            pids.insert(pid)
+            names.insert(service.terminalName)
+            if entry.group == entry.foreground, entry.parent > 1, let shell = table[entry.parent],
+               shell.terminal, shell.tty == entry.tty, shell.group != entry.group {
+                shells.insert(entry.parent)
+            }
+        }
+        return (pids, shells, names)
+    }
+
+    /// `--guard-test-terminal` only: its agents run under a `script` the test itself started, and
+    /// only programs in this folder are looked at (a real Claude Code in a terminal is never touched).
+    nonisolated(unsafe) static var onlyUnderForTest: String?
+
+    /// The command line of a process (its arguments only, not its environment).
+    private static func arguments(_ pid: pid_t) -> [String] {
+        var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, pid]
+        var size = 0
+        guard sysctl(&mib, 3, nil, &size, nil, 0) == 0, size > 4 else { return [] }
+        var buffer = [UInt8](repeating: 0, count: size)
+        guard sysctl(&mib, 3, &buffer, &size, nil, 0) == 0 else { return [] }
+        // argc, the program path, NUL padding, then argc arguments; the environment follows.
+        let argc = Int(buffer.withUnsafeBytes { $0.load(as: Int32.self) })
+        var fields: [String] = []
+        var current: [UInt8] = []
+        var index = 4
+        // Skip the program path and the padding after it.
+        while index < size, buffer[index] != 0 { index += 1 }
+        while index < size, buffer[index] == 0 { index += 1 }
+        while index < size, fields.count < argc {
+            if buffer[index] == 0 {
+                fields.append(String(decoding: current, as: UTF8.self))
+                current = []
+            } else {
+                current.append(buffer[index])
+            }
+            index += 1
+        }
+        return fields
     }
 
     private static func allPids() -> [pid_t] {
@@ -1026,5 +1396,38 @@ final class Freezer {
         var pids = [pid_t](repeating: 0, count: capacity)
         let count = Int(proc_listallpids(&pids, Int32(capacity * MemoryLayout<pid_t>.size)))
         return Array(pids.prefix(max(0, count))).filter { $0 > 1 }
+    }
+}
+
+
+/// Whether the Mac's time zone fits a country (the zones listed for it in the system's tz table).
+enum TimeZoneCheck {
+    static let zones: [String: [String]] = {
+        var table: [String: [String]] = [:]
+        let text = (try? String(contentsOfFile: "/usr/share/zoneinfo/zone.tab", encoding: .utf8)) ?? ""
+        for line in text.split(separator: "\n") where !line.hasPrefix("#") {
+            let fields = line.split(separator: "\t")
+            if fields.count >= 3 { table[String(fields[0]), default: []].append(String(fields[2])) }
+        }
+        return table
+    }()
+
+    /// true: none of the country's zones has the Mac's offset now; nil: the country is unknown.
+    static func mismatch(country: String, zone: TimeZone, now: Date = Date()) -> Bool? {
+        guard let ids = zones[country.uppercased()], !ids.isEmpty else { return nil }
+        let offsets = Set(ids.compactMap { TimeZone(identifier: $0)?.secondsFromGMT(for: now) })
+        return !offsets.contains(zone.secondsFromGMT(for: now))
+    }
+}
+
+/// Lets its block run the first time only (a continuation is resumed exactly once).
+final class OnceGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var done = false
+    func run(_ block: () -> Void) {
+        lock.lock(); defer { lock.unlock() }
+        guard !done else { return }
+        done = true
+        block()
     }
 }

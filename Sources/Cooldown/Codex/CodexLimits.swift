@@ -94,13 +94,26 @@ enum CodexAppServer {
             #"{"method":"initialized"}"#,
             "{\"id\":2,\"method\":\"\(method)\"}",
         ]
-        input.fileHandleForWriting.write(Data((requests.joined(separator: "\n") + "\n").utf8))
+        // A codex that already quit (a wrong path, an old version without app-server) must not
+        // take Cooldown down with SIGPIPE.
+        _ = fcntl(input.fileHandleForWriting.fileDescriptor, F_SETNOSIGPIPE, 1)
+        do { try input.fileHandleForWriting.write(contentsOf: Data((requests.joined(separator: "\n") + "\n").utf8)) } catch { throw CodexError.exited }
 
+        // Read with a deadline of its own: a child of codex holding the pipe open after it was
+        // stopped would otherwise keep this read (and the "refreshing" state) forever.
+        let deadline = Date().addingTimeInterval(timeout + 2)
+        let fd = output.fileHandleForReading.fileDescriptor
+        var chunk = [UInt8](repeating: 0, count: 65_536)
         var buffer = Data()
         while true {
-            let chunk = output.fileHandleForReading.availableData
-            if chunk.isEmpty { throw timedOut.value ? CodexError.timeout : CodexError.exited }
-            buffer.append(chunk)
+            var ready = pollfd(fd: fd, events: Int16(POLLIN), revents: 0)
+            let wait = deadline.timeIntervalSinceNow
+            if wait <= 0 { throw CodexError.timeout }
+            let polled = poll(&ready, 1, Int32(min(wait, 1) * 1000))
+            if polled == 0 || (polled < 0 && errno == EINTR) { continue }
+            let count = read(fd, &chunk, chunk.count)
+            if count <= 0 { throw timedOut.value ? CodexError.timeout : CodexError.exited }
+            buffer.append(contentsOf: chunk[0..<count])
             while let newline = buffer.firstIndex(of: 0x0A) {
                 let line = buffer.subdata(in: buffer.startIndex..<newline)
                 buffer = buffer.subdata(in: buffer.index(after: newline)..<buffer.endIndex)

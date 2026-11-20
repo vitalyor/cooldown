@@ -6,6 +6,7 @@ struct GuardPane: View {
     @ObservedObject private var route = RouteGuard.shared
     @AppStorage(SettingsKey.guardEnabled) private var enabled = false
     @AppStorage(SettingsKey.guardFreeze) private var freeze = true
+    @AppStorage(SettingsKey.guardFreezeTerminal) private var freezeTerminal = false
     @AppStorage(SettingsKey.guardForbidden) private var forbidden = Settings.guardForbiddenDefault
     @State private var problem: String?
     @State private var claudeVersion: String?
@@ -19,12 +20,15 @@ struct GuardPane: View {
                          isOn: Binding(get: { enabled }, set: { problem = RouteGuard.setEnabled($0) }))
             if let problem { Note(symbol: "exclamationmark.triangle.fill", text: problem, color: Theme.amber).font(.caption) }
         } footer: {
-            Footnote(text: L("Как это работает: Cooldown спрашивает сами сервисы (Anthropic и OpenAI), из какой страны к ним приходят запросы, — по тому же пути, что и запросы агентов, поэтому неважно, где включён VPN: на Mac или на роутере. Запрос анонимный, без вашего аккаунта; своего сервера у Cooldown нет. Пока маршрут неправильный, Claude Code и Codex не отправляют сообщения, Cooldown сам не обращается к этим сервисам, а приложения агентов встают на паузу. Когда VPN вернётся, всё продолжится само."))
+            Footnote(text: L("Как это работает: Cooldown спрашивает сами сервисы (Anthropic, OpenAI и Google), из какой страны к ним приходят запросы, — по тому же пути, что и запросы агентов, поэтому неважно, где включён VPN: на Mac или на роутере. Запрос анонимный, без вашего аккаунта; своего сервера у Cooldown нет. Пока маршрут неправильный, Claude Code и Codex не отправляют сообщения, Cooldown сам не обращается к этим сервисам, а приложения агентов встают на паузу. Когда VPN вернётся, всё продолжится само."))
         }
         if enabled {
             Section {
                 ForEach(GuardService.allCases.filter { ProviderID.shown.contains($0.provider) }, id: \.self) { service in
                     LabeledContent(service.name) { status(service) }
+                }
+                if let note = route.timeZoneNote {
+                    Note(symbol: "clock.badge.exclamationmark", text: note, color: Theme.amber).font(.caption)
                 }
                 HStack {
                     if let until = Settings.guardPausedUntil, until > now {
@@ -45,6 +49,12 @@ struct GuardPane: View {
                              detail: L("Claude, ChatGPT (Codex) и Antigravity замирают, пока маршрут неправильный: ничего не закрывается и не теряется, ответ продолжится с того же места. Выключено — останавливаются только Claude Code и Codex."),
                              isOn: $freeze)
                     .onChange(of: freeze) { _, _ in RouteGuard.shared.enforce() }
+                if freeze {
+                    OptionToggle(title: L("И агентов в Терминале"),
+                                 detail: L("Claude Code, Codex и Antigravity CLI, запущенные в Терминале, тоже замирают, даже посреди ответа. Терминал не реагирует, пока VPN не вернётся, потом всё продолжится. Выключено — их сообщения держат хуки."),
+                                 isOn: $freezeTerminal)
+                        .onChange(of: freezeTerminal) { _, _ in RouteGuard.shared.enforce() }
+                }
                 LabeledContent(L("Запрещённые страны")) {
                     TextField("", text: $forbidden)
                         .multilineTextAlignment(.trailing)
@@ -85,7 +95,7 @@ struct GuardPane: View {
     }
 
     @ViewBuilder private func status(_ service: GuardService) -> some View {
-        if let reading = route.readings[service] {
+        if let reading = route.readings[service], reading.at != .distantPast {
             let age = Format.duration(max(1, now.timeIntervalSince(reading.at)))
             switch reading.verdict {
             case .ok:

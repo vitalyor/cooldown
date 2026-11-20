@@ -273,6 +273,12 @@ final class AgentActivity: ObservableObject {
     }
 
     static func spent(_ provider: ProviderID, now: Date = Date()) -> Date? {
+        // The week spent: work waits for the weekly reset, whatever the five-hour window says.
+        if let s = AppModel.shared.store(provider).snapshot, let week = s.weekly, !week.isExpired(at: now),
+           week.usedPercent >= 100, provider != .codex || s.limitReached {
+            if provider == .codex { AutoResume.codexSpentUntil = week.resetsAt }
+            return week.resetsAt
+        }
         guard let s = AppModel.shared.store(provider).snapshot, let w = s.session, !w.isExpired(at: now) else {
             if provider == .codex { AutoResume.codexSpentUntil = nil }
             return nil
@@ -320,7 +326,14 @@ final class AgentActivity: ObservableObject {
             Settings.notifiedKeys += ["out-\(provider.rawValue)-\(Int(reset.timeIntervalSince1970))"]
             Settings.setPendingReset(provider, reset)
         }
-        if provider == .claude, ClaudeSender.pendingChat == nil { ClaudeSender.rememberChatForReset() }
+        // Only a stop in Claude Desktop names a chat to continue; Claude Code in a terminal does not.
+        if provider == .claude, ClaudeSender.pendingChat == nil {
+            switch opener {
+            case .claudeChat(let chat): ClaudeSender.rememberChatForReset(chat)
+            case .claudeApp: ClaudeSender.rememberChatForReset()
+            case .codexThread, .none: break
+            }
+        }
         let content = ToastCatalog.limitStopped(provider, name: name, reset: reset, opener: opener)
         EventLog.shared.add(CooldownEvent(kind: .budget, provider: provider, title: content.title, body: content.body,
                                           threadId: Self.thread(opener)))

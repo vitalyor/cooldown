@@ -46,8 +46,9 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
-        // Back to a menu bar app: no Dock icon once the window is gone.
-        DispatchQueue.main.async { NSApp.setActivationPolicy(.accessory) }
+        // Back to a menu bar app: no Dock icon once the last window is gone.
+        let closing = notification.object as? NSWindow
+        DispatchQueue.main.async { AppWindows.leftClosed(closing) }
     }
 }
 
@@ -875,5 +876,14 @@ private struct HookRow: View {
             self.error = error.localizedDescription
         }
         refresh()
+    }
+}
+
+/// Settings and Setup both turn the app into a regular one while open (a Dock icon, ⌘-Tab).
+enum AppWindows {
+    /// A window closed: back to a menu bar app only if no other titled window is still open.
+    @MainActor static func leftClosed(_ closing: NSWindow?) {
+        let open = NSApp.windows.contains { $0 !== closing && $0.isVisible && $0.styleMask.contains(.titled) }
+        if !open { NSApp.setActivationPolicy(.accessory) }
     }
 }

@@ -369,6 +369,9 @@ public final class LinkClient {
         if status == .online, let task {
             write(frame, on: task)
         } else {
+            // Only the newest of frames that replace each other ("keep": the state, a Live
+            // Activity): after an outage the phone gets today's picture, not every one before it.
+            if let keep = frame.keep, let to = frame.to { outbox.removeAll { $0.keep == keep && $0.to == to } }
             outbox.append(frame)
             if outbox.count > 200 { outbox.removeFirst(outbox.count - 200) }
         }
@@ -501,7 +504,7 @@ public final class LinkClient {
     func handle(_ frame: LinkFrame, on t: URLSessionWebSocketTask) {
         guard wanted, task === t else { return }
         if frame.t == "ready" {
-            attempt = 0
+            readyAt = Date()
             status = .online
             LinkNodes.markGood(relay)
             rebalance(on: t, generation: generation)
@@ -519,7 +522,13 @@ public final class LinkClient {
         onFrame?(frame)
     }
 
+    /// When the connection last said "ready": the retry pace starts over only after it stayed up
+    /// a while (a relay that accepts and drops at once must not get a reconnect every second).
+    private var readyAt: Date?
+
     private func dropped(_ reason: String) {
+        if let readyAt, Date().timeIntervalSince(readyAt) > 30 { attempt = 0 }
+        readyAt = nil
         heartbeat?.cancel()
         task?.cancel(with: .goingAway, reason: nil)
         task = nil
@@ -532,7 +541,8 @@ public final class LinkClient {
     private func scheduleRetry() {
         retry?.cancel()
         let delays: [Double] = [1, 2, 5, 10, 20, 30]
-        let delay = delays[min(attempt, delays.count - 1)]
+        // ±20 %: Macs that lost the relay together do not all come back in the same second.
+        let delay = delays[min(attempt, delays.count - 1)] * Double.random(in: 0.8...1.2)
         attempt += 1
         retry = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(delay))

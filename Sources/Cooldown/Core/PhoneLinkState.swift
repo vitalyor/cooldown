@@ -38,7 +38,10 @@ extension PhoneLink {
         // wakes, and from the phone that looks just like "all quiet". Say so before it goes.
         // Awake again: the connection from before the sleep is most likely dead; find out now.
         NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didWakeNotification).sink { [weak self] _ in
-            Task { @MainActor in self?.client?.probe() }
+            Task { @MainActor in
+                self?.client?.probe()
+                self?.awake()
+            }
         }.store(in: &subscriptions)
         NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.willSleepNotification).sink { [weak self] _ in
             Task { @MainActor in await self?.goingToSleep() }

@@ -1,6 +1,6 @@
 import Foundation
 
-struct FileCursor: Codable {
+struct FileCursor: Codable, Equatable {
     var offset: UInt64
     var size: UInt64
     var cwd: String?
@@ -60,7 +60,18 @@ struct HistoryFile: Codable {
             if let existing = latest[key], existing.t >= sample.t { continue }
             latest[key] = sample
         }
-        return latest.values.sorted { $0.t < $1.t }
+        // One window, one reset time: sources give the same reset a minute apart (15:59 vs 16:00),
+        // which would otherwise split a window in two in every statistic grouped by reset.
+        var current: [WindowKind: Date] = [:]
+        return latest.values.sorted { $0.t < $1.t }.map { sample in
+            var sample = sample
+            if let reset = current[sample.kind], abs(reset.timeIntervalSince(sample.resetsAt)) < 10 * 60 {
+                sample.resetsAt = reset
+            } else {
+                current[sample.kind] = sample.resetsAt
+            }
+            return sample
+        }
     }
 
     mutating func prune(now: Date) {

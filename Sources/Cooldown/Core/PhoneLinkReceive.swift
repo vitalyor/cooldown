@@ -136,7 +136,16 @@ extension PhoneLink {
             return LinkResult(cmd: cmd.id, code: "ok", text: L("Пример · ничего не отправлено"))
         }
         if actionID.hasPrefix("choice:") {
-            let choiceID = String(actionID.dropFirst("choice:".count))
+            var choiceID = String(actionID.dropFirst("choice:".count))
+            // "step2:option:1": an answer to the third question; any other question on the card now
+            // (answered on the Mac meanwhile, or a second press) makes it stale.
+            if choiceID.range(of: #"^step\d+:"#, options: .regularExpression) != nil, let colon = choiceID.firstIndex(of: ":") {
+                let step = Int(choiceID[choiceID.index(choiceID.startIndex, offsetBy: 4)..<colon])
+                guard content.step != nil, step == content.step else {
+                    return LinkResult(cmd: cmd.id, code: "stale", text: L("Уже не актуально: на этот вопрос уже ответили."))
+                }
+                choiceID = String(choiceID[choiceID.index(after: colon)...])
+            }
             guard let requestKey = content.requestKey, RequestCenter.shared.isPending(requestKey),
                   var choice = content.choices.first(where: { $0.id == choiceID }) else {
                 return LinkResult(cmd: cmd.id, code: "stale", text: L("Уже не актуально: агент больше не ждёт ответа."))
@@ -220,6 +229,20 @@ extension PhoneLink {
             case .guardPause:
                 RouteGuard.shared.pause(3600)
                 return LinkResult(cmd: cmd.id, code: "ok", text: L("Защита выключена на час."))
+            case .guardCheck:
+                await RouteGuard.shared.checkNow()
+                let held = !RouteGuard.shared.blocked.isEmpty || !Freezer.shared.frozen.isEmpty
+                return LinkResult(cmd: cmd.id, code: "ok", text: held
+                                  ? L("Маршрут всё ещё неправильный: агенты на паузе.") : L("Маршрут в порядке."))
+            case .guardResume:
+                RouteGuard.shared.pause(nil)
+                return LinkResult(cmd: cmd.id, code: "ok", text: L("Защита снова включена."))
+            case .installRelease:
+                guard let release = GitHubUpdater.shared.available else {
+                    return LinkResult(cmd: cmd.id, code: "stale", text: L("Уже не актуально."))
+                }
+                Task { await GitHubUpdater.shared.install() }
+                return LinkResult(cmd: cmd.id, code: "ok", text: L("Обновляю Cooldown на Mac до %@…", release.version))
             default:
                 return LinkResult(cmd: cmd.id, code: "unknown", text: L("Это действие доступно только на Mac."))
             }

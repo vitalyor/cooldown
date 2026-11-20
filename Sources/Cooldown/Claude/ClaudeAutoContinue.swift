@@ -57,10 +57,11 @@ final class ClaudeAutoContinue: ObservableObject {
             return
         }
         self.reset = reset
+        limitRetries = 0
         task?.cancel()
         task = Task { [weak self] in
             // Claude has just come back; let its own window settle before typing.
-            try? await Task.sleep(for: .seconds(3))
+            guard (try? await Task.sleep(for: .seconds(3))) != nil else { return }
             await self?.run()
         }
     }
@@ -91,6 +92,9 @@ final class ClaudeAutoContinue: ObservableObject {
             snapshot = AppModel.shared.claude.snapshot
         }
         guard Self.allowsWork(snapshot) else {
+            // Checked every 10 minutes for an hour; then the cards wait for the person (or the next reset).
+            limitRetries += 1
+            guard limitRetries <= 6 else { showCards(); return }
             lastSummary = L("Лимит Claude ещё не восстановился полностью. Проверю позже.")
             retry(after: 10 * 60)
             return
@@ -176,10 +180,13 @@ final class ClaudeAutoContinue: ObservableObject {
         AgentActivity.trace("claude auto: \(lastSummary ?? "")")
     }
 
+    private var limitRetries = 0
+
     private func retry(after delay: TimeInterval) {
         task?.cancel()
         task = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(delay))
+            // A cancelled wait ends here: the task that replaced this one does the work.
+            guard (try? await Task.sleep(for: .seconds(delay))) != nil else { return }
             await self?.run()
         }
     }

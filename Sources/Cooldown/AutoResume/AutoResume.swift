@@ -220,6 +220,8 @@ final class AutoResume: @unchecked Sendable {
         guard ResumeRules.isThreadId(id), !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw ResumeError.refused(L("Нужен точный номер диалога Codex и непустой ответ."))
         }
+        // The answer starts or steers a turn: a model request, so the VPN guard has its say.
+        try await RouteGuard.gate(.codex)
         try await offMain {
             try CodexApp.checkVersion()
             let connection = CodexIPCConnection(timeout: 8)
@@ -583,7 +585,7 @@ final class AutoResume: @unchecked Sendable {
         }
 
         guard let print = ResumeRules.fingerprint(state) else { return stopOutcome("unknown", L("Не удалось запомнить состояние задачи.")) }
-        if watch.fingerprintTurn == turn, let remembered = watch.fingerprint {
+        if watch.fingerprintTurn == turn, let remembered = watch.fingerprint, remembered.hasPrefix(ResumeRules.fingerprintVersion) {
             if remembered != print {
                 // A changed permission, model or workspace is not a transient redraw. Keep the
                 // watch, but do not send behind the person's back; they can look and re-enable it.

@@ -62,8 +62,12 @@ enum ClaudeSender {
     /// The chat the Claude limit ran out in: the one to continue.
     static var pendingChat: ClaudeChat? {
         get {
-            guard let data = UserDefaults.standard.data(forKey: "claudePendingChat") else { return nil }
-            return try? JSONDecoder().decode(ClaudeChat.self, from: data)
+            guard let data = UserDefaults.standard.data(forKey: "claudePendingChat"),
+                  let chat = try? JSONDecoder().decode(ClaudeChat.self, from: data) else { return nil }
+            // Remembered until the reset it waits for and half a day after (a sticky card may be
+            // pressed in the morning), never for days beyond it.
+            let until = max(chat.seen.addingTimeInterval(8 * 3600), (Settings.pendingReset(.claude) ?? .distantPast).addingTimeInterval(12 * 3600))
+            return Date() < until ? chat : nil
         }
         set {
             UserDefaults.standard.set(newValue.flatMap { try? JSONEncoder().encode($0) }, forKey: "claudePendingChat")
@@ -87,11 +91,19 @@ enum ClaudeSender {
         return chat
     }
 
-    /// Called when the Claude limit runs out: the chat in use is the one to continue later.
-    /// The window walk is asynchronous, so the caller never blocks the main thread on AX.
-    static func rememberChatForReset() {
-        // The last seen chat is an immediate fallback; the fresh AX look may update it a moment later.
-        if let chat = lastChat, Date().timeIntervalSince(chat.seen) < 3 * 3600 {
+    /// Called when the Claude limit runs out: the chat it ran out in (`known`, when the stop names
+    /// it), else the chat in use in Claude Desktop. The window walk is asynchronous, so the caller
+    /// never blocks the main thread on AX.
+    static func rememberChatForReset(_ known: ClaudeChat? = nil) {
+        if var known {
+            known.seen = Date()
+            pendingChat = known
+            ClaudeChatList.shared.add(known, automatic: true)
+            return
+        }
+        // The chat seen lately is an immediate fallback ("lately": in use, not one from hours ago);
+        // the fresh AX look may update it a moment later.
+        if let chat = lastChat, Date().timeIntervalSince(chat.seen) < 15 * 60 {
             pendingChat = chat
             ClaudeChatList.shared.add(chat, automatic: true)
         }

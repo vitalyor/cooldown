@@ -89,11 +89,14 @@ enum AgentHooks {
     }
 
     /// Hooks installed by an earlier version, missing a newer event (Claude's permission cards).
+    /// Only events added to the plan since the last install: an entry the person removed on
+    /// purpose is not put back on every launch.
     static func needsUpdate(_ agent: Agent) -> Bool {
         guard status(agent) != .off, agent == .claude,
               let root = try? read(agent), let hooks = root["hooks"] as? [String: Any] else { return false }
+        let installed = Set(Settings.strings("hookEvents-\(agent)") ?? [])
         return plan(agent).contains { item in
-            !((hooks[item.event] as? [[String: Any]]) ?? []).contains(where: isOurs)
+            !installed.contains(item.event) && !((hooks[item.event] as? [[String: Any]]) ?? []).contains(where: isOurs)
         }
     }
 
@@ -145,7 +148,8 @@ enum AgentHooks {
         for (event, value) in hooks {
             guard let groups = value as? [[String: Any]] else { continue }
             for (index, group) in groups.enumerated() {
-                for (handler, value) in ((group["hooks"] as? [[String: Any]]) ?? []).enumerated() where (value["command"] as? String)?.contains(mark) == true {
+                for (handler, value) in ((group["hooks"] as? [[String: Any]]) ?? []).enumerated()
+                where (value["command"] as? String).map({ $0.contains(mark) && !$0.contains(offMarker) }) == true {
                     ours.append((event, index, handler))
                 }
             }
@@ -227,14 +231,21 @@ enum AgentHooks {
         }
         root["hooks"] = hooks
         try write(agent, root)
+        Settings.set(plan(agent).map(\.event), forKey: "hookEvents-\(agent)")
     }
+
+    /// What stays in place of Cooldown's handler in Codex when other tools' groups follow it:
+    /// Codex trusts a hook by its position, so removing ours would cost theirs their trust.
+    static let offMarker = "cooldown-hook-off"
+    private static let offHandler: [String: Any] = ["type": "command", "command": "true # \(offMarker)"]
 
     static func uninstall(_ agent: Agent) throws {
         var root = try read(agent)
         guard var hooks = root["hooks"] as? [String: Any] else { return }
         for (event, value) in hooks {
             guard let existing = value as? [[String: Any]] else { continue }
-            let groups = existing.compactMap { updatedGroup($0, handler: nil) }
+            let othersFollow = agent == .codex && (existing.lastIndex(where: isOurs).map { $0 < existing.count - 1 } ?? false)
+            let groups = existing.compactMap { updatedGroup($0, handler: othersFollow ? offHandler : nil) }
             if groups.isEmpty { hooks.removeValue(forKey: event) } else { hooks[event] = groups }
         }
         root["hooks"] = hooks
@@ -255,6 +266,9 @@ enum AgentHooks {
     private static let guardText = """
     #!/bin/sh
     # Cooldown VPN guard: lets the agent's request out only while its route is right.
+    # The agent's JSON on stdin is not needed; it is drained in the background, so a large one
+    # never meets a closed pipe.
+    if [ ! -t 0 ]; then exec 3<&0; cat <&3 >/dev/null 2>&1 & exec 3<&-; fi
     dir="$HOME/Library/Application Support/Cooldown/guard"
     service="$1"; when="$2"
     [ -f "$dir/on" ] || exit 0
@@ -262,27 +276,55 @@ enum AgentHooks {
     app=$(head -n 1 "$dir/on" 2>/dev/null)
     if [ -n "$app" ] && [ ! -d "$app" ]; then exit 0; fi
     now=$(date +%s)
+    # Paused (in Cooldown, on a card or from the phone): until the time on the second line, even
+    # if Cooldown is closed meanwhile.
+    until=$(sed -n 2p "$dir/on" 2>/dev/null)
+    case "$until" in ''|*[!0-9]*) ;; *) [ "$now" -lt "$until" ] && exit 0;; esac
     state=""; at=0
     [ -f "$dir/$service" ] && read -r state at < "$dir/$service"
     case "$at" in ''|*[!0-9]*) at=0;; esac
     # A fresh answer from Cooldown counts; "unchecked" (a network just changed) is checked here,
     # and so is everything when this terminal names a proxy: its route is not Cooldown's.
     proxy="$HTTPS_PROXY$https_proxy$ALL_PROXY$all_proxy"
+    cache="$dir/self-$service"
+    cached=""; cached_at=0
+    [ -z "$proxy" ] && [ -f "$cache" ] && read -r cached cached_at < "$cache"
+    case "$cached_at" in ''|*[!0-9]*) cached_at=0;; esac
+    # Cooldown says the network just changed (or never checked it): an own answer from before
+    # does not count.
+    if [ "$state" = unchecked ] || { [ -n "$state" ] && [ "$at" = 0 ]; }; then cached=""; fi
     if [ -z "$proxy" ] && [ -n "$state" ] && [ "$state" != unchecked ] && [ $((now - at)) -le 30 ]; then
       verdict="$state"
+    elif [ -n "$cached" ] && [ $((now - cached_at)) -le 15 ]; then
+      # This hook's own check from a moment ago: not repeated on every step.
+      verdict="$cached"
     else
-      case "$service" in anthropic) host=api.anthropic.com;; openai) host=chatgpt.com;; *) exit 0;; esac
-      # IPv4 and IPv6 apart: a VPN that carries only one lets the other out directly.
+      case "$service" in anthropic) hosts="api.anthropic.com claude.ai";; openai) hosts="chatgpt.com api.openai.com";; *) exit 0;; esac
+      # Each address the agent talks to, IPv4 and IPv6 apart (per-site VPN rules may let one of
+      # them out directly; a VPN that carries one family lets the other out), all at once.
       verdict=unchecked
-      for family in -4 -6; do
-        trace=$(curl -s "$family" -m 3 --proto =https "https://$host/cdn-cgi/trace" 2>/dev/null)
-        loc=$(printf '%s\n' "$trace" | sed -n 's/^loc=//p')
-        ip=$(printf '%s\n' "$trace" | sed -n 's/^ip=//p')
-        [ -n "$loc" ] || continue
-        if grep -qw "$loc" "$dir/forbidden" 2>/dev/null; then verdict=block; break; fi
-        if [ -n "$ip" ] && grep -qxF "$ip" "$dir/refused" 2>/dev/null; then verdict=block; break; fi
-        verdict=ok
-      done
+      tmp=$(mktemp -d "${TMPDIR:-/tmp}/cooldown-guard.XXXXXX" 2>/dev/null)
+      if [ -n "$tmp" ]; then
+        n=0; jobs=""
+        for host in $hosts; do
+          for family in -4 -6; do
+            n=$((n + 1))
+            curl -s "$family" -m 3 --connect-timeout 2 --proto =https "https://$host/cdn-cgi/trace" > "$tmp/$n" 2>/dev/null &
+            jobs="$jobs $!"
+          done
+        done
+        wait $jobs
+        for answer in "$tmp"/*; do
+          loc=$(sed -n 's/^loc=//p' "$answer")
+          ip=$(sed -n 's/^ip=//p' "$answer")
+          [ -n "$loc" ] || continue
+          if grep -qw "$loc" "$dir/forbidden" 2>/dev/null; then verdict=block; break; fi
+          if [ -n "$ip" ] && grep -qxF "$ip" "$dir/refused" 2>/dev/null; then verdict=block; break; fi
+          verdict=ok
+        done
+        rm -rf "$tmp"
+      fi
+      [ -z "$proxy" ] && printf '%s %s' "$verdict" "$now" > "$cache" 2>/dev/null
     fi
     [ "$verdict" = ok ] && exit 0
     msg=$(cat "$dir/msg-$service-$verdict" 2>/dev/null)
@@ -380,6 +422,20 @@ enum AgentHooks {
         try write(agent, root)
     }
 
+    /// A copy of a settings file before Cooldown changes it; the newest three are kept (they hold
+    /// the person's whole settings, secrets in `env` included, so they must not pile up).
+    static func backup(_ url: URL, keep: Int = 3) {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: url.path) else { return }
+        let folder = url.deletingLastPathComponent()
+        let prefix = url.lastPathComponent + ".bak-cooldown-"
+        let stamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
+        try? fm.copyItem(at: url, to: folder.appendingPathComponent(prefix + stamp))
+        // The stamps sort by time as text.
+        let old = ((try? fm.contentsOfDirectory(atPath: folder.path)) ?? []).filter { $0.hasPrefix(prefix) }.sorted().dropLast(keep)
+        for name in old { try? fm.removeItem(at: folder.appendingPathComponent(name)) }
+    }
+
     private static func read(_ agent: Agent) throws -> [String: Any] {
         let url = file(agent)
         guard FileManager.default.fileExists(atPath: url.path) else { return [:] }
@@ -394,10 +450,7 @@ enum AgentHooks {
     private static func write(_ agent: Agent, _ root: [String: Any]) throws {
         let url = file(agent)
         let fm = FileManager.default
-        if fm.fileExists(atPath: url.path) {
-            let stamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
-            try? fm.copyItem(at: url, to: url.deletingLastPathComponent().appendingPathComponent("\(url.lastPathComponent).bak-cooldown-\(stamp)"))
-        }
+        backup(url)
         // The same layout these files are written in (sorted keys, pretty), so other tools'
         // entries come out byte-for-byte as they were.
         let data = try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])

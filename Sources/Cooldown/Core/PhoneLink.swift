@@ -71,6 +71,9 @@ final class PhoneLink: ObservableObject {
     @Published var checkResult: (ok: Bool, text: String)?
     var checkIDs: Set<String> = []
     var checkTimer: Task<Void, Never>?
+    var checkCard: LinkCard?
+    /// "Mac уходит в сон" went to the phone: taken back on waking.
+    var sleptAnnounced = false
 
     let vault = LinkVault()
     var client: LinkClient?
@@ -220,10 +223,13 @@ final class PhoneLink: ObservableObject {
             offlineWarned = false
         case .offline(let reason):
             if case .offline = old {} else { AgentActivity.trace("phone: relay unreachable — \(reason)") }
-            if offlineSince == nil { offlineSince = Date() }
             checkOffline()
             // A refused WebSocket looks like any dropped connection; this call sees the real 401.
-            Task { await refreshDevices() }
+            // Once per outage: the client retries every few seconds, the relay need not hear each.
+            if offlineSince == nil {
+                offlineSince = Date()
+                Task { await refreshDevices() }
+            }
         default:
             break
         }
@@ -231,6 +237,12 @@ final class PhoneLink: ObservableObject {
 
     func checkOffline() {
         guard case .offline(let reason) = status else { return }
+        // Every five minutes of an outage the relay is asked once more: a refusal (401) that came
+        // while the network itself was down is noticed this way.
+        if paired, let since = offlineSince, Date().timeIntervalSince(lastDeviceCheck) > 300, Date().timeIntervalSince(since) > 300 {
+            lastDeviceCheck = Date()
+            Task { await refreshDevices() }
+        }
         if !offlineWarned, paired, let since = offlineSince, Date().timeIntervalSince(since) > 600 {
                 offlineWarned = true
                 AgentActivity.trace("phone: relay down for 10 min, warned")
@@ -271,7 +283,9 @@ final class PhoneLink: ObservableObject {
     func paired(_ frame: LinkFrame) {
         guard var account, let device = frame.device, let sealed = frame.hello else { return }
         client?.got(["pair-" + device])
-        guard let offer, let hello = try? LinkCrypto.openHello(sealed, secret: offer.secret, code: offer.code) else {
+        // A code is good for the five minutes the QR shows, not for as long as the window stays open.
+        guard let offer, (inviteExpires ?? .distantPast) > Date(),
+              let hello = try? LinkCrypto.openHello(sealed, secret: offer.secret, code: offer.code) else {
             // Not a phone that saw this Mac's QR code: it doesn't get in.
             Task { _ = try? await LinkHTTP.call(account.relay, "DELETE", "v1/devices/\(device)", token: account.token) }
             message = L("Отклонено подключение устройства, которое не сканировало QR-код.")
@@ -321,11 +335,28 @@ final class PhoneLink: ObservableObject {
             let peers = Set(account.peers.map(\.id))
             devices = rows.devices.filter { $0.role == "phone" && peers.contains($0.id) }
             // A phone the relay no longer knows was unpaired elsewhere: stop sealing boxes for it.
+            // Only when two answers minutes apart say so: one node out of step must not unpair it.
             let known = Set(rows.devices.map(\.id))
-            for peer in account.peers where !known.contains(peer.id) { forget(peer.id) }
+            authFailedAt = nil
+            for peer in account.peers where !known.contains(peer.id) {
+                if let since = missingSince[peer.id], Date().timeIntervalSince(since) > 120 {
+                    missingSince[peer.id] = nil
+                    forget(peer.id)
+                } else if missingSince[peer.id] == nil {
+                    missingSince[peer.id] = Date()
+                    recheckDevices()
+                }
+            }
+            for id in missingSince.keys where known.contains(id) { missingSince[id] = nil }
         } catch let failure as LinkHTTP.Failure where failure.status == 401 {
             // The relay no longer accepts this Mac (removed elsewhere, or its store was restored).
-            // Do not keep showing a dead pairing: start over from a fresh QR code.
+            // Said twice, minutes apart (one node out of step must not wipe the pairing): start over
+            // from a fresh QR code.
+            guard let first = authFailedAt, Date().timeIntervalSince(first) > 120 else {
+                if authFailedAt == nil { authFailedAt = Date(); recheckDevices() }
+                return
+            }
+            authFailedAt = nil
             let text = L("Сервер больше не знает этот Mac. Включите Cooldown для iPhone заново.")
             message = text
             await disable()
@@ -333,6 +364,18 @@ final class PhoneLink: ObservableObject {
             ToastController.shared.show(ToastContent(key: "phone-offline", kind: .warning, provider: nil,
                 title: L("iPhone не получает уведомления"), body: text, actions: [.openSettings(.iphone)], life: .sticky))
         } catch {}
+    }
+
+    private var authFailedAt: Date?
+    private var lastDeviceCheck = Date.distantPast
+    private var missingSince: [String: Date] = [:]
+
+    /// Asks the relay again in three minutes (to confirm a refusal before acting on it).
+    private func recheckDevices() {
+        Task { @MainActor [weak self] in
+            guard (try? await Task.sleep(for: .seconds(180))) != nil else { return }
+            await self?.refreshDevices()
+        }
     }
 
     static func qr(_ url: URL) -> NSImage? {

@@ -38,6 +38,7 @@ extension PhoneLink {
             return
         }
         checkIDs = ids
+        checkCard = card
         AgentActivity.trace("phone: delivery check sent env=\(checkIDs.joined(separator: ","))")
         checkTimer?.cancel()
         checkTimer = Task { @MainActor [weak self] in
@@ -60,12 +61,15 @@ extension PhoneLink {
         let card = LinkCard(key: "mac-sleep", kind: "warning", provider: working.first?.provider.rawValue,
                             title: L("Mac уходит в сон"),
                             body: what + " " + L("Пока он спит, ничего не продолжится и Cooldown ничего не пришлёт."), actions: [])
+        // Before sending: a wake that comes while the request is still out takes the card back too.
+        sleptAnnounced = true
         // Straight over HTTPS and waited for: the socket may not get to send before the Mac sleeps.
         for peer in account.peers {
             guard let frame = try? session.envelope(.card(card), to: peer.id, ttl: 6 * 3600,
                                                     push: LinkPush(collapse: card.collapseID, sound: true, level: "time-sensitive")) else { continue }
             _ = try? await LinkHTTP.call(account.relay, "POST", "v1/send", token: account.token, body: frame)
         }
+        sleptAnnounced = true
         AgentActivity.trace("phone: told the phone the Mac is going to sleep")
     }
 
@@ -150,6 +154,18 @@ extension PhoneLink {
         checking = false
         checkIDs = []
         checkResult = (ok, text)
+        // The test notification has done its job: it does not stay on the phone.
+        if let card = checkCard {
+            checkCard = nil
+            _ = send(.resolve(card.key, by: "mac"), ttl: 3600, push: LinkPush(remove: [card.collapseID], silent: true))
+        }
+    }
+
+    /// Awake again: "Mac уходит в сон" is no longer true.
+    func awake() {
+        guard paired, sleptAnnounced else { return }
+        sleptAnnounced = false
+        _ = send(.resolve("mac-sleep", by: "mac"), ttl: 6 * 3600, push: LinkPush(remove: [LinkCard.collapseID("mac-sleep")], silent: true))
     }
 
     /// The relay says a notification reached the phone, or that it never did.
@@ -214,9 +230,12 @@ extension PhoneLink {
         // Things to press: on the Lock Screen in the Live Activity, not as one more notification.
         if Self.liveButtons(card) != nil, Settings.phoneLive, phoneHasLive { return .live }
         // Reference, not news: numbers, summaries and the Mac's own business stay in the app.
-        let quiet = ["low-", "pace-", "week", "day-", "morning", "project-", "report-", "update", "github-update",
+        let quiet = ["pace-", "week", "day-", "morning", "project-", "report-", "update", "github-update",
                      "remind-set-", "claude-all-done"]
-        if quiet.contains(where: { key.hasPrefix($0) }) && content.kind != .attention && content.kind != .finished { return .none }
+        if quiet.contains(where: { key.hasPrefix($0) }) && content.kind != .finished { return .none }
+        // A nearly spent limit while you are away is worth a normal alert (20 % and 5 % alike),
+        // never a time-sensitive one: nothing waits for an answer.
+        if key.hasPrefix("low-") { return QuietHours.active ? .alert(sound: false, level: "passive") : .alert(sound: true, level: "active") }
         // "Waits for the reset": the Live Activity counts that down already.
         if content.kind == .waiting { return .none }
         // Night: only an agent that needs an answer is worth waking for.
@@ -313,6 +332,9 @@ extension PhoneLink {
         case .restartAgent(let provider): return "restart:" + provider.rawValue
         case .guardExit(let choice, let key): return "guardExit:" + choice.rawValue + ":" + key
         case .guardPause: return "guardPause"
+        case .guardCheck: return "guardCheck"
+        case .guardResume: return "guardResume"
+        case .installRelease: return "installRelease"
         default: return nil
         }
     }
@@ -339,19 +361,22 @@ extension PhoneLink {
             if case .restartAgent = action { return LinkAction(id: id, title: action.title, style: .normal, auth: true) }
             // Letting work go on past the VPN guard from afar: Face ID too.
             if case .guardPause = action { return LinkAction(id: id, title: action.title, style: .normal, auth: true) }
+            // Restarting Cooldown on the Mac from afar: Face ID too.
+            if case .installRelease = action { return LinkAction(id: id, title: action.title, style: .primary, auth: true) }
             if case .guardExit(let choice, _) = action {
                 return LinkAction(id: id, title: action.title, style: choice == .refuse ? .destructive : .primary, auth: choice != .refuse)
             }
             return LinkAction(id: id, title: action.title, style: .primary)
         }
         for choice in content.choices where choice.role != .open {
-            actions.append(LinkAction(id: "choice:" + choice.id, title: choice.title,
+            actions.append(LinkAction(id: "choice:" + (content.step.map { "step\($0):" } ?? "") + choice.id, title: choice.title,
                                       style: choice.role == .allow ? .primary : choice.role == .decline ? .destructive : .normal,
-                                      auth: choice.role == .allow, input: choice.role == .input ? true : nil))
+                                      // Typed words go to the agent as your message: Face ID, as for "allow".
+                                      auth: choice.role == .allow || choice.role == .input, input: choice.role == .input ? true : nil))
         }
         // A finished chat can be answered right from the notification.
         if content.kind == .finished, chat(of: content) != nil {
-            actions.append(LinkAction(id: "reply", title: L("Ответить"), input: true))
+            actions.append(LinkAction(id: "reply", title: L("Ответить"), auth: true, input: true))
         }
         var body = content.body
         if let detail = content.detail, !detail.isEmpty { body = body.isEmpty ? detail : body + "\n" + detail }

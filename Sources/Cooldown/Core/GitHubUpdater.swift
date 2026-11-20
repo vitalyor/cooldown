@@ -42,6 +42,15 @@ final class GitHubUpdater: ObservableObject {
     }
 
     func start() {
+        // Folders of earlier runs' downloads that were never installed: once per launch, before
+        // anything downloads (start runs again when the mode changes).
+        if !cleaned {
+            cleaned = true
+            let temp = FileManager.default.temporaryDirectory
+            for name in (try? FileManager.default.contentsOfDirectory(atPath: temp.path)) ?? [] where name.hasPrefix("cooldown-update-") {
+                try? FileManager.default.removeItem(at: temp.appendingPathComponent(name))
+            }
+        }
         guard Self.repo != nil, Settings.updateMode != "off" else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 60) { Task { await GitHubUpdater.shared.check() } }
         timer = Timer.every(6 * 3600) { _ in
@@ -82,7 +91,8 @@ final class GitHubUpdater: ObservableObject {
             func asset(_ match: (String) -> Bool) -> URL? {
                 assets.first { match($0["name"] as? String ?? "") }.flatMap { ($0["browser_download_url"] as? String).flatMap(URL.init(string:)) }
             }
-            guard let zip = asset({ $0.hasSuffix(".zip") }) else { return }
+            // The app's own archive (a release may carry other zips, symbols say).
+            guard let zip = asset({ $0.hasPrefix("Cooldown") && $0.hasSuffix(".zip") }) else { return }
             let release = Release(version: version, page: page, zip: zip, sums: asset { $0 == "SHA256SUMS.txt" },
                                   notes: object["body"] as? String ?? "")
             available = release
@@ -116,10 +126,20 @@ final class GitHubUpdater: ObservableObject {
         }
         if mode == "auto" {
             // Installed when nobody is in the middle of something: the Mac idle a couple of minutes.
-            if ToastController.idleSeconds > 120 || ToastController.screenLocked {
+            // Not while the VPN guard holds something (a restart would let the apps go for a
+            // moment), nor while phone commands wait for the Mac to be unlocked (a restart would
+            // lose them).
+            if (ToastController.idleSeconds > 120 || ToastController.screenLocked) && !RouteGuard.shared.holding
+                && PhoneLink.shared.afterUnlock.isEmpty {
                 Task { await install() }
             } else {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 300) { GitHubUpdater.shared.announce(release) }
+                // One retry at a time, for the release still on offer.
+                retry?.cancel()
+                retry = Task { @MainActor in
+                    guard (try? await Task.sleep(for: .seconds(300))) != nil,
+                          Settings.updateMode == "auto", GitHubUpdater.shared.available == release else { return }
+                    GitHubUpdater.shared.announce(release)
+                }
             }
             return
         }
@@ -168,43 +188,53 @@ final class GitHubUpdater: ObservableObject {
     }
 
     /// Downloads the release and checks it (checksum, same signature); returns the new app.
+    private var retry: Task<Void, Never>?
+    private var cleaned = false
+
     private func prepare(_ release: Release) async throws -> URL {
         state = L("Загружаю %@…", "\(release.version)")
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("cooldown-update-\(UUID().uuidString)")
         do {
-            let folder = FileManager.default.temporaryDirectory.appendingPathComponent("cooldown-update-\(UUID().uuidString)")
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            let (downloaded, _) = try await URLSession.shared.download(from: release.zip)
+            let (downloaded, response) = try await URLSession.shared.download(from: release.zip)
+            guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw UpdateError.unpack }
             let zip = folder.appendingPathComponent(release.zip.lastPathComponent)
             try FileManager.default.moveItem(at: downloaded, to: zip)
 
             guard let sums = release.sums else { throw UpdateError.checksumMissing }
             let (data, _) = try await URLSession.shared.data(from: sums)
             let text = String(decoding: data, as: UTF8.self)
-            let digest = SHA256.hash(data: try Data(contentsOf: zip)).map { String(format: "%02x", $0) }.joined()
-            guard text.split(separator: "\n").contains(where: { $0.hasPrefix(digest) && $0.hasSuffix(zip.lastPathComponent) }) else {
-                throw UpdateError.checksum
-            }
-            try run("/usr/bin/ditto", ["-x", "-k", zip.path, folder.path])
-            let app = folder.appendingPathComponent("Cooldown.app")
-            guard FileManager.default.fileExists(atPath: app.path) else { throw UpdateError.unpack }
-            guard Self.signedLikeMe(app) else { throw UpdateError.signature }
+            // Hashing, unpacking and the signature check take seconds: not on the main thread.
+            let app = try await Task.detached(priority: .utility) { () throws -> URL in
+                let digest = SHA256.hash(data: try Data(contentsOf: zip)).map { String(format: "%02x", $0) }.joined()
+                let lines = text.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }
+                guard lines.contains(where: { $0.hasPrefix(digest) && $0.hasSuffix(zip.lastPathComponent) }) else {
+                    throw UpdateError.checksum
+                }
+                try Self.unpack(zip, into: folder)
+                let app = folder.appendingPathComponent("Cooldown.app")
+                guard FileManager.default.fileExists(atPath: app.path) else { throw UpdateError.unpack }
+                guard Self.signedLikeMe(app) else { throw UpdateError.signature }
+                return app
+            }.value
             prepared = (release.version, app)
             readyVersion = release.version
             state = nil
             return app
         } catch {
+            try? FileManager.default.removeItem(at: folder)
             state = L("Не удалось загрузить %@: %@", "\(release.version)", "\(error.localizedDescription)")
             throw error
         }
     }
 
     /// The developer's Apple team: releases signed with its Developer ID certificate.
-    static let teamID = "PB68QTT4YR"
+    nonisolated static let teamID = "PB68QTT4YR"
 
     /// The new build must be Cooldown signed either like the running app (same identifier, same
     /// certificate) or with the developer's Developer ID — the certificate releases moved to from
     /// a self-made one. A file swapped on the way fails both.
-    static func signedLikeMe(_ app: URL) -> Bool {
+    nonisolated static func signedLikeMe(_ app: URL) -> Bool {
         var other: SecStaticCode?
         guard SecStaticCodeCreateWithPath(app as CFURL, [], &other) == errSecSuccess, let other else { return false }
         let flags = SecCSFlags(rawValue: kSecCSCheckAllArchitectures | kSecCSCheckNestedCode)
@@ -307,10 +337,10 @@ final class GitHubUpdater: ObservableObject {
         if let url { NSWorkspace.shared.open(url) }
     }
 
-    private func run(_ tool: String, _ arguments: [String]) throws {
+    nonisolated private static func unpack(_ zip: URL, into folder: URL) throws {
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: tool)
-        process.arguments = arguments
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+        process.arguments = ["-x", "-k", zip.path, folder.path]
         try process.run()
         process.waitUntilExit()
         guard process.terminationStatus == 0 else { throw UpdateError.unpack }

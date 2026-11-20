@@ -115,6 +115,7 @@
 "Claude Code один раз спросит, можно ли ему работать в папке. Это пустая служебная папка Cooldown." = "O Claude Code vai perguntar uma vez se pode trabalhar na pasta. É uma pasta de serviço vazia do Cooldown.";
 "Claude Code уже не ждёт этого ответа." = "O Claude Code não está mais esperando esta resposta.";
 "Claude Code — продолжает сам" = "Claude Code — continua sozinho";
+"Claude Code, Codex и Antigravity CLI, запущенные в Терминале, тоже замирают, даже посреди ответа. Терминал не реагирует, пока VPN не вернётся, потом всё продолжится. Выключено — их сообщения держат хуки." = "Claude Code, Codex e Antigravity CLI abertos no Terminal também pausam, mesmo no meio de uma resposta. O Terminal não responde até a VPN voltar; depois tudo continua. Desligado: os hooks seguram as mensagens.";
 "Claude Desktop не запущен" = "O Claude Desktop não está aberto";
 "Claude Desktop: лимит кончается" = "Claude Desktop: o limite está acabando";
 "Claude завершился с ошибкой (код %@). Подробности в журнале Cooldown." = "O Claude terminou com erro (código %@). Detalhes no registro do Cooldown.";
@@ -256,6 +257,7 @@
 "«%@» не был остановлен лимитом — ответ закончился сам. Продолжать не стал." = "“%@” não foi interrompido pelo limite — a resposta terminou. Não continuei.";
 "«%@» не нужно продолжать" = "“%@” não precisa continuar";
 "«%@» остановлен: лимит на 5 часов исчерпан. %@" = "“%@” parou: o limite de 5 horas acabou. %@";
+"«%@» остановлен: недельный лимит исчерпан. %@" = "“%@” parado: o limite semanal acabou. %@";
 "«%@» продолжена" = "“%@” retomada";
 "«%@» продолжится сам после сброса лимита." = "“%@” vai continuar sozinho depois que o limite reiniciar.";
 "«%@» через %@. Подключение заменит текущую пару, если она есть." = "“%@” via %@. Conectar substituirá o pareamento atual, se houver.";
@@ -404,6 +406,7 @@
 "Для отправки macOS один раз попросит разрешение «Универсальный доступ»." = "Para enviar, o macOS vai pedir uma vez a permissão de Acessibilidade.";
 "Для скриншотов и записи экрана. Выключено: карточек не видно на снимках, в записи и при показе экрана — в них бывают промпты и ответы агентов." = "Para capturas e gravações de tela. Desativado: os cartões não aparecem em capturas, gravações nem ao compartilhar a tela — eles podem conter prompts e respostas de agentes.";
 "До" = "Até";
+"До %@. Пока она выключена, агенты работают без проверки маршрута." = "Até %@. Enquanto estiver desligada, os agentes trabalham sem verificar a rota.";
 "Добавить iPhone" = "Adicionar iPhone";
 "Добавить задачу" = "Adicionar tarefa";
 "Добавить сессию Claude Code" = "Adicionar uma sessão do Claude Code";
@@ -502,13 +505,16 @@
 "Запустить" = "Iniciar";
 "Запущено: «%@»" = "Iniciada: “%@”";
 "Защита VPN" = "Proteção VPN";
+"Защита VPN выключена" = "Proteção VPN desligada";
 "Защита выключена до %@" = "Proteção desativada até %@";
 "Защита выключена на час." = "A proteção está desativada por uma hora.";
 "Защита от работы без VPN" = "Proteção contra trabalhar sem VPN";
+"Защита снова включена." = "A proteção está ligada de novo.";
 "Звук карточки" = "Som do cartão";
 "Звёзды на месте, лимит тоже. Можно и отдохнуть." = "As estrelas estão aí, o limite também. Hora de descansar.";
 "Здесь появится каждый день работы %@." = "Cada dia de trabalho no %@ vai aparecer aqui.";
 "Здесь чаты из боковой панели Claude и те, что Cooldown уже видел открытыми." = "Chats da barra lateral do Claude e os que o Cooldown já viu abertos.";
+"И агентов в Терминале" = "E os agentes no Terminal";
 "Идёте ровно, как по расписанию." = "Tudo no ritmo, como planejado.";
 "Из кеша" = "Do cache";
 "Изменить…" = "Alterar…";
@@ -536,7 +542,7 @@
 "Как обычно: к этому моменту недели уходит около %@." = "Como sempre: a esta altura da semana, cerca de %@ já foi gasto.";
 "Как показывать" = "Como mostrar";
 "Как только Cooldown на Mac выйдет на связь, здесь появятся лимиты." = "Assim que o Cooldown no Mac se conectar, os limites aparecerão aqui.";
-"Как это работает: Cooldown спрашивает сами сервисы (Anthropic и OpenAI), из какой страны к ним приходят запросы, — по тому же пути, что и запросы агентов, поэтому неважно, где включён VPN: на Mac или на роутере. Запрос анонимный, без вашего аккаунта; своего сервера у Cooldown нет. Пока маршрут неправильный, Claude Code и Codex не отправляют сообщения, Cooldown сам не обращается к этим сервисам, а приложения агентов встают на паузу. Когда VPN вернётся, всё продолжится само." = "Como funciona: o Cooldown pergunta aos próprios serviços (Anthropic e OpenAI) de qual país as solicitações chegam até eles — pelo mesmo caminho das solicitações dos agentes, então não importa onde a VPN está ativada: no Mac ou no roteador. A consulta é anônima, sem a sua conta; o Cooldown não tem servidor próprio. Enquanto a rota estiver errada, o Claude Code e o Codex não enviam mensagens, o próprio Cooldown não acessa esses serviços e os apps dos agentes ficam em pausa. Quando a VPN voltar, tudo continua sozinho.";
+"Как это работает: Cooldown спрашивает сами сервисы (Anthropic, OpenAI и Google), из какой страны к ним приходят запросы, — по тому же пути, что и запросы агентов, поэтому неважно, где включён VPN: на Mac или на роутере. Запрос анонимный, без вашего аккаунта; своего сервера у Cooldown нет. Пока маршрут неправильный, Claude Code и Codex не отправляют сообщения, Cooldown сам не обращается к этим сервисам, а приложения агентов встают на паузу. Когда VPN вернётся, всё продолжится само." = "Como funciona: o Cooldown pergunta aos próprios serviços (Anthropic, OpenAI e Google) de qual país as solicitações chegam até eles — pelo mesmo caminho das solicitações dos agentes, então não importa onde a VPN está ativada: no Mac ou no roteador. A consulta é anônima, sem a sua conta; o Cooldown não tem servidor próprio. Enquanto a rota estiver errada, o Claude Code e o Codex não enviam mensagens, o próprio Cooldown não acessa esses serviços e os apps dos agentes ficam em pausa. Quando a VPN voltar, tudo continua sozinho.";
 "Карточки и лимиты теперь приходят и на него." = "Cartões e limites agora chegam nele também.";
 "Карточки и названия чатов шифруются на Mac и открываются только на этом iPhone. Сервер Cooldown передаёт их, не читая." = "Cartões e nomes dos chats são criptografados no Mac e abertos só neste iPhone. O servidor do Cooldown os repassa sem ler.";
 "Карточки под значком" = "Cartões sob o ícone";
@@ -586,6 +592,8 @@
 "Лимит на 5 часов заканчивается. Сброс в %@." = "O limite de 5 horas está acabando. Restauração às %@.";
 "Лимит на 5 часов почти кончился. Сброс в %@." = "O limite de 5 horas está quase no fim. Restauração às %@.";
 "Лимит на исходе. Держим фокус." = "O limite está no fim. Mantenha o foco.";
+"Лимит сбросился, можно продолжать работу." = "O limite foi zerado, dá para continuar.";
+"Лимит сбросился. Нажмите, чтобы открыть Claude." = "O limite foi zerado. Clique para abrir o Claude.";
 "Лимит свежий, как утренний кофе." = "O limite está fresquinho como o café da manhã.";
 "Лимит снова доступен. Продолжи, пожалуйста, прерванную работу в этой же сессии. Сначала проверь, что уже сделано и что сейчас в рабочей папке. Не повторяй выполненные шаги, не расширяй задачу и не обходи подтверждения. Если работа уже закончена или нужно моё решение — прямо скажи об этом и остановись." = "O limite está disponível de novo. Por favor, continue o trabalho interrompido nesta mesma sessão. Primeiro confira o que já foi feito e o que há agora na pasta de trabalho. Não repita etapas já feitas, não amplie a tarefa e não pule confirmações. Se o trabalho já estiver pronto ou for preciso uma decisão minha, diga isso claramente e pare.";
 "Лимит тает быстрее обычного — присматриваем." = "O limite está derretendo mais rápido que o normal — de olho nele.";
@@ -607,6 +615,8 @@
 "Лицензия" = "Licença";
 "Лучшие идеи часто приходят утром. Проверим?" = "As melhores ideias costumam vir de manhã. Vamos testar?";
 "Маршрут в норме, всё продолжено." = "Rota de volta ao normal, tudo continuou.";
+"Маршрут в порядке." = "A rota está certa.";
+"Маршрут всё ещё неправильный: агенты на паузе." = "A rota ainda está errada: os agentes estão pausados.";
 "Маршрут к %@ идёт мимо VPN" = "A rota até %@ não passa pela VPN";
 "Маршрут к %@ сменился" = "A rota até %@ mudou";
 "Маршрут сейчас" = "Rota atual";
@@ -756,6 +766,7 @@
 "Обновление не установлено: %@" = "Atualização não instalada: %@";
 "Обновления" = "Atualizações";
 "Обновления с GitHub" = "Atualizações do GitHub";
+"Обновляю Cooldown на Mac до %@…" = "Atualizando o Cooldown no Mac para %@…";
 "Обычно телефон молчит, пока вы за Mac, и включается, когда Mac заблокирован или вас нет у него пару минут." = "Normalmente o celular fica quieto enquanto você está no Mac e assume quando o Mac está bloqueado ou você saiu há alguns minutos.";
 "Одна или две линии, в порядке Codex, Claude, Antigravity. Чтобы выбрать другую, сначала снимите одну из отмеченных." = "Uma ou duas linhas, na ordem Codex, Claude, Antigravity. Para escolher outra, desmarque antes uma das marcadas.";
 "Одобрить" = "Aprovar";
@@ -766,7 +777,6 @@
 "Окно на 5 часов сбросилось, можно продолжать работу." = "A janela de 5 horas foi restaurada — pode continuar trabalhando.";
 "Окно на 5 часов сбросилось, можно работать дальше." = "A janela de 5 horas foi restaurada — pode continuar trabalhando.";
 "Окно на 5 часов сбросилось. «Продолжить» отправит сообщение в открытый чат Claude." = "A janela de 5 horas foi restaurada. “Retomar” envia uma mensagem para o chat aberto do Claude.";
-"Окно на 5 часов сбросилось. Нажмите, чтобы открыть Claude." = "A janela de 5 horas foi restaurada. Clique para abrir o Claude.";
 "Окно читается, но открытого чата не видно" = "A janela pode ser lida, mas nenhum chat aberto está visível";
 "Основные" = "Geral";
 "Осталось %@" = "Restam %@";
@@ -1071,6 +1081,8 @@
 "Снова можно работать в %@ — через %@." = "Você poderá trabalhar de novo às %@ — daqui a %@.";
 "Снова можно работать в %@." = "Você poderá trabalhar de novo às %@.";
 "Снова можно работать после сброса лимита." = "Você poderá trabalhar de novo depois do reinício do limite.";
+"Снова можно работать: %@ (через %@)." = "Dá para voltar a trabalhar: %@ (em %@).";
+"Снова можно работать: %@." = "Dá para voltar a trabalhar: %@.";
 "Собираю прошлые месяцы из файлов на диске…" = "Coletando os meses anteriores dos arquivos no disco…";
 "Собираю статистику из истории %@…" = "Coletando estatísticas do histórico do %@…";
 "Собрана позже, чем эта. Перезапустить на ней? Настройки и история сохранятся." = "Compilada depois desta. Reiniciar com ela? Ajustes e histórico são mantidos.";
@@ -1138,6 +1150,7 @@
 "Уже не актуально." = "Não é mais relevante.";
 "Уже не актуально: агент больше не ждёт ответа." = "Não é mais relevante: o agente não espera mais uma resposta.";
 "Уже не актуально: карточку закрыли или ответили на Mac." = "Não é mais relevante: o cartão foi fechado ou respondido no Mac.";
+"Уже не актуально: на этот вопрос уже ответили." = "Não é mais relevante: esta pergunta já foi respondida.";
 "Уже ночь. Лимит подождёт, а сон — нет." = "Já é noite. O limite pode esperar; o sono, não.";
 "Универсальный доступ" = "Acessibilidade";
 "Упирались в лимит" = "Bateu no limite";
@@ -1168,6 +1181,8 @@
 "Хуки Codex" = "Hooks do Codex";
 "Хуки сообщают, когда Claude Code работает, и приносят его запросы разрешений в карточки, пока вы в другом приложении. В самом терминале он спрашивает как обычно." = "Os hooks avisam quando o Claude Code está trabalhando e levam os pedidos de permissão dele para cartões enquanto você está em outro app. No próprio terminal ele pergunta como sempre.";
 "Цель диалога не активна — решите, что с ней делать." = "O objetivo da conversa não está ativo — decida o que fazer com ele.";
+"Часовой пояс Mac — %@, а VPN выходит в стране «%@». Приложения и сайты видят и то и другое, и несовпадение заметно. Поставьте пояс страны VPN: «Системные настройки → Основные → Дата и время»." = "O fuso horário do Mac é %@, mas a VPN sai em %@. Apps e sites veem os dois, e a diferença aparece. Use o fuso do país da VPN: Ajustes do Sistema → Geral → Data e Hora.";
+"Часовой пояс выдаёт VPN" = "O fuso horário denuncia a VPN";
 "Чат Claude" = "Chat do Claude";
 "Чат для продолжения" = "Chat para continuar";
 "Чаты Claude — продолжение после сброса" = "Chats do Claude — continuar após o reinício";

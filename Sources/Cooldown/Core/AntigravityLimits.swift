@@ -25,27 +25,50 @@ enum AntigravityLimits {
 
     static func fetch() async throws -> LimitSnapshot {
         guard let binary else { throw Failure.notFound }
-        let data = try await Task.detached(priority: .utility) { try run(binary) }.value
+        let data = try await run(binary)
         return try parse(data, now: Date())
     }
 
-    private static func run(_ binary: URL) throws -> Data {
+    /// The answer goes to a file, not a pipe: no size limit, and nothing (a helper agy leaves
+    /// running) can keep a read open after it is done. Waited for without holding a thread.
+    private static func run(_ binary: URL) async throws -> Data {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("cooldown-agy-\(UUID().uuidString).json")
+        FileManager.default.createFile(atPath: file.path, contents: nil)
+        defer { try? FileManager.default.removeItem(at: file) }
+        let handle = try FileHandle(forWritingTo: file)
+        defer { try? handle.close() }
         let process = Process()
         process.executableURL = binary
         process.arguments = ["-p", "/usage", "--output-format", "json"]
         process.currentDirectoryURL = FileManager.default.temporaryDirectory
-        let out = Pipe()
-        process.standardOutput = out
+        process.standardOutput = handle
         process.standardError = FileHandle.nullDevice
         process.standardInput = FileHandle.nullDevice
-        try process.run()
-        let deadline = Date().addingTimeInterval(30)
-        while process.isRunning {
-            if Date() > deadline { process.terminate(); throw Failure.timeout }
-            Thread.sleep(forTimeInterval: 0.1)
+        let finished: Bool = try await withCheckedThrowingContinuation { continuation in
+            let once = Once()
+            process.terminationHandler = { _ in once.run { continuation.resume(returning: true) } }
+            do { try process.run() } catch { once.run { continuation.resume(throwing: error) }; return }
+            DispatchQueue.global().asyncAfter(deadline: .now() + 30) {
+                once.run {
+                    if process.isRunning { process.terminate() }
+                    continuation.resume(returning: false)
+                }
+            }
         }
-        // ponytail: read after exit; the reply is a few KB, far below the pipe buffer.
-        return out.fileHandleForReading.readDataToEndOfFile()
+        guard finished else { throw Failure.timeout }
+        return (try? Data(contentsOf: file)) ?? Data()
+    }
+
+    /// Runs its block the first time only (a continuation is resumed exactly once).
+    private final class Once: @unchecked Sendable {
+        private let lock = NSLock()
+        private var done = false
+        func run(_ block: () -> Void) {
+            lock.lock(); defer { lock.unlock() }
+            guard !done else { return }
+            done = true
+            block()
+        }
     }
 
     /// Antigravity groups its models; each group has a 5-hour and a weekly limit. The first group
@@ -55,7 +78,6 @@ enum AntigravityLimits {
         guard let groups = ((root["command"] as? [String: Any])?["data"] as? [String: Any])?["groups"] as? [[String: Any]], !groups.isEmpty else {
             throw Failure.unexpected((root["response"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "")
         }
-        let iso = ISO8601DateFormatter()
         var snapshot = LimitSnapshot(provider: .antigravity, fetchedAt: now, source: "agy /usage")
         for (index, group) in groups.enumerated() {
             let name = (group["name"] as? String ?? "")
@@ -64,8 +86,7 @@ enum AntigravityLimits {
             let buckets = (group["buckets"] as? [[String: Any]] ?? [])
                 .sorted { ($0["window"] as? String) != "weekly" && ($1["window"] as? String) == "weekly" }
             for bucket in buckets {
-                guard let fraction = bucket["remaining_fraction"] as? Double,
-                      let reset = (bucket["reset_time"] as? String).flatMap(iso.date(from:)) else { continue }
+                guard let fraction = Num.double(bucket["remaining_fraction"]), let reset = Num.date(bucket["reset_time"]) else { continue }
                 let kind: WindowKind = (bucket["window"] as? String) == "weekly" ? .weekly : .session
                 var window = LimitWindow(kind: kind, usedPercent: (1 - fraction) * 100, durationMinutes: kind.defaultMinutes, resetsAt: reset)
                 if index == 0 {

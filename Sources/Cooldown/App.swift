@@ -81,6 +81,11 @@ enum Entry {
             print(failures.isEmpty ? "guard-hooks-test: all passed" : "FAILED:\n" + failures.joined(separator: "\n"))
             exit(failures.isEmpty ? 0 : 1)
         }
+        if let index = arguments.firstIndex(of: "--guard-test-terminal"), index + 2 < arguments.count {
+            let failures = MainActor.assumeIsolated { GuardTest.terminal(home: arguments[index + 1], dummy: arguments[index + 2]) }
+            print(failures.isEmpty ? "guard-terminal-test: all passed" : "FAILED:\n" + failures.joined(separator: "\n"))
+            exit(failures.isEmpty ? 0 : 1)
+        }
         if let index = arguments.firstIndex(where: { $0 == "--guard-test" || $0 == "--guard-test-hold" }), index + 2 < arguments.count {
             let home = arguments[index + 1], dummy = arguments[index + 2]
             if arguments[index] == "--guard-test-hold" { MainActor.assumeIsolated { GuardTest.hold(home: home, dummy: dummy) } }
@@ -233,7 +238,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             // Diagnostics: a harmless card that should reach paired phones as a notification.
             if CommandLine.arguments.contains("--link-test-card") {
+                // Pushes at the Mac too, for this run only: the setting is put back as it was.
+                let before = UserDefaults.standard.object(forKey: SettingsKey.phoneAlways)
                 UserDefaults.standard.set(true, forKey: SettingsKey.phoneAlways)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 60) { UserDefaults.standard.set(before, forKey: SettingsKey.phoneAlways) }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
                     ToastController.shared.show(ToastContent(key: "link-test", kind: .info, provider: nil, title: L("Проверка связи"),
                                                              body: L("Если это видно на iPhone, уведомления работают.") + " " + Format.time(Date()), life: .auto(10)))

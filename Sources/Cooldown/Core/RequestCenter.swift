@@ -187,7 +187,7 @@ final class RequestCenter: ObservableObject {
         shown.insert(key)
         let content = self.content(request)
         if ToastController.shared.canShow && !QuietHours.active {
-            ToastController.shared.reveal(content, force: true)
+            ToastController.shared.reveal(content)
         } else {
             Notifier.shared.post(id: "req-\(key)", title: L("%@ ждёт вас", "\(request.provider.displayName)"), body: request.headline,
                                  toast: content, record: false)
@@ -196,8 +196,10 @@ final class RequestCenter: ObservableObject {
 
     private func content(_ request: AgentRequest) -> ToastContent {
         var headline = request.headline, detail = request.detail, choices = request.choices, body = request.chat
+        var current: Int?
         if !request.steps.isEmpty {
             let index = min(steps[request.key]?.count ?? 0, request.steps.count - 1)
+            current = index
             let step = request.steps[index]
             headline = step.headline
             detail = step.detail
@@ -206,7 +208,7 @@ final class RequestCenter: ObservableObject {
         }
         return ToastContent(key: "req-" + request.key, kind: .attention, provider: request.provider,
                             title: headline, body: body, life: .sticky,
-                            threadId: request.threadId, detail: detail, choices: choices, requestKey: request.key)
+                            threadId: request.threadId, detail: detail, choices: choices, requestKey: request.key, step: current)
     }
 
     /// A made-up Codex permission request for the sample cards. It is not pending anywhere,

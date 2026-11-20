@@ -107,20 +107,26 @@ final class CodexRequestWatcher: @unchecked Sendable {
         }
         setLive(true)
         var lastOwnerCheck = Date()
+        // A conversation no window has (a terminal or `codex exec` session) is asked about again
+        // after a while, not every round: each such question costs the app seconds.
+        var askAgain: [String: Date] = [:]
         while true {
             let wanted = currentWanted()
             if wanted.isEmpty || !CodexApp.isRunning { break }
             // Start following new conversations; let go of finished ones.
-            for id in wanted where followed[id] == nil {
+            for id in wanted where followed[id] == nil && (askAgain[id] ?? .distantPast) <= Date() {
                 do {
                     let owner = try connection.discoverOwner(id)
                     followed[id] = Followed(owner: owner, wantsSnapshot: true)
+                    askAgain[id] = nil
                     AgentActivity.trace("codex requests: following \(id.prefix(8))")
                 } catch CodexIPCError.threadUnavailable {
                     if unavailableNoted.insert(id).inserted { AgentActivity.trace("codex requests: \(id.prefix(8)) not open in the app") }
-                    continue   // not open in the app right now; tried again on the next round
+                    askAgain[id] = Date().addingTimeInterval(20)
+                    continue   // not open in the app right now
                 }
             }
+            askAgain = askAgain.filter { wanted.contains($0.key) }
             for (id, entry) in followed where !wanted.contains(id) {
                 try? connection.setFollowing(id, owner: entry.owner, false)
                 followed[id] = nil

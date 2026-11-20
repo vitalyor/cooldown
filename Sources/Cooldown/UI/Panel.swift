@@ -171,7 +171,8 @@ final class StatusController: NSObject {
     }
 
     @objc private func menuRefresh() {
-        guard !model.codex.isRefreshing, !model.claude.isRefreshing else { return }
+        // As the refresh button: really ask the sources, not the reading from a minute ago.
+        model.forceNext = true
         Task { await model.refreshLimits() }
     }
     @objc private func menuFeed() { open(to: .feed) }

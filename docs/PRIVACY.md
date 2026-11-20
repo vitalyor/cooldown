@@ -45,15 +45,19 @@ The MCP bridge only appends events Claude chose to report to `mcp-events.jsonl`.
 
 ## Sends
 
-- With the VPN guard on: an anonymous request to `https://api.anthropic.com/cdn-cgi/trace` and
-  `https://chatgpt.com/cdn-cgi/trace` (over IPv4 and IPv6 apart, and through the system proxy if one is
-  set) every 5–15 seconds and when the network changes; while a route is wrong, at most once a minute.
+- With the VPN guard on: an anonymous request to `/cdn-cgi/trace` of `api.anthropic.com`, `claude.ai`,
+  `chatgpt.com` and `api.openai.com` (over IPv4 and IPv6 apart, and through the system proxy if one is
+  set) every 5–15 seconds and when the network changes; while a route is wrong, every 5 seconds for the
+  first minute, then every 15.
   Cloudflare in front of those services answers with the country and address it sees. For Antigravity,
   Google's own view: an anonymous request for `https://www.youtube.com/sw.js_data` sent to Antigravity's
   API address `cloudcode-pa.googleapis.com`, every 15 seconds while Antigravity runs and once a minute
   otherwise (Google takes frequent requests for a robot). The request is
-  `curl`'s plain one: no account, cookie or token, no app name; Cooldown has no server of its own for this. While a route is wrong, Cooldown also pauses (SIGSTOP)
-  the agents' apps if you allowed it, and lets them go on (SIGCONT) when the route is right again.
+  `curl`'s plain one: no account, cookie or token, no app name; Cooldown has no server of its own for this. While a route is wrong, and for the moment a
+  check takes after a network change or a wake from sleep, Cooldown also pauses (SIGSTOP) the agents' apps if you
+  allowed it (and Claude Code, Codex and Antigravity CLI in a terminal, if you allowed that too), and lets them go
+  on (SIGCONT) when the route is right. Network changes are noticed through the system's routing messages and
+  proxy settings, on this Mac; nothing about them is sent anywhere.
 
 - Answers to agents' requests (permissions, questions) — **only the button you press on a card**: to Codex through its app's follower commands, to Claude Code through its permission hook, to a Claude Desktop chat by pressing the same button there. Before sending, Cooldown checks that the very same request is still waiting.
 - Into a Codex conversation you chose — one continuation message per turn stopped by the limit, after it resets. Through the Codex app's local socket (`~/.codex/ipc/ipc.sock`), as a follower only: Cooldown approves nothing and answers none of the app's requests. The send ledger lives in `~/Library/Application Support/Cooldown/AutoResume/` (yours only); an unconfirmed send is never repeated.

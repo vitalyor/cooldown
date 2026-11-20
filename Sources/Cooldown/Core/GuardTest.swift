@@ -39,8 +39,9 @@ enum GuardTest {
         var answers: [GuardService: RouteTrace] = [.anthropic: direct(us), .openai: direct(us)]
         var calls: [GuardService: Int] = [:]
         var delay: Duration = .zero
+        let callsLock = NSLock()
         RouteGuard.tracer = { service in
-            calls[service, default: 0] += 1
+            callsLock.withLock { calls[service, default: 0] += 1 }
             if delay > .zero { try? await Task.sleep(for: delay) }
             return answers[service] ?? RouteTrace()
         }
@@ -154,20 +155,39 @@ enum GuardTest {
         expect(!RouteGuard.allows(.codex), "stale reading: held")
         await guardian.round()
 
-        // 9. A network change: requests wait for a new check, but nothing freezes on a guess.
-        guardian.pathChanged(true)
+        // 9. A network change: requests wait and the apps pause until the check, without a card.
+        guardian.networkChanged()
         expect(!RouteGuard.allows(.claude), "network change: requests wait")
-        expect(running() && guardian.shown["route-guard"] == nil, "network change: no freeze, no card before the check")
+        expect(frozen() && guardian.shown["route-guard"] == nil, "network change: paused until checked, no card")
         expect(hook("anthropic", "prompt").0 == 0, "network change: hook checks by itself (real route)")
         await guardian.round()
-        expect(RouteGuard.allows(.claude), "network change: allowed after the check")
+        expect(RouteGuard.allows(.claude) && running(), "network change: allowed and going on after the check")
+
+        // 9b. No answer right after a change (the VPN still connecting): still paused, no alarm yet.
+        guardian.networkChanged()
+        answers[.anthropic] = direct(nil)
+        await guardian.round()
+        expect(frozen() && guardian.shown["route-guard"] == nil, "change, no answer: paused quietly")
+        answers[.anthropic] = direct(us2)
+        await guardian.round()
+        expect(running(), "change, answer came: going on")
+
+        // 9c. Going to sleep: nothing frozen (the app must answer the system), even if the network
+        //     changes meanwhile; on waking, paused until the check, then going on.
+        guardian.goingToSleep()
+        guardian.networkChanged()
+        expect(running() && guardian.shown["route-guard"] == nil, "sleep: nothing frozen, no card")
+        guardian.woke()
+        expect(frozen() && guardian.shown["route-guard"] == nil, "wake: paused until checked, no card")
+        await guardian.round()
+        expect(running(), "wake: going on after the check")
 
         // 10. The network changes during a check: the old results are dropped and it checks again.
         delay = .milliseconds(300)
         async let during: Void = guardian.round()
         try? await Task.sleep(for: .milliseconds(100))
         answers[.anthropic] = direct(ru)
-        guardian.pathChanged(true)
+        guardian.networkChanged()
         await during
         expect(!RouteGuard.allows(.claude) && frozen(), "change mid-check: the new route counts")
         delay = .zero
@@ -250,7 +270,8 @@ enum GuardTest {
         await guardian.round()
         expect(calls.isEmpty, "paused: nothing checked")
         expect(RouteGuard.allows(.claude) && RouteGuard.allows(.codex), "paused: allowed")
-        expect(!FileManager.default.fileExists(atPath: on.path) && hook("anthropic", "prompt").0 == 0, "paused: hooks off")
+        expect(hook("anthropic", "prompt").0 == 0, "paused: hooks let prompts out")
+        expect((try? String(contentsOf: on, encoding: .utf8))?.split(separator: "\n").count == 2, "paused: the end of the pause is written for the hooks")
         expect(running() && guardian.shown["route-guard"] == nil, "paused: thawed, no warning")
         guardian.pause(nil)
         await guardian.round()
@@ -336,6 +357,57 @@ enum GuardTest {
         return failures
     }
 
+    /// `--guard-test-terminal <home> <dummy binary>`: a command-line agent in a terminal (the dummy
+    /// copied as `claude`, run under `script` for a terminal of its own) is found and frozen; a
+    /// program of another name in a terminal is not.
+    static func terminal(home: String, dummy: String) -> [String] {
+        setUp(home: home, dummy: home + "/none.app")
+        var failures: [String] = []
+        func expect(_ ok: Bool, _ name: String) { if !ok { failures.append(name) } }
+        func spawn(_ name: String) -> Process {
+            let copy = home + "/bin/" + name
+            try? FileManager.default.createDirectory(atPath: home + "/bin", withIntermediateDirectories: true)
+            try? FileManager.default.removeItem(atPath: copy)
+            try? FileManager.default.copyItem(atPath: dummy, toPath: copy)
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/script")
+            process.arguments = ["-q", "/dev/null", copy]
+            process.standardInput = FileHandle.nullDevice
+            process.standardOutput = FileHandle.nullDevice
+            try? process.run()
+            return process
+        }
+        let agent = spawn("claude"), other = spawn("notanagent")
+        usleep(500_000)
+        func pids(_ name: String) -> [pid_t] {
+            let task = Process(); let out = Pipe()
+            task.executableURL = URL(fileURLWithPath: "/usr/bin/pgrep")
+            task.arguments = ["-f", "^" + home + "/bin/" + name] // the program itself, not `script` running it
+            task.standardOutput = out
+            try? task.run(); task.waitUntilExit()
+            return String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self).split(separator: "\n").compactMap { pid_t($0) }
+        }
+        let agentPid = pids("claude").first, otherPid = pids("notanagent").first
+        expect(agentPid != nil && otherPid != nil, "terminal: both programs running")
+        // Both run under `script`, which this test started: Cooldown's own children are never
+        // taken, so first that, then with the rule lifted for the test.
+        expect(agentPid.map(Freezer.terminal([.anthropic]).pids.contains) == false, "terminal: what Cooldown started itself is never taken")
+        Freezer.onlyUnderForTest = home + "/bin/"
+        defer { Freezer.onlyUnderForTest = nil }
+        let found = Freezer.terminal([.anthropic])
+        expect(agentPid.map(found.pids.contains) == true, "terminal: the agent is found")
+        expect(otherPid.map(found.pids.contains) == false, "terminal: another program is not")
+        expect(agentPid.map(Freezer.terminal([.openai]).pids.contains) == false, "terminal: another service's agents only")
+        Freezer.shared.set([], terminal: [.anthropic])
+        expect(agentPid.map(state)?.hasPrefix("T") == true && otherPid.map(state)?.hasPrefix("T") == false, "terminal: only the agent frozen")
+        Freezer.shared.thawAll()
+        expect(agentPid.map(state)?.hasPrefix("T") == false, "terminal: let go")
+        agent.terminate(); other.terminate()
+        if let agentPid { kill(agentPid, SIGKILL) }
+        if let otherPid { kill(otherPid, SIGKILL) }
+        return failures
+    }
+
     static func hooks() -> [String] {
         var failures: [String] = []
         func expect(_ ok: Bool, _ name: String) { if !ok { failures.append(name) } }
@@ -345,8 +417,12 @@ enum GuardTest {
               resolved(CodexPaths.home) != resolved(real.appendingPathComponent(".codex")) else {
             return ["refused: CLAUDE_CONFIG_DIR / CODEX_HOME point at the real folders"]
         }
-        // The guard script goes to a scratch folder too, never the real Cooldown folder.
+        // The guard script goes to a scratch folder too, never the real Cooldown folder, and
+        // settings to a scratch store.
         Settings.testRoot = ClaudePaths.home.deletingLastPathComponent().appendingPathComponent("cooldown-support")
+        let suite = "cooldown-hooks-test-\(getpid())"
+        Settings.testDefaults = UserDefaults(suiteName: suite)
+        defer { Settings.testDefaults?.removePersistentDomain(forName: suite) }
         let files = [AgentHooks.Agent.claude: ClaudePaths.settings, .codex: CodexPaths.home.appendingPathComponent("hooks.json")]
         func json(_ url: URL) -> [String: Any] {
             (try? JSONSerialization.jsonObject(with: Data(contentsOf: url))) as? [String: Any] ?? [:]
@@ -406,6 +482,30 @@ enum GuardTest {
             expect(same(json(url), before), "\(agent): removing the guard restores the file exactly")
             expect(AgentHooks.guardStatus(agent) == .off, "\(agent): guard hook gone")
         }
+        // Cooldown's own hooks in Codex with another tool's after them: turning them off leaves a
+        // do-nothing entry in place (Codex trusts by position), turning them on reuses that place.
+        let codex = files[.codex]!
+        let original = json(codex)
+        do {
+            try AgentHooks.install(.codex)
+            var root = json(codex)
+            var hooks = root["hooks"] as? [String: Any] ?? [:]
+            let other: [String: Any] = ["hooks": [["type": "command", "command": "echo other-tool"]]]
+            hooks["Stop"] = groups(root, "Stop") + [other]
+            root["hooks"] = hooks
+            save(root, codex)
+            let count = groups(json(codex), "Stop").count
+            try AgentHooks.uninstall(.codex)
+            let after = groups(json(codex), "Stop")
+            expect(after.count == count && same(after.last as Any, other), "codex hooks off: another tool's hook keeps its place")
+            expect(AgentHooks.status(.codex) == .off, "codex hooks off: reported off")
+            try AgentHooks.install(.codex)
+            expect(groups(json(codex), "Stop").count == count, "codex hooks on again: the same place is reused")
+            try AgentHooks.uninstall(.codex)
+        } catch {
+            failures.append("codex hooks: \(error)")
+        }
+        save(original, codex)
         return failures
     }
 

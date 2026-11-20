@@ -338,11 +338,12 @@ private struct FeedButton: View {
         GlassIconButton(symbol: log.unseen > 0 ? "bell.badge" : "bell", help: L("События")) { screen = .feed }
             .overlay(alignment: .topTrailing) {
                 if log.unseen > 0 {
-                    Text("\(min(log.unseen, 9))")
+                    Text(log.unseen > 9 ? "9+" : "\(log.unseen)")
                         .font(.system(size: 9, weight: .bold))
                         .foregroundStyle(.white)
-                        .frame(width: 14, height: 14)
-                        .background(Circle().fill(Theme.signal))
+                        .padding(.horizontal, log.unseen > 9 ? 3 : 0)
+                        .frame(minWidth: 14, minHeight: 14)
+                        .background(Capsule().fill(Theme.signal))
                         .offset(x: 2, y: -2)
                 }
             }

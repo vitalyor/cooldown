@@ -185,8 +185,10 @@ enum ResumeRules {
     /// between deciding to send and sending, the decision no longer holds.
     static func fingerprint(_ state: [String: Any]) -> String? {
         var parts: [String: Any] = [:]
+        // Not the runtime status or resume state: `decide` checks those on fresh data, and after a
+        // Codex restart they change on their own, which is no reason to stop the watch.
         for key in ["cwd", "latestModel", "latestReasoningEffort", "latestCollaborationMode", "currentPermissions",
-                    "latestThreadSettings", "threadGoal", "requests", "queuedFollowUps", "threadRuntimeStatus", "resumeState"] {
+                    "latestThreadSettings", "threadGoal", "requests", "queuedFollowUps"] {
             parts[key] = state[key] ?? NSNull()
         }
         if case .turn(let turn) = turns(state).latest {
@@ -195,8 +197,11 @@ enum ResumeRules {
             parts["latestTurn"] = NSNull()
         }
         guard let data = JSON.canonical(parts) else { return nil }
-        return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        return fingerprintVersion + SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
+
+    /// Stored fingerprints of another make (an earlier Cooldown) are taken again, not compared.
+    static let fingerprintVersion = "v2:"
 
     // MARK: Saved history (watching only, never sending)
 

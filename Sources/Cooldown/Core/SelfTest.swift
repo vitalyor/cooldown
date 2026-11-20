@@ -20,6 +20,7 @@ enum SelfTest {
             snap.session = LimitWindow(kind: .session, usedPercent: 30, durationMinutes: 300, resetsAt: now.addingTimeInterval(3600))
             expect(AppModel.menuRemaining(snap, weekly: false, now) == 70, "menu: 5h window shown")
             expect(AppModel.menuRemaining(nil, weekly: false, now) == nil, "menu: no data stays blank")
+            expect(AppModel.menuRemaining(snap, weekly: false, now.addingTimeInterval(4 * 3600)) == nil, "menu: hours-old numbers give way to a dash")
         }
         // Versions: betas sit between releases, a stable one is past its betas.
         do {
@@ -37,6 +38,14 @@ enum SelfTest {
             let google = RouteExit.parseGoogle(#")]}'\n\n[["yt.sw.adr",null,[[["ru","RU",null,"95.27.150.254",null,"Robot"]]]]]"#)
             expect(google == RouteExit(ip: "95.27.150.254", country: "RU", colo: ""), "guard: Google's view parsed")
             expect(RouteExit.parseGoogle("<html>sorry</html>") == nil, "guard: not Google's data")
+            let us = RouteExit(ip: "1.1.1.1", country: "US", colo: ""), ru = RouteExit(ip: "2.2.2.2", country: "RU", colo: "")
+            expect(RouteGuard.worst([nil, us, ru], forbidden: ["RU"]) == ru && RouteGuard.worst([nil, us, nil], forbidden: ["RU"]) == us
+                   && RouteGuard.worst([nil, nil], forbidden: []) == nil, "guard: the worst of several hosts counts")
+            let moscow = TimeZone(identifier: "Europe/Moscow")!, newYork = TimeZone(identifier: "America/New_York")!
+            expect(TimeZoneCheck.mismatch(country: "US", zone: newYork) == false && TimeZoneCheck.mismatch(country: "US", zone: moscow) == true
+                   && TimeZoneCheck.mismatch(country: "RU", zone: moscow) == false && TimeZoneCheck.mismatch(country: "ZZ", zone: moscow) == nil,
+                   "guard: time zone against the exit country")
+            expect(NetWatch.fingerprint().contains("|"), "guard: network fingerprint")
             let forbidden: Set<String> = ["RU", "BY"]
             expect(RouteVerdict.judge(exit, forbidden: forbidden, refused: []) == .ok, "guard: allowed country")
             expect(RouteVerdict.judge(RouteExit(ip: "1.1.1.1", country: "RU", colo: "ARN"), forbidden: forbidden, refused: []) == .forbidden, "guard: forbidden country")
@@ -207,7 +216,8 @@ enum SelfTest {
         expect(finishedCard.actions.map(\.id) == ["reply"] && finishedCard.actions.first?.input == true, "a finished chat can be answered")
         expect(PhoneLink.shared.delivery(finished, card: finishedCard, away: false) == .none, "nothing on the phone while at the Mac")
         expect(PhoneLink.shared.delivery(finished, card: finishedCard, away: true) != .none, "finished reaches the phone when away")
-        let pace = ToastContent(key: "pace-codex", kind: .info, provider: .codex, title: "T", body: "B")
+        // As Insights posts it (kind .attention): still a number, not a call to act.
+        let pace = ToastContent(key: "pace-codex", kind: .attention, provider: .codex, title: "T", body: "B")
         expect(PhoneLink.shared.delivery(pace, card: PhoneLink.card(pace), away: true) == .none, "numbers stay off the phone")
         let opener = AgentActivity.Opener.codexThread("t2")
         expect(PhoneLink.actionID(.continueAfterReset(opener)) == "afterReset", "continue after reset is a phone button")

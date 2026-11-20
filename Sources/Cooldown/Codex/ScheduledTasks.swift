@@ -27,6 +27,8 @@ final class ScheduledRunner: ObservableObject {
 
     @Published private(set) var tasks: [ScheduledTask] = []
     private var processes: [UUID: Process] = [:]
+    /// The `codex exec` processes running now (the VPN guard pauses them with the route).
+    var runningPids: [pid_t] { processes.values.filter(\.isRunning).map(\.processIdentifier) }
     private let url: URL
     private var logs: URL {
         let folder = Settings.appSupport.appendingPathComponent("logs", isDirectory: true)

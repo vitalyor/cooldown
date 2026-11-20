@@ -65,11 +65,7 @@ enum CooldownMCP {
 
     private static func writeConfig(_ root: [String: Any]) throws {
         let fm = FileManager.default
-        if fm.fileExists(atPath: configURL.path) {
-            let stamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
-            let backup = configURL.deletingLastPathComponent().appendingPathComponent("claude_desktop_config.json.bak-cooldown-\(stamp)")
-            try? fm.copyItem(at: configURL, to: backup)
-        }
+        AgentHooks.backup(configURL)
         try fm.createDirectory(at: configURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         let data = try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
         try data.write(to: configURL, options: .atomic)

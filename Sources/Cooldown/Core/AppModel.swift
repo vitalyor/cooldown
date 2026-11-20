@@ -37,6 +37,8 @@ final class ProviderStore: ObservableObject {
 
     func load() {
         history = store.load()
+        // Files from earlier versions may hold one window under two reset times.
+        history.samples = HistoryFile.thin(history.samples)
         publish()
     }
 
@@ -63,6 +65,8 @@ final class ProviderStore: ObservableObject {
     /// How long a reading is good for before the source is asked again (nil: always ask).
     var freshFor: (() -> TimeInterval)?
     private var lastAsked = Date.distantPast
+    /// Whether a read was ever finished since launch (before that, no data is not "not connected").
+    var everAsked: Bool { lastAsked != .distantPast && !isRefreshing }
 
     @discardableResult
     func refreshLimits(force: Bool = false) async -> LimitSnapshot? {
@@ -77,15 +81,25 @@ final class ProviderStore: ObservableObject {
             // A forced read really asks the source (Claude's /usage otherwise waits minutes between runs).
             let fresh = try await fetcher(force)
             guard !inDemo else { return nil }   // the demo took over while this was reading
-            withAnimation(.smooth(duration: 0.6)) { snapshot = fresh }
+            // An older reading than the one on screen (a source failed and only a stale one was
+            // left) does not replace it: the numbers would jump back and forth.
+            if let current = snapshot, fresh.fetchedAt < current.fetchedAt { return nil }
+            let isNew = snapshot.map { fresh.fetchedAt > $0.fetchedAt } ?? true
+            if fresh != snapshot { withAnimation(.smooth(duration: 0.6)) { snapshot = fresh } }
             notePlan(fresh.plan)
             limitError = nil
-            let live = ([fresh.session, fresh.weekly].compactMap { $0 }).map {
-                LimitSample(t: fresh.fetchedAt, kind: $0.kind, used: $0.usedPercent, resetsAt: $0.resetsAt)
+            // The same reading again (a cached one) adds nothing to the history: no rewrite of it.
+            if isNew {
+                let live = ([fresh.session, fresh.weekly].compactMap { $0 }).map {
+                    LimitSample(t: fresh.fetchedAt, kind: $0.kind, used: $0.usedPercent, resetsAt: $0.resetsAt)
+                }
+                let before = history.samples
+                history.add(samples: live)
+                if history.samples != before {
+                    samples = history.samples
+                    save()
+                }
             }
-            history.add(samples: live)
-            samples = history.samples
-            save()
             return fresh
         } catch {
             limitError = error.localizedDescription
@@ -94,6 +108,8 @@ final class ProviderStore: ObservableObject {
     }
 
     func scan(fullRebuild: Bool = false) async {
+        // A rebuild asked for by hand waits for a scan already running instead of being skipped.
+        if fullRebuild { while scanning { try? await Task.sleep(for: .milliseconds(200)) } }
         guard !scanning else { return }
         scanning = true
         defer { scanning = false }
@@ -123,7 +139,8 @@ final class ProviderStore: ObservableObject {
         }
         publish()
         scanState = .idle
-        save()
+        // Nothing new read: the file stays as it is.
+        if fullRebuild || !output.tokens.isEmpty || !output.samples.isEmpty || output.cursors.contains(where: { cursors[$0.key] != $0.value }) { save() }
     }
 
     /// A reading that arrived by itself (Codex writes its limits into the session files with
@@ -140,6 +157,9 @@ final class ProviderStore: ObservableObject {
             LimitSample(t: fresh.fetchedAt, kind: $0.kind, used: $0.usedPercent, resetsAt: $0.resetsAt)
         })
         samples = history.samples
+        // Thresholds, cards and the menu bar follow these readings too: while Codex works they are
+        // the only ones (the app server is not asked while they are fresh).
+        AppModel.shared.limitsArrived(fresh)
     }
 
     /// Readings from elsewhere (Claude Desktop's own record) added to the history once.
@@ -282,10 +302,13 @@ final class AppModel: ObservableObject {
             DispatchQueue.main.async { self?.updateMenuImage(animated: false) }
         }.store(in: &subscriptions)
         updateMenuImage(animated: false)
+        // Cooldown's own /usage runs leave (and remove) transcripts too: those are not new work.
+        let own = ClaudeUsageCLI.transcriptFolder.path
         historyWatch = FolderWatch([CodexPaths.sessions.path, CodexPaths.home.appendingPathComponent("archived_sessions").path,
-                                    ClaudePaths.projects.path], latency: 10) {
+                                    ClaudePaths.projects.path], latency: 10, changed: { paths in
+            guard paths.contains(where: { !$0.hasPrefix(own) }) else { return }
             MainActor.assumeIsolated { AppModel.shared.historyDirty = true }
-        }
+        }) {}
         schedule()
         CodexFinishWatcher.shared.start()
         HookEventReader.shared.start()
@@ -391,13 +414,17 @@ final class AppModel: ObservableObject {
         let force = forceNext
         forceNext = false
         let hidden = AgentSetup.shared.skipped
-        async let codexFresh = hidden.contains(.codex) ? nil : codex.refreshLimits(force: force)
-        async let claudeFresh = hidden.contains(.claude) ? nil : claude.refreshLimits(force: force)
-        async let antigravityFresh = AntigravityLimits.installed ? antigravity.refreshLimits(force: force) : nil
-        let (a, b, c) = await (codexFresh, claudeFresh, antigravityFresh)
-        if let a { checkThresholds(a) }
-        if let b { checkThresholds(b) }
-        if let c { checkThresholds(c) }
+        // Each agent as soon as its own reading is in: Codex need not wait for Claude's /usage.
+        let stores = [hidden.contains(.codex) ? nil : codex, hidden.contains(.claude) ? nil : claude,
+                      AntigravityLimits.installed ? antigravity : nil].compactMap { $0 }
+        await withTaskGroup(of: LimitSnapshot?.self) { group in
+            for store in stores { group.addTask { await store.refreshLimits(force: force) } }
+            for await fresh in group {
+                guard let fresh else { continue }
+                checkThresholds(fresh)
+                updateMenuImage(animated: true)
+            }
+        }
         if !isRenderMode {
             Insights.checkPace(codex)
             Insights.checkPace(claude)
@@ -407,10 +434,18 @@ final class AppModel: ObservableObject {
         activityChanged()   // the tooltip carries the fresh forecast
     }
 
+    /// A reading that came by itself (Codex's session files): what a refresh would do with it.
+    func limitsArrived(_ fresh: LimitSnapshot) {
+        checkThresholds(fresh)
+        updateMenuImage(animated: true)
+    }
+
     private func checkThresholds(_ fresh: LimitSnapshot) {
         guard !isRenderMode, let session = fresh.session, !session.isExpired(at: Date()) else { return }
         let name = fresh.provider.displayName
-        if session.usedPercent >= 90 {
+        // The week spent: the weekly reset is the one waited for, the five-hour one must not replace it.
+        let weekSpent = AgentActivity.spent(fresh.provider).map { $0 > session.resetsAt.addingTimeInterval(1800) } ?? false
+        if session.usedPercent >= 90, !weekSpent {
             var reset = session.resetsAt
             if let known = Settings.pendingReset(fresh.provider), abs(known.timeIntervalSince(reset)) < 1800 { reset = max(known, reset) }
             Settings.setPendingReset(fresh.provider, reset)
@@ -426,11 +461,13 @@ final class AppModel: ObservableObject {
             // Still finishing its turn on the last bit: not "spent" yet. The turn's end says what
             // happened (stopped by the limit, or finished), and this card follows only if needed.
             guard AgentActivity.spentAndStopped(fresh.provider) != nil else { return }
-            let key = "out-\(fresh.provider.rawValue)-\(Int(session.resetsAt.timeIntervalSince1970))"
-            if !Self.notified("out-\(fresh.provider.rawValue)-", reset: session.resetsAt, tail: "") {
+            // The window that is out decides when work goes on: the week's reset when the week is spent.
+            let reset = AgentActivity.spent(fresh.provider) ?? session.resetsAt
+            let key = "out-\(fresh.provider.rawValue)-\(Int(reset.timeIntervalSince1970))"
+            if !Self.notified("out-\(fresh.provider.rawValue)-", reset: reset, tail: "") {
                 Settings.notifiedKeys += [key]
-                Notifier.shared.post(id: key, title: L("Лимит %@ исчерпан", "\(name)"), body: L("Снова можно работать в %@.", "\(Format.clock(session.resetsAt))"),
-                                     toast: ToastCatalog.limitOut(fresh.provider, reset: session.resetsAt))
+                Notifier.shared.post(id: key, title: L("Лимит %@ исчерпан", "\(name)"), body: Calendar.current.isDateInToday(reset) ? L("Снова можно работать в %@.", "\(Format.clock(reset))") : L("Снова можно работать: %@.", "\(Format.time(reset))"),
+                                     toast: ToastCatalog.limitOut(fresh.provider, reset: reset))
             }
             return
         }
@@ -501,8 +538,8 @@ final class AppModel: ObservableObject {
             if Settings.notifyReset && !isRenderMode {
                 Notifier.shared.post(id: "reset-\(provider.rawValue)-\(Int(pending.timeIntervalSince1970))",
                                      title: L("Лимит %@ восстановлен", "\(provider.displayName)"),
-                                     body: provider == .claude ? L("Окно на 5 часов сбросилось. Нажмите, чтобы открыть Claude.")
-                                                               : L("Окно на 5 часов сбросилось, можно продолжать работу."),
+                                     body: provider == .claude ? L("Лимит сбросился. Нажмите, чтобы открыть Claude.")
+                                                               : L("Лимит сбросился, можно продолжать работу."),
                                      opensClaude: provider == .claude,
                                      toast: ToastCatalog.limitReset(provider))
             }
@@ -650,7 +687,9 @@ final class AppModel: ObservableObject {
     /// A window the agent does not report has not started yet, so it is full: showing the other
     /// window's number instead made the line jump from 100% to the week's 54%.
     nonisolated static func menuRemaining(_ snapshot: LimitSnapshot?, weekly: Bool, _ now: Date) -> Double? {
-        guard let snapshot else { return nil }
+        // Hours without a reading (signed out, a broken install): a dash, not old numbers.
+        guard let snapshot, now.timeIntervalSince(snapshot.fetchedAt) < 3 * 3600 else { return nil }
+        // No five-hour window yet: it has not started, so it is full.
         return (weekly ? snapshot.weekly : snapshot.session)?.remaining(at: now) ?? 100
     }
 
@@ -754,7 +793,10 @@ final class AppModel: ObservableObject {
         }
         let started = Date()
         menuAnimation = Timer.scheduledTimer(withTimeInterval: 1.0 / 30, repeats: true) { timer in
-            Task { @MainActor in
+            // Runs on the main run loop: done at once, so a frame queued before a newer picture
+            // can never land after it.
+            MainActor.assumeIsolated {
+                guard timer.isValid else { return }
                 let progress = min(1, Date().timeIntervalSince(started) / 0.9)
                 let eased = 1 - pow(1 - progress, 3)
                 let lines = zip(from, target).map { pair -> MenuLine in

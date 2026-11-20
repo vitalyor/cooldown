@@ -41,7 +41,8 @@ struct LimitsTab: View {
             }
         } else if setup.needsHelp(store.id) {
             SetupPrompt(provider: store.id)
-        } else if store.id == .claude, store.limitError == ClaudeError.notConnected.localizedDescription || store.limitError == nil {
+        } else if store.id == .claude, store.limitError == ClaudeError.notConnected.localizedDescription
+                    || (store.limitError == nil && !store.isRefreshing && store.everAsked) {
             ClaudeConnect()
         } else if store.id == .claude, usage.needsPermission {
             EmptyView()
@@ -363,7 +364,7 @@ private struct WeeklyForecast: View {
         let perDay = left / max(1, days.rounded(.up))
         let startOfDay = Calendar.current.startOfDay(for: now)
         let today = samples
-            .filter { $0.kind == .weekly && Calendar.current.isDate($0.resetsAt, equalTo: window.resetsAt, toGranularity: .minute) }
+            .filter { $0.kind == .weekly && abs($0.resetsAt.timeIntervalSince(window.resetsAt)) < 10 * 60 }
             .filter { $0.t >= startOfDay }
             .sorted { $0.t < $1.t }
         let spent = today.first.map { max(0, window.usedPercent - $0.used) }

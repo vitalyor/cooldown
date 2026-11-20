@@ -26,6 +26,8 @@ enum SettingsKey {
     static let cardsInCapture = "cardsInCapture"
     static let guardEnabled = "guardEnabled"
     static let guardFreeze = "guardFreeze"
+    static let guardFreezeTerminal = "guardFreezeTerminal"
+    static let guardTimeZoneWarned = "guardTimeZoneWarned"
     static let guardForbidden = "guardForbidden"
     static let guardExits = "guardExits"
     static let guardRefused = "guardRefused"
@@ -130,6 +132,9 @@ enum Settings {
     static var guardEnabled: Bool { bool(SettingsKey.guardEnabled, false) }
     /// Freeze the agents' apps while their route is wrong.
     static var guardFreeze: Bool { bool(SettingsKey.guardFreeze, true) }
+    /// Command-line agents in a terminal paused too (off: their hooks hold messages instead).
+    static var guardFreezeTerminal: Bool { bool(SettingsKey.guardFreezeTerminal, false) }
+    static var guardTimeZoneWarned: String? { defaults.string(forKey: SettingsKey.guardTimeZoneWarned) }
     /// Countries the services do not serve: a route through one of them stops the agents.
     static let guardForbiddenDefault = "RU BY CN HK MO IR KP CU SY"
     static var guardForbiddenText: String { defaults.string(forKey: SettingsKey.guardForbidden) ?? guardForbiddenDefault }
@@ -152,6 +157,7 @@ enum Settings {
     }
     static func guardPaused(_ now: Date) -> Bool { guardPausedUntil.map { $0 > now } ?? false }
     static func set(_ value: Any?, forKey key: String) { defaults.set(value, forKey: key) }
+    static func strings(_ key: String) -> [String]? { defaults.stringArray(forKey: key) }
     /// Warn while an agent works if the 5-hour limit will run out before it resets.
     static var notifyPace: Bool { bool(SettingsKey.notifyPace, true) }
     /// Say when one project takes a large part of the weekly limit.

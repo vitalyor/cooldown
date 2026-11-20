@@ -122,7 +122,12 @@ enum CodexQuestions {
             // Only fall back when the answer provably did not reach the turn. A timeout or an
             // app-level refusal after a steer may already have delivered it; retrying as a
             // message would then answer the same question twice.
-            let retryable = (error as? CodexIPCError)?.isTemporary == true || error is CodexBusy
+            // `.timeout`/`.connection` may come after the request went out, so they are not retried.
+            let retryable: Bool
+            switch error {
+            case is CodexBusy, CodexIPCError.unavailable, CodexIPCError.threadUnavailable: retryable = true
+            default: retryable = false
+            }
             guard retryable else {
                 AgentActivity.trace("codex question \(key): answer failed (\(error.localizedDescription))")
                 Notifier.shared.post(id: "codexq-failed-\(key)", title: L("Ответ не ушёл в Codex"), body: error.localizedDescription)

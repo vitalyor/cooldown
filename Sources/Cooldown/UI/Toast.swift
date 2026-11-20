@@ -52,11 +52,17 @@ final class ToastController: ObservableObject {
         // Working in Codex or Claude right now? Wait a moment: if the person stays there, they have
         // seen it for themselves and the card is dropped; if they leave, it shows then.
         if Self.isFront(content.appBundleIDs) && !Settings.cardsWhenFront {
+            // The newest content of the card waits; one timer per key shows it.
+            let first = graceKeys[content.key] == nil
+            graceKeys[content.key] = content
+            guard first else { return }
             DispatchQueue.main.asyncAfter(deadline: .now() + Self.grace) {
                 let controller = ToastController.shared
-                if Self.isFront(content.appBundleIDs) && content.life != .sticky { return }
-                if Self.isFront(content.appBundleIDs) && Self.idleSeconds < Self.grace { return }
-                controller.reveal(content)
+                // Answered or closed meanwhile (in the agent's own window, say): nothing to show.
+                guard let latest = controller.graceKeys.removeValue(forKey: content.key) else { return }
+                if Self.isFront(latest.appBundleIDs) && latest.life != .sticky { return }
+                if Self.isFront(latest.appBundleIDs) && Self.idleSeconds < Self.grace { return }
+                controller.reveal(latest)
             }
             return
         }
@@ -75,10 +81,15 @@ final class ToastController: ObservableObject {
         cards.contains { $0.content.key == key } || waiting.contains { $0.key == key }
     }
 
+    /// Cards held back for a moment because their app is in front (see `show`).
+    private var graceKeys: [String: ToastContent] = [:]
+
     func dismiss(key: String) {
         PhoneLink.shared.resolve(key)
+        graceKeys[key] = nil
         waiting.removeAll { $0.key == key }
         if let card = cards.first(where: { $0.content.key == key }) { remove(card) }
+        Notifier.withdraw(prefix: key)
     }
 
     func setBusy(key: String, _ busy: Bool) {
@@ -103,8 +114,16 @@ final class ToastController: ObservableObject {
         relayout(animated: true)
     }
 
-    func reveal(_ content: ToastContent, force: Bool = false) {
+    func reveal(_ content: ToastContent) {
         PhoneLink.shared.forward(content)
+        // Cards turned off, the screen locked or quiet hours: a system notification instead (none
+        // in quiet hours; the feed and the morning summary have it).
+        // Sample cards are asked for by hand: shown whatever the settings say.
+        let sample = content.key.hasPrefix("demo-") || content.key == "req-example"
+        guard sample || (canShow && !QuietHours.active) else {
+            if !QuietHours.active { Notifier.shared.system(id: content.key, title: content.title, body: content.body) }
+            return
+        }
         if let card = cards.first(where: { $0.content.key == content.key }) {
             card.content = content
             card.model.content = content
@@ -120,7 +139,8 @@ final class ToastController: ObservableObject {
             if let oldest = cards.last(where: { if case .auto = $0.content.life { return true } else { return false } }) {
                 remove(oldest)
             } else {
-                waiting.append(content)
+                // The same card again (a guard card rewrites its text often) replaces its place in line.
+                if let index = waiting.firstIndex(where: { $0.key == content.key }) { waiting[index] = content } else { waiting.append(content) }
                 return
             }
         }
@@ -193,7 +213,6 @@ final class ToastController: ObservableObject {
         } completionHandler: {
             Task { @MainActor in panel.invalidateShadow() }
         }
-        NSSound(named: content.life == .sticky ? "Glass" : "Pop")?.play()
         startTimer(card)
     }
 
@@ -236,7 +255,11 @@ final class ToastController: ObservableObject {
                 if !card.model.paused && Self.idleSeconds < 60 { left -= 0.25 }
                 card.model.remaining = max(0, left / seconds)
             }
-            if let card { self?.remove(card) }
+            if let card {
+                // Gone from the Mac by itself: gone from the phone too (its buttons, the badge).
+                PhoneLink.shared.resolve(card.content.key)
+                self?.remove(card)
+            }
         }
     }
 
@@ -279,6 +302,10 @@ final class ToastController: ObservableObject {
             RouteGuard.shared.answerExit(choice, key: key)
         case .guardPause:
             RouteGuard.shared.pause(3600)
+        case .guardCheck:
+            Task { await RouteGuard.shared.checkNow() }
+        case .guardResume:
+            RouteGuard.shared.pause(nil)
         case .restartAgent(let provider):
             Task {
                 let text = await AgentRestart.shared.restart(provider, whenFree: true, from: "Mac")
@@ -346,11 +373,15 @@ final class ToastController: ObservableObject {
             ToastCatalog.taskAttention(.codex, title: L("Рефакторинг парсера"), reason: L("Codex спрашивает разрешение выполнить команду.")),
             ToastCatalog.limitReset(.claude, demo: true),
         ]
+        // Keys of their own ("demo-…"): samples never replace a real card, here or on the phone.
         for (index, example) in examples.enumerated() {
-            DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 2.2) { ToastController.shared.show(example) }
+            var sample = example
+            sample.key = "demo-" + example.key
+            let shown = sample
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 2.2) { ToastController.shared.show(shown) }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + Double(examples.count) * 2.2) {
-            ToastController.shared.reveal(RequestCenter.exampleContent(), force: true)
+            ToastController.shared.reveal(RequestCenter.exampleContent())
         }
     }
 }

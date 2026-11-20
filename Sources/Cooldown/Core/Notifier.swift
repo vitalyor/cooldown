@@ -60,6 +60,25 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: id, content: content, trigger: nil))
     }
 
+    /// Only the system notification: for a card that could not be shown at the Mac.
+    func system(id: String, title: String, body: String) {
+        guard available else { return }
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: id, content: content, trigger: nil))
+    }
+
+    /// A card answered or closed: its system notifications (ids start with its key) go away too.
+    static func withdraw(prefix: String) {
+        let center = UNUserNotificationCenter.current()
+        center.getDeliveredNotifications { delivered in
+            let ids = delivered.map(\.request.identifier).filter { $0.hasPrefix(prefix) }
+            if !ids.isEmpty { center.removeDeliveredNotifications(withIdentifiers: ids) }
+        }
+    }
+
     @MainActor
     private static func eventKind(_ kind: ToastContent.Kind?, opensClaude: Bool) -> CooldownEvent.Kind {
         switch kind {
@@ -89,7 +108,11 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             } else if response.actionIdentifier == Self.continueAction {
                 // The person pressed "Продолжить": one message, sent because they asked for it.
                 Task { @MainActor in
-                    do { try await ClaudeSender.continueChat(ClaudeSender.pendingChat) } catch {
+                    do {
+                        try await ClaudeSender.continueChat(ClaudeSender.pendingChat)
+                        // Done from the notification: the card (and the phone's button) must not send it again.
+                        ToastController.shared.dismiss(key: "reset-claude")
+                    } catch {
                         Notifier.shared.post(id: "send-\(Date().timeIntervalSince1970)", title: L("Не отправлено"),
                                              body: error.localizedDescription)
                     }

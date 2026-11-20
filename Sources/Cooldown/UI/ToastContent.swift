@@ -29,6 +29,10 @@ enum ToastAction: Equatable {
     case guardExit(GuardExitChoice, String)
     /// The VPN guard off for an hour.
     case guardPause
+    /// Check the routes again now (from a card or the phone).
+    case guardCheck
+    /// Turn the guard back on before the hour is over.
+    case guardResume
 
     /// The agent's own app: where a chat or task about it can actually be looked at.
     static func app(_ provider: ProviderID) -> ToastAction { provider == .codex ? .openCodex : .openClaude }
@@ -46,6 +50,8 @@ enum ToastAction: Equatable {
         case .guardExit(.once, _): return L("Только сейчас")
         case .guardExit(.refuse, _): return L("Запретить")
         case .guardPause: return L("Выключить защиту на час")
+        case .guardCheck: return L("Проверить сейчас")
+        case .guardResume: return L("Включить снова")
         case .openSchedule: return L("Отложить задачу")
         case .installUpdate: return L("Перезапустить")
         case .installRelease: return L("Обновить")
@@ -83,6 +89,9 @@ struct ToastContent: Equatable {
     var detail: String? = nil
     var choices: [RequestChoice] = []
     var requestKey: String? = nil
+    /// A question of several: which one this card shows (an answer from the phone names it, so a
+    /// late press never lands on the next question).
+    var step: Int? = nil
 
     /// The app the news is about: while it is in front, the person already sees what happened.
     var appBundleIDs: [String] {

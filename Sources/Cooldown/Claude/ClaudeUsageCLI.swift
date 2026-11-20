@@ -78,7 +78,9 @@ actor ClaudeUsageCLI {
 
     func read(binary: URL, force: Bool = false, pace: Pace = Pace()) async throws -> LimitSnapshot {
         var pause = Self.interval(pace)
-        if failuresInRow > 0 { pause = min(pause, 60 * pow(2, Double(min(failuresInRow, 4) - 1))) }
+        // After a failure, soon again (1, 2, 4 minutes); a failure that keeps coming back is
+        // not retried more often than the normal pace.
+        if (1...3).contains(failuresInRow) { pause = min(pause, 60 * pow(2, Double(failuresInRow - 1))) }
         if turnFinished { pause = min(pause, 60) }
         // A few seconds' slack: the caller's minute timer would otherwise miss a one-minute pause
         // by a hair and make it two.
