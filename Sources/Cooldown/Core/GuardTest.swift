@@ -72,7 +72,7 @@ enum GuardTest {
         Settings.set(true, forKey: SettingsKey.guardEnabled)
         guardian.apply()
         await guardian.round()
-        expect(RouteGuard.allows(.claude) && RouteGuard.allows(.codex) && RouteGuard.allows(.antigravity), "US: everything allowed")
+        expect(RouteGuard.allows(.claude) && RouteGuard.allows(.codex), "US: everything allowed")
         expect(hookState("anthropic") == "ok" && hookState("openai") == "ok", "US: hooks told ok")
         expect((try? String(contentsOf: on, encoding: .utf8))?.contains(".app") == true, "US: hooks on, with Cooldown's path")
         expect(guardian.shown["route-guard"] == nil, "US: no warning card")
@@ -85,7 +85,6 @@ enum GuardTest {
         await guardian.round()
         expect(!RouteGuard.allows(.claude), "Claude via RU: Claude held")
         expect(RouteGuard.allows(.codex), "Claude via RU: Codex goes on")
-        expect(RouteGuard.allows(.antigravity), "Claude via RU: Antigravity goes on (not every route is wrong)")
         expect(hookState("anthropic") == "block" && hookState("openai") == "ok", "Claude via RU: hook states")
         expect(frozen(), "Claude via RU: Claude's app frozen")
         let card = guardian.shown["route-guard"]
@@ -103,7 +102,7 @@ enum GuardTest {
         // 4. Both through Russia (the VPN is down): everything stops, one card for both.
         answers[.openai] = direct(ru)
         await guardian.round()
-        expect(!RouteGuard.allows(.claude) && !RouteGuard.allows(.codex) && !RouteGuard.allows(.antigravity), "VPN down: all held")
+        expect(!RouteGuard.allows(.claude) && !RouteGuard.allows(.codex), "VPN down: all held")
         expect(guardian.shown["route-guard"].map { $0.body.contains("Claude") && $0.body.contains("Codex") } ?? false, "VPN down: one card names both")
 
         // 5. The VPN is back: everything goes on, the app thaws, "VPN is back".
@@ -211,6 +210,29 @@ enum GuardTest {
         answers[.openai] = direct(us)
         await guardian.round()
 
+        // 12b. Antigravity alone: Google's own route is checked, more rarely, and holds it alone.
+        ProviderID.testShown = [.antigravity]
+        calls = [:]
+        answers[.google] = direct(us)
+        await guardian.round()
+        expect(calls[.google] == 1 && calls[.anthropic] == nil, "Antigravity alone: only Google checked")
+        expect(RouteGuard.allows(.antigravity), "Antigravity alone, US: allowed")
+        await guardian.round()
+        expect(calls[.google] == 1, "Antigravity alone: Google not asked again within a minute")
+        answers[.google] = direct(ru)
+        guardian.forgetReadings()
+        await guardian.round()
+        expect(!RouteGuard.allows(.antigravity), "Google via RU: Antigravity held")
+        let googleCard = guardian.shown["route-guard"]
+        expect(googleCard.map { $0.body.contains("Antigravity") && !$0.body.contains("Codex") && !$0.body.contains("Claude Code") } ?? false,
+               "Google via RU: card names Antigravity only, no hooks promised")
+        answers[.google] = direct(us)
+        guardian.forgetReadings()
+        await guardian.round()
+        expect(RouteGuard.allows(.antigravity) && guardian.shown["route-guard"] == nil, "Google back: allowed, card gone")
+        ProviderID.testShown = [.codex, .claude]
+        await guardian.round()
+
         // 13. Two checks at once: the second waits its turn instead of running alongside.
         calls = [:]
         delay = .milliseconds(300)
@@ -281,8 +303,9 @@ enum GuardTest {
                "hook: a terminal proxy is checked by the hook itself")
 
         // 19. The real thing, over the network: both services answer with a country.
-        let realA = await RouteGuard.trace("api.anthropic.com"), realO = await RouteGuard.trace("chatgpt.com")
+        let realA = await RouteGuard.trace(.anthropic), realO = await RouteGuard.trace(.openai), realG = await RouteGuard.trace(.google)
         expect(realA.direct?.country.count == 2 && realO.direct?.country.count == 2, "real check: both services answered")
+        expect(realG.direct?.country.count == 2, "real check: Google answered")
 
         // 20. Turned off: thawed, hooks off, nothing held.
         Settings.set(false, forKey: SettingsKey.guardEnabled)

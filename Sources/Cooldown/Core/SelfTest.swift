@@ -26,6 +26,9 @@ enum SelfTest {
             let exit = RouteExit.parse("fl=1\nh=api.anthropic.com\nip=64.188.1.2\nts=1.0\ncolo=ORD\nloc=us\nwarp=off\n")
             expect(exit == RouteExit(ip: "64.188.1.2", country: "US", colo: "ORD"), "guard: trace parsed")
             expect(RouteExit.parse("<html>blocked</html>") == nil, "guard: not a trace")
+            let google = RouteExit.parseGoogle(#")]}'\n\n[["yt.sw.adr",null,[[["ru","RU",null,"95.27.150.254",null,"Robot"]]]]]"#)
+            expect(google == RouteExit(ip: "95.27.150.254", country: "RU", colo: ""), "guard: Google's view parsed")
+            expect(RouteExit.parseGoogle("<html>sorry</html>") == nil, "guard: not Google's data")
             let forbidden: Set<String> = ["RU", "BY"]
             expect(RouteVerdict.judge(exit, forbidden: forbidden, refused: []) == .ok, "guard: allowed country")
             expect(RouteVerdict.judge(RouteExit(ip: "1.1.1.1", country: "RU", colo: "ARN"), forbidden: forbidden, refused: []) == .forbidden, "guard: forbidden country")

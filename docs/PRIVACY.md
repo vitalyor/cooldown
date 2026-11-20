@@ -48,7 +48,10 @@ The MCP bridge only appends events Claude chose to report to `mcp-events.jsonl`.
 - With the VPN guard on: an anonymous request to `https://api.anthropic.com/cdn-cgi/trace` and
   `https://chatgpt.com/cdn-cgi/trace` (over IPv4 and IPv6 apart, and through the system proxy if one is
   set) every 5–15 seconds and when the network changes; while a route is wrong, at most once a minute.
-  Cloudflare in front of those services answers with the country and address it sees. The request is
+  Cloudflare in front of those services answers with the country and address it sees. For Antigravity,
+  Google's own view: an anonymous request for `https://www.youtube.com/sw.js_data` sent to Antigravity's
+  API address `cloudcode-pa.googleapis.com`, every 15 seconds while Antigravity runs and once a minute
+  otherwise (Google takes frequent requests for a robot). The request is
   `curl`'s plain one: no account, cookie or token, no app name; Cooldown has no server of its own for this. While a route is wrong, Cooldown also pauses (SIGSTOP)
   the agents' apps if you allowed it, and lets them go on (SIGCONT) when the route is right again.
 

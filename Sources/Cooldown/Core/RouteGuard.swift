@@ -11,6 +11,11 @@ import Network
 // VPN runs on this Mac, on the router, or only for some sites. No server of Cooldown's own is
 // involved, and the request carries no account (no cookies, no token).
 //
+// Google has no such page. Its own geolocation is read from YouTube's service-worker data
+// (`www.youtube.com/sw.js_data` names the country and address Google sees), sent with curl's
+// --connect-to along Antigravity's own API address, so the route is Antigravity's. Google takes
+// frequent anonymous requests for a robot, so it is asked more rarely (see `due`).
+//
 // Two routes may differ. Apps (Claude Desktop, ChatGPT) follow the system proxy; command-line
 // agents (Claude Code, Codex in a terminal, and Cooldown's own calls) go direct unless their
 // environment names a proxy. With a system proxy set, both are checked and judged apart.
@@ -20,20 +25,53 @@ import Network
 // (paused by the system, nothing lost) and one card says what happened. Off by default.
 
 enum GuardService: String, CaseIterable {
-    case anthropic, openai
+    case anthropic, openai, google
 
     /// The host the agent itself talks to: its route is the one that counts.
-    var host: String { self == .anthropic ? "api.anthropic.com" : "chatgpt.com" }
-    var provider: ProviderID { self == .anthropic ? .claude : .codex }
-    var name: String { provider.displayName }
-    /// Apps frozen while this route is wrong (ChatGPT for Mac carries the Codex bundle id).
-    var apps: [String] { self == .anthropic ? ["com.anthropic.claudefordesktop"] : ["com.openai.codex", "com.openai.chat"] }
+    var host: String {
+        switch self {
+        case .anthropic: return "api.anthropic.com"
+        case .openai: return "chatgpt.com"
+        case .google: return "cloudcode-pa.googleapis.com"
+        }
+    }
 
-    static func of(_ provider: ProviderID) -> GuardService? {
+    var provider: ProviderID {
+        switch self {
+        case .anthropic: return .claude
+        case .openai: return .codex
+        case .google: return .antigravity
+        }
+    }
+
+    var name: String { provider.displayName }
+
+    /// Apps frozen while this route is wrong (ChatGPT for Mac carries the Codex bundle id).
+    var apps: [String] {
+        switch self {
+        case .anthropic: return ["com.anthropic.claudefordesktop"]
+        case .openai: return ["com.openai.codex", "com.openai.chat"]
+        case .google: return ["com.google.antigravity", "com.google.antigravity-ide"]
+        }
+    }
+
+    /// What curl asks for: where a request along this service's route comes from.
+    var probe: [String] {
+        switch self {
+        case .anthropic, .openai: return ["https://\(host)/cdn-cgi/trace"]
+        case .google: return ["--connect-to", "www.youtube.com:443:\(host):443", Self.googleURL]
+        }
+    }
+
+    static let googleURL = "https://www.youtube.com/sw.js_data"
+
+    func parse(_ text: String) -> RouteExit? { self == .google ? RouteExit.parseGoogle(text) : RouteExit.parse(text) }
+
+    static func of(_ provider: ProviderID) -> GuardService {
         switch provider {
         case .claude: return .anthropic
         case .codex: return .openai
-        case .antigravity: return nil
+        case .antigravity: return .google
         }
     }
 
@@ -56,6 +94,16 @@ struct RouteExit: Codable, Equatable {
         }
         guard let ip = fields["ip"], !ip.isEmpty, let country = fields["loc"], country.count == 2 else { return nil }
         return RouteExit(ip: ip, country: country.uppercased(), colo: fields["colo"] ?? "")
+    }
+
+    /// `[["yt.sw.adr",null,[[["ru","RU",null,"95.27.150.254",…`: the language, country and
+    /// address Google sees.
+    static func parseGoogle(_ text: String) -> RouteExit? {
+        let pattern = #"\["yt\.sw\.adr",null,\[\[\["[^"]*","([A-Za-z]{2})",null,"([0-9A-Fa-f.:]+)""#
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+              let country = Range(match.range(at: 1), in: text), let ip = Range(match.range(at: 2), in: text) else { return nil }
+        return RouteExit(ip: String(text[ip]), country: text[country].uppercased(), colo: "")
     }
 
     var countryName: String { Locale.current.localizedString(forRegionCode: country) ?? country }
@@ -150,7 +198,7 @@ final class RouteGuard: ObservableObject {
     static var dir: URL { Settings.appSupport.appendingPathComponent("guard", isDirectory: true) }
 
     // `--guard-test` swaps these: made-up answers, no cards or phone, no hooks in the real agents.
-    nonisolated(unsafe) static var tracer: (GuardService) async -> RouteTrace = { await RouteGuard.trace($0.host) }
+    nonisolated(unsafe) static var tracer: (GuardService) async -> RouteTrace = { await RouteGuard.trace($0) }
     nonisolated(unsafe) static var quiet = false
     nonisolated(unsafe) static var installsHooks = true
     private(set) var shown: [String: ToastContent] = [:]
@@ -183,16 +231,8 @@ final class RouteGuard: ObservableObject {
     /// Whether Cooldown and the agents may reach `provider` now: both routes right and fresh.
     nonisolated static func allows(_ provider: ProviderID, now: Date = Date()) -> Bool {
         guard live(now) else { return true }
-        guard let service = GuardService.of(provider) else { return antigravityAllowed(now) }
-        guard let reading = state.get(service), now.timeIntervalSince(reading.at) < freshFor else { return false }
+        guard let reading = state.get(GuardService.of(provider)), now.timeIntervalSince(reading.at) < freshFor else { return false }
         return reading.verdict == .ok && reading.appVerdict == .ok
-    }
-
-    /// Antigravity's servers tell nothing of the route: it waits while every checked route is
-    /// wrong, which means the VPN as a whole is down.
-    private nonisolated static func antigravityAllowed(_ now: Date) -> Bool {
-        let all = GuardService.allCases.compactMap { state.get($0) }.filter { now.timeIntervalSince($0.at) < freshFor }
-        return all.isEmpty || all.contains { $0.verdict == .ok || $0.appVerdict == .ok }
     }
 
     /// Apps fine through a proxy, the direct route wrong.
@@ -247,7 +287,8 @@ final class RouteGuard: ObservableObject {
     /// No answer yet for a watched service (just launched, or the network just changed): worth
     /// waiting for. A fresh "wrong route" is not: no new check is started for it.
     private func awaitingCheck(_ provider: ProviderID) -> Bool {
-        guard let service = GuardService.of(provider), GuardService.watched.contains(service) else { return false }
+        let service = GuardService.of(provider)
+        guard GuardService.watched.contains(service) else { return false }
         guard let reading = readings[service] else { return true }
         return reading.at == .distantPast
     }
@@ -419,7 +460,7 @@ final class RouteGuard: ObservableObject {
         repeat {
             rerun = false
             let started = generation
-            let services = GuardService.watched
+            let services = GuardService.watched.filter(due)
             await withTaskGroup(of: (GuardService, RouteTrace).self) { group in
                 for service in services {
                     group.addTask { (service, await Self.tracer(service)) }
@@ -440,6 +481,17 @@ final class RouteGuard: ObservableObject {
         announce()
         releaseWaiters()
         scheduleNext(allGood: all)
+    }
+
+    /// Google is asked at most every 15 s while Antigravity runs and every minute otherwise (often
+    /// enough, frequent anonymous requests get an address a captcha); at once after a network
+    /// change or a new exit for another service, which age its reading.
+    private func due(_ service: GuardService) -> Bool {
+        guard service == .google, let reading = readings[service] else { return true }
+        let running = NSWorkspace.shared.runningApplications.contains { service.apps.contains($0.bundleIdentifier ?? "") }
+        // No answer (Google may be slowing us down): not pressed harder, once a minute.
+        let every: TimeInterval = running && reading.verdict != .unchecked ? 15 : 60
+        return Date().timeIntervalSince(reading.at) >= every * 0.9
     }
 
     private func releaseWaiters() {
@@ -472,11 +524,11 @@ final class RouteGuard: ObservableObject {
 
     /// The direct route over IPv4 and IPv6 (a VPN that carries only one lets the other out), and,
     /// with a system proxy set, the route the apps take through it.
-    nonisolated static func trace(_ host: String) async -> RouteTrace {
-        async let v4 = traceOnce(host, family: "-4")
-        async let v6 = traceOnce(host, family: "-6")
+    nonisolated static func trace(_ service: GuardService) async -> RouteTrace {
+        async let v4 = traceOnce(service, family: "-4")
+        async let v6 = traceOnce(service, family: "-6")
         let proxied = systemProxy
-        async let viaProxy: RouteExit? = proxied ? traceThroughSystem(host) : nil
+        async let viaProxy: RouteExit? = proxied ? traceThroughSystem(service) : nil
         let direct = worst(await v4, await v6, forbidden: Settings.guardForbidden)
         return RouteTrace(direct: direct, viaProxy: await viaProxy, proxied: proxied)
     }
@@ -495,13 +547,29 @@ final class RouteGuard: ObservableObject {
         return ["HTTPEnable", "HTTPSEnable", "SOCKSEnable", "ProxyAutoConfigEnable"].contains { (settings[$0] as? Int) == 1 }
     }
 
+    /// The system's HTTPS or SOCKS proxy as a curl `-x` (not a PAC file).
+    nonisolated static var systemProxyForCurl: [String]? {
+        guard let s = CFNetworkCopySystemProxySettings()?.takeRetainedValue() as? [String: Any] else { return nil }
+        if (s["HTTPSEnable"] as? Int) == 1, let host = s["HTTPSProxy"] as? String, let port = s["HTTPSPort"] as? Int {
+            return ["-x", "http://\(host):\(port)"]
+        }
+        if (s["SOCKSEnable"] as? Int) == 1, let host = s["SOCKSProxy"] as? String, let port = s["SOCKSPort"] as? Int {
+            return ["-x", "socks5h://\(host):\(port)"]
+        }
+        return nil
+    }
+
     /// `curl`, the same as the hooks use: no cookies, no account, nothing but the request line
     /// and curl's own headers. It does not follow the system proxy: the direct route.
-    nonisolated private static func traceOnce(_ host: String, family: String) async -> RouteExit? {
-        await Task.detached(priority: .utility) { () -> RouteExit? in
+    nonisolated private static func traceOnce(_ service: GuardService, family: String) async -> RouteExit? {
+        await curl([family] + service.probe).flatMap(service.parse)
+    }
+
+    nonisolated private static func curl(_ arguments: [String]) async -> String? {
+        await Task.detached(priority: .utility) { () -> String? in
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/curl")
-            process.arguments = ["-s", family, "-m", "3", "--proto", "=https", "https://\(host)/cdn-cgi/trace"]
+            process.arguments = ["-s", "-m", "3", "--proto", "=https"] + arguments
             process.environment = ["PATH": "/usr/bin:/bin"] // no proxy from Cooldown's own environment
             let out = Pipe()
             process.standardOutput = out
@@ -511,14 +579,20 @@ final class RouteGuard: ObservableObject {
             let data = out.fileHandleForReading.readDataToEndOfFile()
             process.waitUntilExit()
             guard process.terminationStatus == 0 else { return nil }
-            return RouteExit.parse(String(decoding: data, as: UTF8.self))
+            return String(decoding: data, as: UTF8.self)
         }.value
     }
 
     /// The apps' route: URLSession follows the system proxy and PAC as Chromium and WebKit do.
     /// A new session each time: no connection is reused across a network change, and the request
-    /// names no app (the same headers as the curl checks).
-    nonisolated private static func traceThroughSystem(_ host: String) async -> RouteExit? {
+    /// names no app (the same headers as the curl checks). Google's check must go to its API
+    /// address, which only curl can do: through the system's proxy given to curl by hand.
+    nonisolated private static func traceThroughSystem(_ service: GuardService) async -> RouteExit? {
+        if service == .google, let proxy = systemProxyForCurl {
+            return await curl(proxy + service.probe).flatMap(service.parse)
+        }
+        // ponytail: with only a PAC file Google is asked at youtube.com itself, whose route may
+        // differ from googleapis.com under per-site rules; read the PAC with CFNetwork if that matters.
         let config = URLSessionConfiguration.ephemeral
         config.httpCookieStorage = nil
         config.httpShouldSetCookies = false
@@ -530,10 +604,10 @@ final class RouteGuard: ObservableObject {
         config.httpAdditionalHeaders = ["User-Agent": "curl/8.7.1", "Accept": "*/*"]
         let session = URLSession(configuration: config)
         defer { session.invalidateAndCancel() }
-        guard let url = URL(string: "https://\(host)/cdn-cgi/trace"),
+        guard let url = URL(string: service == .google ? GuardService.googleURL : "https://\(service.host)/cdn-cgi/trace"),
               let (data, response) = try? await session.data(from: url),
               (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
-        return RouteExit.parse(String(decoding: data, as: UTF8.self))
+        return service.parse(String(decoding: data, as: UTF8.self))
     }
 
     private func record(_ service: GuardService, _ trace: RouteTrace) {
@@ -544,6 +618,15 @@ final class RouteGuard: ObservableObject {
         let appVerdict = trace.proxied ? RouteVerdict.judge(trace.viaProxy, forbidden: forbidden, refused: refused) : verdict
         let lost = verdict == .unchecked || appVerdict == .unchecked
         let misses = lost ? (readings[service]?.misses ?? 0) + 1 : 0
+        // Another service seen from a new address: the VPN switched, so Google is asked again now.
+        if service != .google, let before = readings[service]?.exit?.ip, let now = trace.direct?.ip, before != now,
+           var google = readings[.google], Date().timeIntervalSince(google.at) > 15 {
+            // ponytail: a VPN rotating exits each request would otherwise ask Google every round.
+            google.at = .distantPast
+            readings[.google] = google
+            Self.state.set(.google, google)
+            rerun = true
+        }
         let reading = RouteReading(verdict: verdict, exit: trace.direct, appVerdict: appVerdict, appExit: appExit, at: Date(),
                                    proxied: trace.proxied, misses: misses)
         readings[service] = reading
@@ -665,11 +748,7 @@ final class RouteGuard: ObservableObject {
         if Settings.guardFreeze {
             if online {
                 let services = GuardService.watched.filter(appsStopped)
-                var apps = Set(services.flatMap(\.apps))
-                if !GuardService.watched.isEmpty, GuardService.watched.allSatisfy(appsStopped) {
-                    apps.formUnion(["com.google.antigravity", "com.google.antigravity-ide"])
-                }
-                Freezer.shared.set(apps)
+                Freezer.shared.set(Set(services.flatMap(\.apps)))
             }
         } else {
             Freezer.shared.thawAll()
@@ -740,7 +819,8 @@ final class RouteGuard: ObservableObject {
         if !unchecked.isEmpty { lines.append(L("%@: не удалось проверить маршрут.", Self.names(unchecked))) }
         let frozen = Freezer.shared.frozenNames
         if !frozen.isEmpty { lines.append(L("На паузе: %@.", frozen.joined(separator: ", "))) }
-        let tools = blocked.filter { AgentHooks.guardStatus($0.provider == .claude ? .claude : .codex) == .on }
+        // Antigravity has no hooks: only its app is held (frozen).
+        let tools = blocked.filter { $0 != .google && AgentHooks.guardStatus($0 == .anthropic ? .claude : .codex) == .on }
             .map { $0.provider == .claude ? "Claude Code" : "Codex" }
         if tools.count == 1 { lines.append(L("%@ не отправит сообщения, пока маршрут не придёт в норму.", tools[0])) }
         if tools.count > 1 { lines.append(L("%@ не отправят сообщения, пока маршрут не придёт в норму.", tools.joined(separator: L(" и ")))) }
