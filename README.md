@@ -108,7 +108,7 @@ router or only for some sites.
 - Per agent: switch the guard off for one agent and keep the others guarded. Or pause it all for an hour —
   it comes back by itself, even if Cooldown is closed.
 - The Mac's time zone gives the VPN away? Cooldown says so and sets the VPN country's zone in one click
-  (and puts yours back).
+  (and puts yours back). The reminder can be put off for an hour or a day, or turned off in Settings.
 - If Cooldown itself crashes, paused apps go on within two seconds: the guard never leaves you stuck.
 
 <p align="center"><img src="docs/images/vpn-en.png" width="560" alt="VPN guard settings: the route each agent takes, per-agent switches and the time zone"></p>

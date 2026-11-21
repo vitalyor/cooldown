@@ -7,6 +7,7 @@ struct GuardPane: View {
     @AppStorage(SettingsKey.guardEnabled) private var enabled = false
     @AppStorage(SettingsKey.guardFreeze) private var freeze = true
     @AppStorage(SettingsKey.guardFreezeTerminal) private var freezeTerminal = false
+    @AppStorage(SettingsKey.guardTimeZoneCard) private var timeZoneCard = true
     @AppStorage(SettingsKey.guardForbidden) private var forbidden = Settings.guardForbiddenDefault
     @State private var problem: String?
     @State private var claudeVersion: String?
@@ -68,6 +69,9 @@ struct GuardPane: View {
                                  isOn: $freezeTerminal)
                         .onChange(of: freezeTerminal) { _, _ in RouteGuard.shared.enforce() }
                 }
+                OptionToggle(title: L("Напоминать о часовом поясе"),
+                             detail: L("Карточка, если пояс Mac не подходит к стране VPN; на ней можно отложить напоминание на час или день. Выключено — только пометка здесь, в настройках."),
+                             isOn: $timeZoneCard)
                 LabeledContent(L("Запрещённые страны")) {
                     TextField("", text: $forbidden)
                         .multilineTextAlignment(.trailing)

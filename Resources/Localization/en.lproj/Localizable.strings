@@ -548,6 +548,7 @@
 "Как показывать" = "How to show";
 "Как только Cooldown на Mac выйдет на связь, здесь появятся лимиты." = "As soon as Cooldown on the Mac checks in, your limits will appear here.";
 "Как это работает: Cooldown спрашивает сами сервисы (Anthropic, OpenAI и Google), из какой страны к ним приходят запросы, — по тому же пути, что и запросы агентов, поэтому неважно, где включён VPN: на Mac или на роутере. Запрос анонимный, без вашего аккаунта; своего сервера у Cooldown нет. Пока маршрут неправильный, Claude Code и Codex не отправляют сообщения, Cooldown сам не обращается к этим сервисам, а приложения агентов встают на паузу. Когда VPN вернётся, всё продолжится само." = "How it works: Cooldown asks the services themselves (Anthropic, OpenAI and Google) which country requests reach them from — over the same path the agents’ requests take, so it doesn’t matter where the VPN runs: on the Mac or on the router. The request is anonymous, without your account; Cooldown has no server of its own. While the route is wrong, Claude Code and Codex don’t send messages, Cooldown itself doesn’t contact these services, and the agents’ apps are paused. When the VPN is back, everything resumes on its own.";
+"Карточка, если пояс Mac не подходит к стране VPN; на ней можно отложить напоминание на час или день. Выключено — только пометка здесь, в настройках." = "A card when the Mac's time zone doesn't fit the VPN's country; it can be put off for an hour or a day. Off: only the note here, in Settings.";
 "Карточки и лимиты теперь приходят и на него." = "Cards and limits now arrive on it too.";
 "Карточки и названия чатов шифруются на Mac и открываются только на этом iPhone. Сервер Cooldown передаёт их, не читая." = "Cards and chat titles are encrypted on the Mac and opened only on this iPhone. The Cooldown server passes them on without reading them.";
 "Карточки под значком" = "Cards under the icon";
@@ -650,9 +651,11 @@
 "Найти диалог по названию или проекту" = "Find a conversation by name or project";
 "Найти сессию по названию или проекту" = "Find a session by name or project";
 "Найти чат по названию или проекту" = "Find a chat by name or project";
+"Напоминать о часовом поясе" = "Remind about the time zone";
 "Напомнить за 10 мин" = "Remind 10 min before";
 "Напомнить за 10 минут" = "Remind me 10 minutes before";
 "Напомню в %@" = "I'll remind you at %@";
+"Напомню позже." = "I'll remind you later.";
 "Настроить" = "Set Up";
 "Настройка Cooldown" = "Cooldown Setup";
 "Настройка агентов…" = "Agent Setup…";
@@ -839,6 +842,8 @@
 "Откуда брать лимиты" = "Where to get limits";
 "Отличный повод выйти на улицу на пять минут." = "A great excuse to step outside for five minutes.";
 "Отложить задачу" = "Schedule a task";
+"Отложить на день" = "Remind me tomorrow";
+"Отложить на час" = "Remind me in an hour";
 "Отмена" = "Cancel";
 "Отменить" = "Cancel";
 "Отмеченные разговоры Codex Cooldown продолжит сам, как только лимит сбросится." = "Cooldown continues checked Codex conversations by itself as soon as the limit resets.";

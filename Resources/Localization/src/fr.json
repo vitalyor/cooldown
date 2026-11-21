@@ -1442,5 +1442,10 @@
  "защита выключена": "protection désactivée",
  "не проверяется": "non vérifié",
  "пояс не изменён (отменено или нет прав)": "fuseau non modifié (annulé ou pas les droits)",
- "США-1": "USA-1"
+ "США-1": "USA-1",
+ "Карточка, если пояс Mac не подходит к стране VPN; на ней можно отложить напоминание на час или день. Выключено — только пометка здесь, в настройках.": "Une carte quand le fuseau horaire du Mac ne correspond pas au pays du VPN ; on peut la reporter d'une heure ou d'un jour. Désactivé : seulement la mention ici, dans les réglages.",
+ "Напоминать о часовом поясе": "Rappeler le fuseau horaire",
+ "Напомню позже.": "Je vous le rappellerai plus tard.",
+ "Отложить на день": "Me rappeler demain",
+ "Отложить на час": "Me rappeler dans une heure"
 }

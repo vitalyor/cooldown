@@ -230,6 +230,27 @@ enum GuardTest {
         answers[.openai] = direct(us)
         await guardian.round()
 
+        // 12a. The time zone card: once per country and zone, put off by "Отложить", none when turned off.
+        let berlin = TimeZone(identifier: "Europe/Berlin")!
+        Settings.guardTimeZoneWarned = []
+        guardian.checkTimeZone(zone: berlin)
+        expect(guardian.shown["route-tz"]?.actions.contains(.timeZoneSnooze(3600)) == true, "time zone: a card with 'put off'")
+        guardian.dismissForTest("route-tz")
+        guardian.checkTimeZone(zone: berlin)
+        expect(guardian.shown["route-tz"] == nil, "time zone: not again for the same country and zone")
+        guardian.snoozeTimeZone(3600)
+        guardian.checkTimeZone(zone: berlin)
+        expect(guardian.shown["route-tz"] == nil, "time zone: put off for an hour")
+        Settings.guardTimeZoneSnoozed = Date().addingTimeInterval(-1)
+        guardian.checkTimeZone(zone: berlin)
+        expect(guardian.shown["route-tz"] != nil, "time zone: back once the hour is over")
+        guardian.dismissForTest("route-tz")
+        Settings.guardTimeZoneWarned = []
+        Settings.set(false, forKey: SettingsKey.guardTimeZoneCard)
+        guardian.checkTimeZone(zone: berlin)
+        expect(guardian.shown["route-tz"] == nil && guardian.timeZoneNote != nil, "time zone: card off, the note in Settings stays")
+        Settings.set(true, forKey: SettingsKey.guardTimeZoneCard)
+
         // 12b. Antigravity alone: Google's own route is checked, more rarely, and holds it alone.
         ProviderID.testShown = [.antigravity]
         calls = [:]

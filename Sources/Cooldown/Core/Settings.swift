@@ -30,6 +30,8 @@ enum SettingsKey {
     static let guardFreezeTerminal = "guardFreezeTerminal"
     static let guardOff = "guardOff"
     static let guardTimeZoneWarned = "guardTimeZoneWarned"
+    static let guardTimeZoneCard = "guardTimeZoneCard"
+    static let guardTimeZoneSnoozed = "guardTimeZoneSnoozed"
     static let guardForbidden = "guardForbidden"
     static let guardExits = "guardExits"
     static let guardRefused = "guardRefused"
@@ -137,7 +139,19 @@ enum Settings {
     static var guardFreeze: Bool { bool(SettingsKey.guardFreeze, true) }
     /// Command-line agents in a terminal paused too (off: their hooks hold messages instead).
     static var guardFreezeTerminal: Bool { bool(SettingsKey.guardFreezeTerminal, false) }
-    static var guardTimeZoneWarned: String? { defaults.string(forKey: SettingsKey.guardTimeZoneWarned) }
+    /// Country-and-zone pairs a card was shown for (a VPN that moves between countries would bring
+    /// the card back on every move otherwise). An earlier version kept one pair as a string.
+    static var guardTimeZoneWarned: [String] {
+        get { defaults.stringArray(forKey: SettingsKey.guardTimeZoneWarned) ?? defaults.string(forKey: SettingsKey.guardTimeZoneWarned).map { [$0] } ?? [] }
+        set { defaults.set(Array(newValue.suffix(20)), forKey: SettingsKey.guardTimeZoneWarned) }
+    }
+    /// The time zone card at all (the note in Settings stays either way).
+    static var guardTimeZoneCard: Bool { bool(SettingsKey.guardTimeZoneCard, true) }
+    /// No time zone card until then ("Отложить").
+    static var guardTimeZoneSnoozed: Date? {
+        get { defaults.object(forKey: SettingsKey.guardTimeZoneSnoozed) as? Date }
+        set { defaults.set(newValue, forKey: SettingsKey.guardTimeZoneSnoozed) }
+    }
     /// Services the guard leaves alone (switched off for one agent in Settings).
     static var guardOff: Set<String> {
         get { Set(defaults.stringArray(forKey: SettingsKey.guardOff) ?? []) }

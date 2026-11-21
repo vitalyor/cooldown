@@ -234,6 +234,9 @@ extension PhoneLink {
                 let held = !RouteGuard.shared.blocked.isEmpty || !Freezer.shared.frozen.isEmpty
                 return LinkResult(cmd: cmd.id, code: "ok", text: held
                                   ? L("Маршрут всё ещё неправильный: агенты на паузе.") : L("Маршрут в порядке."))
+            case .timeZoneSnooze(let seconds):
+                RouteGuard.shared.snoozeTimeZone(seconds)
+                return LinkResult(cmd: cmd.id, code: "ok", text: L("Напомню позже."))
             case .guardResume:
                 RouteGuard.shared.pause(nil)
                 return LinkResult(cmd: cmd.id, code: "ok", text: L("Защита снова включена."))

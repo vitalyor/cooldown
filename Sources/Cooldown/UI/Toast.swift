@@ -306,6 +306,8 @@ final class ToastController: ObservableObject {
             Task { await RouteGuard.shared.checkNow() }
         case .guardResume:
             RouteGuard.shared.pause(nil)
+        case .timeZoneSnooze(let seconds):
+            RouteGuard.shared.snoozeTimeZone(seconds)
         case .restartAgent(let provider):
             Task {
                 let text = await AgentRestart.shared.restart(provider, whenFree: true, from: "Mac")

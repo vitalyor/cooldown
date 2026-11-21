@@ -977,12 +977,22 @@ final class RouteGuard: ObservableObject {
         timeZoneTarget = TimeZoneCheck.zones[exit.country]?.first
         timeZoneNote = L("Часовой пояс Mac — %@, а VPN выходит в стране «%@». Приложения и сайты видят и то и другое, и несовпадение заметно.",
                          zone.identifier, exit.countryName)
-        // Said once per country and zone; the note in Settings stays.
+        // A card once per country and zone, unless turned off or put off for a while; the note in
+        // Settings stays either way.
+        guard Settings.guardTimeZoneCard, (Settings.guardTimeZoneSnoozed ?? .distantPast) < Date() else { return }
         let key = exit.country + "|" + zone.identifier
-        guard Settings.guardTimeZoneWarned != key else { return }
-        Settings.set(key, forKey: SettingsKey.guardTimeZoneWarned)
+        guard !Settings.guardTimeZoneWarned.contains(key) else { return }
+        Settings.guardTimeZoneWarned += [key]
         present(ToastContent(key: "route-tz", kind: .info, provider: nil, title: L("Часовой пояс выдаёт VPN"),
-                             body: timeZoneNote ?? "", actions: [.openSettings(.vpn)], life: .auto(15)), notify: false)
+                             body: timeZoneNote ?? "",
+                             actions: [.timeZoneSnooze(3600), .timeZoneSnooze(86_400), .openSettings(.vpn)], life: .auto(30)), notify: false)
+    }
+
+    /// "Отложить": no time zone card for a while; then it comes back once if the zone still does not fit.
+    func snoozeTimeZone(_ seconds: TimeInterval) {
+        Settings.guardTimeZoneSnoozed = Date().addingTimeInterval(seconds)
+        Settings.guardTimeZoneWarned = []
+        dismiss("route-tz")
     }
 
     // MARK: What a wrong route does

@@ -230,7 +230,7 @@ extension PhoneLink {
         // Things to press: on the Lock Screen in the Live Activity, not as one more notification.
         if Self.liveButtons(card) != nil, Settings.phoneLive, phoneHasLive { return .live }
         // Reference, not news: numbers, summaries and the Mac's own business stay in the app.
-        let quiet = ["pace-", "week", "day-", "morning", "project-", "report-", "update", "github-update",
+        let quiet = ["pace-", "route-tz", "week", "day-", "morning", "project-", "report-", "update", "github-update",
                      "remind-set-", "claude-all-done"]
         if quiet.contains(where: { key.hasPrefix($0) }) && content.kind != .finished { return .none }
         // A nearly spent limit while you are away is worth a normal alert (20 % and 5 % alike),
@@ -334,6 +334,7 @@ extension PhoneLink {
         case .guardPause: return "guardPause"
         case .guardCheck: return "guardCheck"
         case .guardResume: return "guardResume"
+        case .timeZoneSnooze(let seconds): return "tzSnooze:\(Int(seconds))"
         case .installRelease: return "installRelease"
         default: return nil
         }

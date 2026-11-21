@@ -1442,5 +1442,10 @@
  "защита выключена": "guard is off",
  "не проверяется": "not checked",
  "пояс не изменён (отменено или нет прав)": "time zone not changed (cancelled or no permission)",
- "США-1": "US-1"
+ "США-1": "US-1",
+ "Карточка, если пояс Mac не подходит к стране VPN; на ней можно отложить напоминание на час или день. Выключено — только пометка здесь, в настройках.": "A card when the Mac's time zone doesn't fit the VPN's country; it can be put off for an hour or a day. Off: only the note here, in Settings.",
+ "Напоминать о часовом поясе": "Remind about the time zone",
+ "Напомню позже.": "I'll remind you later.",
+ "Отложить на день": "Remind me tomorrow",
+ "Отложить на час": "Remind me in an hour"
 }

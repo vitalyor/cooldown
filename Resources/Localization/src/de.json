@@ -1442,5 +1442,10 @@
  "защита выключена": "Schutz ist aus",
  "не проверяется": "wird nicht geprüft",
  "пояс не изменён (отменено или нет прав)": "Zeitzone nicht geändert (abgebrochen oder keine Berechtigung)",
- "США-1": "USA-1"
+ "США-1": "USA-1",
+ "Карточка, если пояс Mac не подходит к стране VPN; на ней можно отложить напоминание на час или день. Выключено — только пометка здесь, в настройках.": "Eine Karte, wenn die Zeitzone des Mac nicht zum VPN-Land passt; sie lässt sich um eine Stunde oder einen Tag verschieben. Aus: nur der Hinweis hier in den Einstellungen.",
+ "Напоминать о часовом поясе": "An die Zeitzone erinnern",
+ "Напомню позже.": "Ich erinnere später daran.",
+ "Отложить на день": "Morgen erinnern",
+ "Отложить на час": "In einer Stunde erinnern"
 }

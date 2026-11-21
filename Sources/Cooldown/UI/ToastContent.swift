@@ -33,6 +33,8 @@ enum ToastAction: Equatable {
     case guardCheck
     /// Turn the guard back on before the hour is over.
     case guardResume
+    /// Put the time zone card off for this many seconds.
+    case timeZoneSnooze(TimeInterval)
 
     /// The agent's own app: where a chat or task about it can actually be looked at.
     static func app(_ provider: ProviderID) -> ToastAction { provider == .codex ? .openCodex : .openClaude }
@@ -52,6 +54,7 @@ enum ToastAction: Equatable {
         case .guardPause: return L("Выключить защиту на час")
         case .guardCheck: return L("Проверить сейчас")
         case .guardResume: return L("Включить снова")
+        case .timeZoneSnooze(let seconds): return seconds < 2 * 3600 ? L("Отложить на час") : L("Отложить на день")
         case .openSchedule: return L("Отложить задачу")
         case .installUpdate: return L("Перезапустить")
         case .installRelease: return L("Обновить")
