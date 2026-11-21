@@ -967,9 +967,8 @@ final class RouteGuard: ObservableObject {
     /// The zone to switch the Mac to (the VPN country's main one), while it does not fit.
     @Published private(set) var timeZoneTarget: String?
 
-    func checkTimeZone() {
+    func checkTimeZone(zone: TimeZone = .current) {
         let exit = GuardService.watched.compactMap { readings[$0] }.first { $0.appVerdict == .ok && $0.at != .distantPast }?.appExit
-        let zone = TimeZone.current
         guard let exit, TimeZoneCheck.mismatch(country: exit.country, zone: zone) == true else {
             timeZoneNote = nil
             timeZoneTarget = nil
@@ -1107,11 +1106,13 @@ final class RouteGuard: ObservableObject {
         let ip = "203.0.113.24" // an address for documentation (RFC 5737)
         Settings.guardExits = ["anthropic": [ip: L("США-1")], "openai": [ip: L("США-1")]]
         Settings.guardOff = ["google"]
+
         let exit = RouteExit(ip: ip, country: "US", colo: "ORD")
         for service in [GuardService.anthropic, .openai] {
             readings[service] = RouteReading(verdict: .ok, exit: exit, appVerdict: .ok, appExit: exit, at: Date().addingTimeInterval(-20))
         }
-        checkTimeZone()
+        // A made-up time zone as well: the Mac's own would tell where its owner lives.
+        checkTimeZone(zone: TimeZone(identifier: "Europe/Berlin") ?? .current)
     }
 
     static let pictureSuite = "cooldown-pictures"

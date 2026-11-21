@@ -535,7 +535,8 @@ enum CardSamples {
                                 actions: [.guardExit(.remember, "x"), .guardExit(.once, "x"), .guardExit(.refuse, "x")], life: .sticky)
         case "paused":
             return ToastContent(key: "route-paused", kind: .info, provider: nil, title: L("Защита VPN выключена"),
-                                body: L("До %@. Пока она выключена, агенты работают без проверки маршрута.", Format.clock(Date().addingTimeInterval(3600))),
+                                // A fixed time: the picture must not tell when (and so where) it was made.
+                                body: L("До %@. Пока она выключена, агенты работают без проверки маршрута.", "18:00"),
                                 actions: [.guardResume], life: .sticky)
         default: return nil
         }
@@ -544,6 +545,8 @@ enum CardSamples {
     static func view(_ content: ToastContent) -> some View {
         ToastView(model: ToastController.CardModel(content), act: { _ in }, choose: { _ in }, close: {}, hover: { _ in })
             .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color(nsColor: .windowBackgroundColor)))
+            // The card's tint fills its whole frame; on screen the glass panel rounds it, here the shape does.
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 }
 
