@@ -18,8 +18,8 @@
 "%@ в запасе" = "%@ de reserva";
 "%@ в неожиданном формате, Cooldown его не трогает." = "%@ tem um formato inesperado; o Cooldown não altera o arquivo.";
 "%@ в час" = "%@ por hora";
-"%@ видит %@." = "%@ vê %@.";
-"%@ видят %@." = "%@ veem %@.";
+"%@ видит страну «%@»." = "%@ vê %@.";
+"%@ видят страну «%@»." = "%@ veem %@.";
 "%@ д" = "%@ d";
 "%@ д %@ ч" = "%@ d %@ h";
 "%@ ждут разрешения в Codex" = "%@ aguardando aprovação no Codex";
@@ -1041,6 +1041,7 @@
 "Рефакторинг парсера" = "Refatoração do parser";
 "С" = "Das";
 "С %@: %@" = "Do %@: %@";
+"США-1" = "EUA-1";
 "Самое время закоммитить то, что уже работает." = "Bom momento para fazer commit do que já funciona.";
 "Самое время размяться и налить чаю." = "Hora perfeita para se alongar e fazer um chá.";
 "Самые дорогие задачи" = "As tarefas mais caras";
@@ -1197,7 +1198,7 @@
 "Хуки Codex" = "Hooks do Codex";
 "Хуки сообщают, когда Claude Code работает, и приносят его запросы разрешений в карточки, пока вы в другом приложении. В самом терминале он спрашивает как обычно." = "Os hooks avisam quando o Claude Code está trabalhando e levam os pedidos de permissão dele para cartões enquanto você está em outro app. No próprio terminal ele pergunta como sempre.";
 "Цель диалога не активна — решите, что с ней делать." = "O objetivo da conversa não está ativo — decida o que fazer com ele.";
-"Часовой пояс Mac — %@, а VPN выходит в стране «%@». Приложения и сайты видят и то и другое, и несовпадение заметно. Поставьте пояс страны VPN: «Системные настройки → Основные → Дата и время»." = "O fuso horário do Mac é %@, mas a VPN sai em %@. Apps e sites veem os dois, e a diferença aparece. Use o fuso do país da VPN: Ajustes do Sistema → Geral → Data e Hora.";
+"Часовой пояс Mac — %@, а VPN выходит в стране «%@». Приложения и сайты видят и то и другое, и несовпадение заметно." = "O fuso horário do Mac é %@, mas a VPN sai em %@. Apps e sites veem os dois, e a diferença aparece.";
 "Часовой пояс выдаёт VPN" = "O fuso horário denuncia a VPN";
 "Чат Claude" = "Chat do Claude";
 "Чат для продолжения" = "Chat para continuar";

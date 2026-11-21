@@ -278,6 +278,14 @@ final class AppModel: ObservableObject {
 
     // MARK: Lifecycle
 
+    /// Pictures only: the saved data loaded, nothing started (see `AppDelegate`).
+    func startForPictures() {
+        codex.load()
+        claude.load()
+        antigravity.load()
+        claudeTasks.load()
+    }
+
     func start() {
         codex.load()
         claude.load()

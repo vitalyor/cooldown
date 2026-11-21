@@ -18,8 +18,8 @@
 "%@ в запасе" = "%@ en réserve";
 "%@ в неожиданном формате, Cooldown его не трогает." = "%@ a un format inattendu ; Cooldown ne modifie pas le fichier.";
 "%@ в час" = "%@ par heure";
-"%@ видит %@." = "%@ voit %@.";
-"%@ видят %@." = "%@ voient %@.";
+"%@ видит страну «%@»." = "%@ voit %@.";
+"%@ видят страну «%@»." = "%@ voient %@.";
 "%@ д" = "%@ j";
 "%@ д %@ ч" = "%@ j %@ h";
 "%@ ждут разрешения в Codex" = "%@ en attente d’approbation dans Codex";
@@ -1041,6 +1041,7 @@
 "Рефакторинг парсера" = "Refonte du parseur";
 "С" = "De";
 "С %@: %@" = "Depuis %@ : %@";
+"США-1" = "USA-1";
 "Самое время закоммитить то, что уже работает." = "Bon moment pour committer ce qui fonctionne déjà.";
 "Самое время размяться и налить чаю." = "Le moment idéal pour s’étirer et faire un thé.";
 "Самые дорогие задачи" = "Les tâches les plus coûteuses";
@@ -1197,7 +1198,7 @@
 "Хуки Codex" = "Hooks de Codex";
 "Хуки сообщают, когда Claude Code работает, и приносят его запросы разрешений в карточки, пока вы в другом приложении. В самом терминале он спрашивает как обычно." = "Les hooks signalent quand Claude Code travaille et affichent ses demandes d’autorisation dans des cartes pendant que vous êtes dans une autre app. Dans le terminal lui-même, il demande comme d’habitude.";
 "Цель диалога не активна — решите, что с ней делать." = "L’objectif de la conversation n’est pas actif — décidez quoi en faire.";
-"Часовой пояс Mac — %@, а VPN выходит в стране «%@». Приложения и сайты видят и то и другое, и несовпадение заметно. Поставьте пояс страны VPN: «Системные настройки → Основные → Дата и время»." = "Le fuseau horaire du Mac est %@, mais le VPN sort en %@. Les apps et les sites voient les deux, et l'écart se remarque. Réglez le fuseau du pays du VPN : Réglages Système → Général → Date et heure.";
+"Часовой пояс Mac — %@, а VPN выходит в стране «%@». Приложения и сайты видят и то и другое, и несовпадение заметно." = "Le fuseau horaire du Mac est %@, mais le VPN sort en %@. Les apps et les sites voient les deux, et l'écart se remarque.";
 "Часовой пояс выдаёт VPN" = "Le fuseau horaire trahit le VPN";
 "Чат Claude" = "Chat Claude";
 "Чат для продолжения" = "Chat à reprendre";

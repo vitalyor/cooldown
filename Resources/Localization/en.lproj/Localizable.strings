@@ -18,8 +18,8 @@
 "%@ в запасе" = "%@ in reserve";
 "%@ в неожиданном формате, Cooldown его не трогает." = "%@ has an unexpected format; Cooldown leaves it alone.";
 "%@ в час" = "%@ an hour";
-"%@ видит %@." = "%@ sees %@.";
-"%@ видят %@." = "%@ see %@.";
+"%@ видит страну «%@»." = "%@ sees %@.";
+"%@ видят страну «%@»." = "%@ see %@.";
 "%@ д" = "%@ d";
 "%@ д %@ ч" = "%@ d %@ h";
 "%@ ждут разрешения в Codex" = "%@ waiting for approval in Codex";
@@ -1041,6 +1041,7 @@
 "Рефакторинг парсера" = "Parser refactoring";
 "С" = "From";
 "С %@: %@" = "From %@: %@";
+"США-1" = "US-1";
 "Самое время закоммитить то, что уже работает." = "Good time to commit what already works.";
 "Самое время размяться и налить чаю." = "Perfect time to stretch and make some tea.";
 "Самые дорогие задачи" = "Most expensive tasks";
@@ -1197,7 +1198,7 @@
 "Хуки Codex" = "Codex hooks";
 "Хуки сообщают, когда Claude Code работает, и приносят его запросы разрешений в карточки, пока вы в другом приложении. В самом терминале он спрашивает как обычно." = "Hooks tell when Claude Code is working and bring its permission requests to cards while you're in another app. In the terminal itself it asks as usual.";
 "Цель диалога не активна — решите, что с ней делать." = "The conversation's goal isn't active — decide what to do with it.";
-"Часовой пояс Mac — %@, а VPN выходит в стране «%@». Приложения и сайты видят и то и другое, и несовпадение заметно. Поставьте пояс страны VPN: «Системные настройки → Основные → Дата и время»." = "The Mac's time zone is %@, but the VPN exits in %@. Apps and sites see both, and the mismatch shows. Set the VPN country's time zone: System Settings → General → Date & Time.";
+"Часовой пояс Mac — %@, а VPN выходит в стране «%@». Приложения и сайты видят и то и другое, и несовпадение заметно." = "The Mac's time zone is %@, but the VPN exits in %@. Apps and sites see both, and the mismatch shows.";
 "Часовой пояс выдаёт VPN" = "The time zone gives the VPN away";
 "Чат Claude" = "Claude chat";
 "Чат для продолжения" = "Chat to continue";

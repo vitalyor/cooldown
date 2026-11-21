@@ -1343,8 +1343,8 @@
  "Одна или две линии, в порядке Codex, Claude, Antigravity. Чтобы выбрать другую, сначала снимите одну из отмеченных.": "One or two lines, in the order Codex, Claude, Antigravity. To pick another, first turn one of the checked ones off.",
  "Так значок выглядит сейчас. Длина линии — сколько осталось в выбранном окне.": "This is how the icon looks now. A line's length is how much is left in the chosen window.",
  "%@ · %@ · %@ назад": "%@ · %@ · %@ ago",
- "%@ видит %@.": "%@ sees %@.",
- "%@ видят %@.": "%@ see %@.",
+ "%@ видит страну «%@».": "%@ sees %@.",
+ "%@ видят страну «%@».": "%@ see %@.",
  "%@ не отправит сообщения, пока маршрут не придёт в норму.": "%@ won’t send messages until the route is back to normal.",
  "%@ — работа остановлена": "%@ — work stopped",
  "%@: адрес %@ вы запретили.": "%@: you blocked the address %@.",
@@ -1409,7 +1409,7 @@
  "Новое раньше всех, но возможны шероховатости. Если выключить, следующей придёт обычная версия.": "New things first, with a few rough edges possible. Turn it off and the next update is a regular version.",
  "И агентов в Терминале": "And agents in Terminal",
  "Claude Code, Codex и Antigravity CLI, запущенные в Терминале, тоже замирают, даже посреди ответа. Терминал не реагирует, пока VPN не вернётся, потом всё продолжится. Выключено — их сообщения держат хуки.": "Claude Code, Codex and Antigravity CLI running in Terminal pause too, even mid-answer. Terminal does not respond until the VPN is back, then everything carries on. Off: their hooks hold their messages instead.",
- "Часовой пояс Mac — %@, а VPN выходит в стране «%@». Приложения и сайты видят и то и другое, и несовпадение заметно. Поставьте пояс страны VPN: «Системные настройки → Основные → Дата и время».": "The Mac's time zone is %@, but the VPN exits in %@. Apps and sites see both, and the mismatch shows. Set the VPN country's time zone: System Settings → General → Date & Time.",
+ "Часовой пояс Mac — %@, а VPN выходит в стране «%@». Приложения и сайты видят и то и другое, и несовпадение заметно.": "The Mac's time zone is %@, but the VPN exits in %@. Apps and sites see both, and the mismatch shows.",
  "Часовой пояс выдаёт VPN": "The time zone gives the VPN away",
  "Снова можно работать: %@ (через %@).": "Back to work: %@ (in %@).",
  "Снова можно работать: %@.": "Back to work: %@.",
@@ -1441,5 +1441,6 @@
  "Хук защиты": "Guard hook",
  "защита выключена": "guard is off",
  "не проверяется": "not checked",
- "пояс не изменён (отменено или нет прав)": "time zone not changed (cancelled or no permission)"
+ "пояс не изменён (отменено или нет прав)": "time zone not changed (cancelled or no permission)",
+ "США-1": "US-1"
 }

@@ -21,7 +21,10 @@ Cooldown runs on your Mac. It has no analytics or telemetry. It connects to the 
 - `codex app-server` — the `account/rateLimits/read` request (Codex's official client); for auto-continue also `thread/list` and `thread/read` — read-only.
 - `claude /usage` — Claude Code's limits screen (official client). Hooks, the status line and Claude
   Code's background traffic are turned off for this run.
+- `agy -p /usage` — Antigravity's limits screen (its own command line), locally: no model turn, no quota.
 - `codex exec` — only tasks you deferred yourself.
+- With the VPN guard on: `curl` for the route checks below; `/bin/sh` for the watcher that resumes paused apps
+  if Cooldown stops; `osascript` to set the time zone, only when you press that button.
 
 ## Changes (only with your consent)
 
@@ -31,9 +34,15 @@ Cooldown runs on your Mac. It has no analytics or telemetry. It connects to the 
 - `~/Library/Application Support/Claude/claude_desktop_config.json` — an optional local MCP bridge,
   only if you turn it on in Settings. Claude's other MCP servers are kept; a copy is saved first.
 - The VPN guard's hooks (Settings → VPN guard, off by default) in the same two files, as entries of
-  their own. They are the only Cooldown hooks that can stop an agent: a prompt is held, or work stops
-  between steps, while the route to its service goes past the VPN. Turning the guard off removes them;
-  if Cooldown is deleted, they find no script and let everything through.
+  their own, and in Antigravity's `~/.gemini/config/hooks.json` (a `cooldown-guard` entry; a copy of the file
+  is saved first, other entries are kept). They are the only Cooldown hooks that can stop an agent: a prompt
+  is held, or work stops between steps, while the route to its service goes past the VPN. Turning the guard
+  off removes them; switching it off for one agent makes that agent's hook let everything through; if
+  Cooldown is deleted, they find no script and let everything through.
+- The Mac's time zone — only when you press "Set time zone …" in Settings → VPN guard, with the
+  administrator password macOS asks for. The automatic time zone is turned off for that time; "Restore my
+  time zone" puts yours back and turns it on again.
+- Only the newest three copies of each settings file Cooldown changed are kept.
 
 Claude Code's permission hook is the exception: while you are away from the app running that
 session, it waits for the answer you press on Cooldown's card (up to an hour) and passes it on;

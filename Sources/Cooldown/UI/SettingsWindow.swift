@@ -27,10 +27,21 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
 
     func setTitle(_ title: String) { window?.title = title }
 
-    private func make() -> NSWindow {
-        let root = SettingsRoot(navigation: navigation).environmentObject(AppModel.shared)
+    /// A window for a picture: not remembered, not shown, on the given pane, its controls drawn
+    /// as in a window in front (one off screen is never the key window).
+    func makeForPicture(_ pane: SettingsPane, height: CGFloat) -> NSWindow {
+        navigation.pane = pane
+        let window = make(picture: true)
+        window.setFrameAutosaveName("")
+        window.setContentSize(NSSize(width: 780, height: height))
+        return window
+    }
+
+    private func make(picture: Bool = false) -> NSWindow {
+        let base = SettingsRoot(navigation: navigation).environmentObject(AppModel.shared)
+        let root = picture ? AnyView(base.environment(\.pictureMode, true)) : AnyView(base)
         let controller = NSHostingController(rootView: root)
-        let window = NSWindow(contentViewController: controller)
+        let window = picture ? PictureWindow(contentViewController: controller) : NSWindow(contentViewController: controller)
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
         window.title = L("Настройки Cooldown")
         window.titlebarAppearsTransparent = true
@@ -251,13 +262,25 @@ struct OptionToggle: View {
     let title: String
     var detail: String? = nil
     @Binding var isOn: Bool
+    @Environment(\.pictureMode) private var picture
 
     var body: some View {
-        Toggle(isOn: $isOn) {
-            Text(title)
-            if let detail { Text(detail) }
+        if picture {
+            // A drawn switch does not get the form's title-and-subtitle layout: laid out as it.
+            Toggle(isOn: $isOn) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                    if let detail { Text(detail).font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
+                }
+            }
+            .settingsSwitch()
+        } else {
+            Toggle(isOn: $isOn) {
+                Text(title)
+                if let detail { Text(detail) }
+            }
+            .settingsSwitch()
         }
-        .toggleStyle(.switch)
     }
 }
 
@@ -948,6 +971,59 @@ private struct SamplesButton: View {
             Button(L("Остановить примеры")) { toasts.stopExamples() }
         } else {
             Button(L("Показать примеры карточек")) { toasts.showExamples() }
+        }
+    }
+}
+
+/// Pictures only: a window that draws itself as the one in front (switches in colour, the
+/// window buttons lit) without being made key, so it never takes focus from the person.
+final class PictureWindow: NSWindow {
+    override var isKeyWindow: Bool { true }
+    override var isMainWindow: Bool { true }
+}
+
+private struct PictureModeKey: EnvironmentKey { static let defaultValue = false }
+
+extension EnvironmentValues {
+    /// Drawn for a picture (see `SettingsWindow.makeForPicture`).
+    var pictureMode: Bool {
+        get { self[PictureModeKey.self] }
+        set { self[PictureModeKey.self] = newValue }
+    }
+}
+
+extension View {
+    /// The system switch, or in a picture one drawn as in the window in front.
+    /// `bare`: a switch with its label hidden (only the switch is drawn).
+    func settingsSwitch(bare: Bool = false) -> some View { modifier(SettingsSwitch(bare: bare)) }
+}
+
+private struct SettingsSwitch: ViewModifier {
+    let bare: Bool
+    @Environment(\.pictureMode) private var picture
+    func body(content: Content) -> some View {
+        if picture { content.toggleStyle(PictureSwitch(bare: bare)) } else { content.toggleStyle(.switch) }
+    }
+}
+
+/// Pictures only: a switch drawn as macOS draws one in the window in front. A window off screen is
+/// never in front, and the system's own switches are then drawn grey.
+private struct PictureSwitch: ToggleStyle {
+    let bare: Bool
+    func makeBody(configuration: Configuration) -> some View {
+        let knob = ZStack(alignment: configuration.isOn ? .trailing : .leading) {
+            Capsule().fill(configuration.isOn ? Color.accentColor : Color.primary.opacity(0.18))
+            Circle().fill(.white).shadow(color: .black.opacity(0.25), radius: 1, y: 0.5).padding(2)
+        }
+        .frame(width: bare ? 26 : 32, height: bare ? 15 : 19)
+        if bare {
+            knob
+        } else {
+            HStack {
+                configuration.label
+                Spacer(minLength: 8)
+                knob
+            }
         }
     }
 }

@@ -449,7 +449,9 @@ private struct ToastView: View {
                     }
                     Text(content.title).font(.system(size: 14, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
                     if !content.body.isEmpty {
-                        Text(content.body).font(.callout).foregroundStyle(.secondary).lineLimit(3)
+                        Text(content.body).font(.callout).foregroundStyle(.secondary)
+                            // A card that waits for an answer may list several things (a guard card does): room for them.
+                            .lineLimit(content.life == .sticky ? 6 : 3)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     if content.requestKey != nil {
@@ -514,6 +516,27 @@ enum CardSamples {
             c.detail = "Какой email разрешить для входа?" // l10n:skip
             c.choices = [RequestChoice(id: "input", title: L("Ваш ответ"), role: .input), RequestChoice(id: "open", title: L("Ответить в чате"), role: .open)]
             return c
+        case "guard":
+            // The VPN dropped for Antigravity's route (made-up, as in the pictures of the README).
+            let country = Locale.current.localizedString(forRegionCode: "RU") ?? "RU"
+            return ToastContent(key: "route-guard", kind: .warning, provider: .antigravity,
+                                title: L("Маршрут к %@ идёт мимо VPN", "Antigravity"),
+                                body: [L("%@ видит страну «%@».", "Antigravity", country), L("На паузе: %@.", "Antigravity"),
+                                       L("%@ не отправит сообщения, пока маршрут не придёт в норму.", "Antigravity"),
+                                       L("Продолжу сам, когда всё наладится.")].joined(separator: "\n"),
+                                actions: [.guardPause, .guardCheck, .openSettings(.vpn)], life: .sticky)
+        case "exit":
+            let country = Locale.current.localizedString(forRegionCode: "NL") ?? "NL"
+            return ToastContent(key: "route-exit", kind: .info, provider: nil,
+                                title: L("Маршрут к %@ сменился", "Claude" + L(" и ") + "Codex"),
+                                body: L("%@: %@ → %@, %@", "Claude", L("США-1"), "198.51.100.7", country) + "\n"
+                                    + L("%@: %@ → %@, %@", "Codex", L("США-1"), "198.51.100.7", country) + "\n"
+                                    + L("Работа не остановлена. Разрешить этот адрес?"),
+                                actions: [.guardExit(.remember, "x"), .guardExit(.once, "x"), .guardExit(.refuse, "x")], life: .sticky)
+        case "paused":
+            return ToastContent(key: "route-paused", kind: .info, provider: nil, title: L("Защита VPN выключена"),
+                                body: L("До %@. Пока она выключена, агенты работают без проверки маршрута.", Format.clock(Date().addingTimeInterval(3600))),
+                                actions: [.guardResume], life: .sticky)
         default: return nil
         }
     }

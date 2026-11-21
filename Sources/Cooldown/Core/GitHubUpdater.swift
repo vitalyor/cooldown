@@ -103,6 +103,12 @@ final class GitHubUpdater: ObservableObject {
         }
     }
 
+    /// Pictures only: a release on offer with these notes (nothing is downloaded).
+    func showcase(version: String, notes: String) {
+        let page = URL(string: "https://github.com/vitalyor/cooldown/releases")!
+        available = Release(version: version, page: page, zip: page, sums: nil, notes: notes)
+    }
+
     /// The update mode changed in Settings.
     func modeChanged() {
         timer?.invalidate()

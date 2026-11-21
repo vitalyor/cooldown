@@ -31,7 +31,7 @@ struct GuardPane: View {
                             // The guard for this agent alone (on by default).
                             Toggle("", isOn: Binding(get: { !service.off }, set: { route.setOff(service, !$0) }))
                                 .labelsHidden()
-                                .toggleStyle(.switch)
+                                .settingsSwitch(bare: true)
                                 .controlSize(.mini)
                                 .help(L("Защита для %@", service.name))
                         }

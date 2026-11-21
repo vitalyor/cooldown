@@ -124,7 +124,13 @@ Id кнопок (`action`):
 - `continue`, `continueChat`, `continueAll`: отправить «продолжай» в чат на Mac.
 - `choice:<id>`: ответить на вопрос агента или запрос разрешения. `auth: true` — сначала Face ID.
 - `restart:<provider>` (`auth: true`): перезапустить Codex или Claude на Mac, когда он освободится (см. README).
-- `reply` (`input: true`): ответ текстом в `args.text`. Только у карточек «закончил».
+- `reply` (`input: true`, `auth: true`): ответ текстом в `args.text`. Только у карточек «закончил».
+- Защита VPN: `guardExit:<remember|once|refuse>:<key>` — ответ на карточку о новом адресе (Face ID, чтобы разрешить;
+  ответ на устаревшую карточку получает `stale`); `guardPause` (`auth: true`) выключает защиту на час; `guardResume`
+  включает её снова; `guardCheck` проверяет маршруты сейчас и отвечает, на паузе ли ещё агенты.
+- `installRelease` (`auth: true`): поставить новую версию Cooldown на Mac.
+- У вопроса из нескольких шагов id называет шаг (`choice:step1:option:0`): нажатие, предназначенное прошлому
+  вопросу, получает `stale`, а не попадает в следующий. Ответ текстом, как и «Разрешить», требует Face ID.
 
 Команды (`op`):
 

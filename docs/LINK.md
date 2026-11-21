@@ -121,9 +121,15 @@ Every frame is JSON with a type `t`:
 Button ids (`action`):
 
 - `continue`, `continueChat`, `continueAll`: send "continue" into the chat on the Mac.
-- `choice:<id>`: answer an agent's question or permission request. `auth: true` asks for Face ID first.
+- `choice:<id>`: answer an agent's question or permission request. `auth: true` asks for Face ID first
+  ("Allow" and typed answers). On a question of several the id names the step (`choice:step1:option:0`): a press
+  meant for an earlier question gets `stale` instead of landing on the next one.
 - `restart:<provider>` (`auth: true`): restart Codex or Claude on the Mac once it is free (see README).
-- `reply` (`input: true`): a text answer, sent in `args.text`. Only on "finished" cards.
+- `reply` (`input: true`, `auth: true`): a text answer, sent in `args.text`. Only on "finished" cards.
+- VPN guard: `guardExit:<remember|once|refuse>:<key>` answers a new-exit card (Face ID for allowing; an answer to
+  an older card gets `stale`); `guardPause` (`auth: true`) turns the guard off for an hour; `guardResume` turns it
+  back on; `guardCheck` checks the routes now and says whether the agents are still paused.
+- `installRelease` (`auth: true`): install the new version of Cooldown on the Mac.
 
 Commands (`op`):
 

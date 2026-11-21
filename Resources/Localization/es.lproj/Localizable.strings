@@ -18,8 +18,8 @@
 "%@ в запасе" = "%@ en reserva";
 "%@ в неожиданном формате, Cooldown его не трогает." = "%@ tiene un formato inesperado; Cooldown no modifica el archivo.";
 "%@ в час" = "%@ por hora";
-"%@ видит %@." = "%@ ve %@.";
-"%@ видят %@." = "%@ ven %@.";
+"%@ видит страну «%@»." = "%@ ve %@.";
+"%@ видят страну «%@»." = "%@ ven %@.";
 "%@ д" = "%@ d";
 "%@ д %@ ч" = "%@ d %@ h";
 "%@ ждут разрешения в Codex" = "%@ esperan aprobación en Codex";
@@ -1041,6 +1041,7 @@
 "Рефакторинг парсера" = "Refactorización del parser";
 "С" = "Desde";
 "С %@: %@" = "Desde %@: %@";
+"США-1" = "EE. UU.-1";
 "Самое время закоммитить то, что уже работает." = "Buen momento para hacer commit de lo que ya funciona.";
 "Самое время размяться и налить чаю." = "Momento perfecto para estirarte y preparar un té.";
 "Самые дорогие задачи" = "Las tareas más caras";
@@ -1197,7 +1198,7 @@
 "Хуки Codex" = "Hooks de Codex";
 "Хуки сообщают, когда Claude Code работает, и приносят его запросы разрешений в карточки, пока вы в другом приложении. В самом терминале он спрашивает как обычно." = "Los hooks avisan cuando Claude Code trabaja y llevan sus solicitudes de permiso a tarjetas mientras estás en otra app. En la propia terminal pregunta como siempre.";
 "Цель диалога не активна — решите, что с ней делать." = "El objetivo de la conversación no está activo: decide qué hacer con él.";
-"Часовой пояс Mac — %@, а VPN выходит в стране «%@». Приложения и сайты видят и то и другое, и несовпадение заметно. Поставьте пояс страны VPN: «Системные настройки → Основные → Дата и время»." = "La zona horaria del Mac es %@, pero la VPN sale en %@. Las apps y los sitios ven ambas cosas y la diferencia se nota. Pon la zona horaria del país de la VPN: Ajustes del Sistema → General → Fecha y hora.";
+"Часовой пояс Mac — %@, а VPN выходит в стране «%@». Приложения и сайты видят и то и другое, и несовпадение заметно." = "La zona horaria del Mac es %@, pero la VPN sale en %@. Las apps y los sitios ven ambas cosas y la diferencia se nota.";
 "Часовой пояс выдаёт VPN" = "La zona horaria delata la VPN";
 "Чат Claude" = "Chat de Claude";
 "Чат для продолжения" = "Chat para continuar";

@@ -18,8 +18,8 @@
 "%@ в запасе" = "%@ di riserva";
 "%@ в неожиданном формате, Cooldown его не трогает." = "%@ ha un formato inatteso; Cooldown non modifica il file.";
 "%@ в час" = "%@ all’ora";
-"%@ видит %@." = "%@ vede %@.";
-"%@ видят %@." = "%@ vedono %@.";
+"%@ видит страну «%@»." = "%@ vede %@.";
+"%@ видят страну «%@»." = "%@ vedono %@.";
 "%@ д" = "%@ g";
 "%@ д %@ ч" = "%@ g %@ h";
 "%@ ждут разрешения в Codex" = "%@ in attesa di approvazione in Codex";
@@ -1041,6 +1041,7 @@
 "Рефакторинг парсера" = "Refactoring del parser";
 "С" = "Dalle";
 "С %@: %@" = "Da %@: %@";
+"США-1" = "USA-1";
 "Самое время закоммитить то, что уже работает." = "Buon momento per fare commit di ciò che già funziona.";
 "Самое время размяться и налить чаю." = "Il momento perfetto per sgranchirsi e fare un tè.";
 "Самые дорогие задачи" = "Le attività più costose";
@@ -1197,7 +1198,7 @@
 "Хуки Codex" = "Hook di Codex";
 "Хуки сообщают, когда Claude Code работает, и приносят его запросы разрешений в карточки, пока вы в другом приложении. В самом терминале он спрашивает как обычно." = "Gli hook segnalano quando Claude Code lavora e portano le sue richieste di permesso nelle schede mentre sei in un’altra app. Nel terminale stesso chiede come sempre.";
 "Цель диалога не активна — решите, что с ней делать." = "L’obiettivo della conversazione non è attivo: decidi cosa farne.";
-"Часовой пояс Mac — %@, а VPN выходит в стране «%@». Приложения и сайты видят и то и другое, и несовпадение заметно. Поставьте пояс страны VPN: «Системные настройки → Основные → Дата и время»." = "Il fuso orario del Mac è %@, ma la VPN esce in %@. App e siti vedono entrambi, e la differenza si nota. Imposta il fuso del paese della VPN: Impostazioni di Sistema → Generali → Data e ora.";
+"Часовой пояс Mac — %@, а VPN выходит в стране «%@». Приложения и сайты видят и то и другое, и несовпадение заметно." = "Il fuso orario del Mac è %@, ma la VPN esce in %@. App e siti vedono entrambi, e la differenza si nota.";
 "Часовой пояс выдаёт VPN" = "Il fuso orario tradisce la VPN";
 "Чат Claude" = "Chat di Claude";
 "Чат для продолжения" = "Chat da riprendere";

@@ -1343,8 +1343,8 @@
  "Одна или две линии, в порядке Codex, Claude, Antigravity. Чтобы выбрать другую, сначала снимите одну из отмеченных.": "Eine oder zwei Linien, in der Reihenfolge Codex, Claude, Antigravity. Um eine andere zu wählen, schalte zuerst eine der aktiven aus.",
  "Так значок выглядит сейчас. Длина линии — сколько осталось в выбранном окне.": "So sieht das Symbol gerade aus. Die Länge einer Linie zeigt, wie viel im gewählten Fenster übrig ist.",
  "%@ · %@ · %@ назад": "%@ · %@ · vor %@",
- "%@ видит %@.": "%@ sieht %@.",
- "%@ видят %@.": "%@ sehen %@.",
+ "%@ видит страну «%@».": "%@ sieht %@.",
+ "%@ видят страну «%@».": "%@ sehen %@.",
  "%@ не отправит сообщения, пока маршрут не придёт в норму.": "%@ sendet keine Nachrichten, bis die Route wieder stimmt.",
  "%@ — работа остановлена": "%@ – Arbeit gestoppt",
  "%@: адрес %@ вы запретили.": "%@: Die Adresse %@ hast du blockiert.",
@@ -1409,7 +1409,7 @@
  "Новое раньше всех, но возможны шероховатости. Если выключить, следующей придёт обычная версия.": "Neues zuerst, kleine Ecken und Kanten sind möglich. Ausgeschaltet kommt als Nächstes wieder eine normale Version.",
  "И агентов в Терминале": "Auch Agenten im Terminal",
  "Claude Code, Codex и Antigravity CLI, запущенные в Терминале, тоже замирают, даже посреди ответа. Терминал не реагирует, пока VPN не вернётся, потом всё продолжится. Выключено — их сообщения держат хуки.": "Claude Code, Codex und Antigravity CLI im Terminal halten ebenfalls an, auch mitten in einer Antwort. Das Terminal reagiert nicht, bis das VPN zurück ist, dann geht alles weiter. Aus: Ihre Hooks halten die Nachrichten zurück.",
- "Часовой пояс Mac — %@, а VPN выходит в стране «%@». Приложения и сайты видят и то и другое, и несовпадение заметно. Поставьте пояс страны VPN: «Системные настройки → Основные → Дата и время».": "Die Zeitzone des Mac ist %@, das VPN tritt aber in %@ aus. Apps und Websites sehen beides, und der Unterschied fällt auf. Stellen Sie die Zeitzone des VPN-Landes ein: Systemeinstellungen → Allgemein → Datum & Uhrzeit.",
+ "Часовой пояс Mac — %@, а VPN выходит в стране «%@». Приложения и сайты видят и то и другое, и несовпадение заметно.": "Die Zeitzone des Mac ist %@, das VPN tritt aber in %@ aus. Apps und Websites sehen beides, und der Unterschied fällt auf.",
  "Часовой пояс выдаёт VPN": "Die Zeitzone verrät das VPN",
  "Снова можно работать: %@ (через %@).": "Wieder arbeiten: %@ (in %@).",
  "Снова можно работать: %@.": "Wieder arbeiten: %@.",
@@ -1441,5 +1441,6 @@
  "Хук защиты": "Schutz-Hook",
  "защита выключена": "Schutz ist aus",
  "не проверяется": "wird nicht geprüft",
- "пояс не изменён (отменено или нет прав)": "Zeitzone nicht geändert (abgebrochen oder keine Berechtigung)"
+ "пояс не изменён (отменено или нет прав)": "Zeitzone nicht geändert (abgebrochen oder keine Berechtigung)",
+ "США-1": "USA-1"
 }

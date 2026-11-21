@@ -976,7 +976,7 @@ final class RouteGuard: ObservableObject {
             return
         }
         timeZoneTarget = TimeZoneCheck.zones[exit.country]?.first
-        timeZoneNote = L("Часовой пояс Mac — %@, а VPN выходит в стране «%@». Приложения и сайты видят и то и другое, и несовпадение заметно. Поставьте пояс страны VPN: «Системные настройки → Основные → Дата и время».",
+        timeZoneNote = L("Часовой пояс Mac — %@, а VPN выходит в стране «%@». Приложения и сайты видят и то и другое, и несовпадение заметно.",
                          zone.identifier, exit.countryName)
         // Said once per country and zone; the note in Settings stays.
         let key = exit.country + "|" + zone.identifier
@@ -1065,7 +1065,7 @@ final class RouteGuard: ObservableObject {
         // Grouped by country: "Claude and Codex see Russia".
         let byCountry = Dictionary(grouping: forbidden) { verdict($0).1?.countryName ?? "?" }
         for (country, services) in byCountry.sorted(by: { $0.key < $1.key }) {
-            lines.append(services.count == 1 ? L("%@ видит %@.", Self.names(services), country) : L("%@ видят %@.", Self.names(services), country))
+            lines.append(services.count == 1 ? L("%@ видит страну «%@».", Self.names(services), country) : L("%@ видят страну «%@».", Self.names(services), country))
         }
         for service in refused {
             lines.append(L("%@: адрес %@ вы запретили.", service.name, verdict(service).1?.ip ?? "?"))
@@ -1095,6 +1095,26 @@ final class RouteGuard: ObservableObject {
         guard names.count > 1 else { return names.first ?? "" }
         return names.dropLast().joined(separator: ", ") + L(" и ") + names.last!
     }
+
+    /// Pictures only (`--settings-snapshot`): made-up readings and exits, in a settings store of
+    /// its own (the real addresses never appear), nothing checked or frozen.
+    func showcase() {
+        Self.quiet = true
+        Self.installsHooks = false
+        Settings.testDefaults = UserDefaults(suiteName: Self.pictureSuite)
+        Settings.testDefaults?.removePersistentDomain(forName: Self.pictureSuite)
+        Settings.set(true, forKey: SettingsKey.guardEnabled)
+        let ip = "203.0.113.24" // an address for documentation (RFC 5737)
+        Settings.guardExits = ["anthropic": [ip: L("США-1")], "openai": [ip: L("США-1")]]
+        Settings.guardOff = ["google"]
+        let exit = RouteExit(ip: ip, country: "US", colo: "ORD")
+        for service in [GuardService.anthropic, .openai] {
+            readings[service] = RouteReading(verdict: .ok, exit: exit, appVerdict: .ok, appExit: exit, at: Date().addingTimeInterval(-20))
+        }
+        checkTimeZone()
+    }
+
+    static let pictureSuite = "cooldown-pictures"
 
     /// The guard for one agent alone: off leaves its route unchecked, its apps and hooks alone.
     func setOff(_ service: GuardService, _ off: Bool) {

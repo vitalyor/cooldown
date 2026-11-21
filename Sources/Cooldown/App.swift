@@ -86,6 +86,39 @@ enum Entry {
             print(failures.isEmpty ? "guard-terminal-test: all passed" : "FAILED:\n" + failures.joined(separator: "\n"))
             exit(failures.isEmpty ? 0 : 1)
         }
+        if let index = arguments.firstIndex(of: "--settings-snapshot"), index + 2 < arguments.count {
+            // Pictures: a settings pane on made-up data, drawn off screen (nothing appears or takes focus).
+            let pane = SettingsPane(rawValue: arguments[index + 1]) ?? .general
+            let out = arguments[index + 2]
+            // Created first, as the app object: it says it is active, so controls are drawn in colour
+            // as in the window in front, while it never takes focus from the person.
+            let app = PictureApplication.shared
+            app.setActivationPolicy(.prohibited)
+            Task { @MainActor in
+                AppModel.shared.isRenderMode = true
+                AppModel.shared.startForPictures()
+                RouteGuard.shared.showcase()
+                if let notes = arguments.firstIndex(of: "--notes").flatMap({ $0 + 2 < arguments.count ? arguments[$0 + 1] : nil }),
+                   let text = try? String(contentsOfFile: notes, encoding: .utf8) {
+                    GitHubUpdater.shared.showcase(version: arguments[arguments.firstIndex(of: "--notes")! + 2], notes: text)
+                }
+                let height = arguments.firstIndex(of: "--height").flatMap { Double(arguments[$0 + 1]) } ?? 640
+                let window = SettingsWindow.shared.makeForPicture(pane, height: height)
+                window.setFrameOrigin(NSPoint(x: -4000, y: 0))
+                window.orderBack(nil)
+                try? await Task.sleep(for: .seconds(4))
+                let shot = Process()
+                shot.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+                // With the window's shadow, as the other pictures.
+                shot.arguments = ["-x", "-l", "\(window.windowNumber)", out]
+                try? shot.run()
+                shot.waitUntilExit()
+                Settings.testDefaults?.removePersistentDomain(forName: RouteGuard.pictureSuite)
+                exit(0)
+            }
+            app.run()
+            return
+        }
         if let index = arguments.firstIndex(where: { $0 == "--guard-test" || $0 == "--guard-test-hold" }), index + 2 < arguments.count {
             let home = arguments[index + 1], dummy = arguments[index + 2]
             if arguments[index] == "--guard-test-hold" { MainActor.assumeIsolated { GuardTest.hold(home: home, dummy: dummy) } }
@@ -227,6 +260,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var controller: StatusController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Pictures (`--snapshot`, `--showcase`): a second copy next to the real one, on demo data.
+        // Nothing that watches or acts starts in it: no VPN guard (it would freeze the agents' apps),
+        // no phone link (a second device on the same account), no hooks, readers or hotkey.
+        let picture = CommandLine.arguments.contains("--snapshot") || CommandLine.arguments.contains("--showcase")
+        if picture {
+            MainActor.assumeIsolated {
+                AppModel.shared.startForPictures()
+                let snapshot = prepareSnapshot()
+                controller = StatusController(model: AppModel.shared)
+                if let snapshot { scheduleSnapshot(snapshot) }
+            }
+            return
+        }
         Notifier.shared.setup()
         MainActor.assumeIsolated {
             AppModel.shared.start()
@@ -352,6 +398,24 @@ enum RenderMode {
                 print("ok \(out)")
                 exit(0)
             }
+            if let names = value("--cards") {
+                // Several cards in a column, as they stack under the icon (pictures for the README).
+                let contents = names.split(separator: ",").compactMap { CardSamples.content(String($0)) }
+                let view = VStack(spacing: 16) {
+                    ForEach(Array(contents.enumerated()), id: \.offset) { _, content in
+                        CardSamples.view(content).frame(width: 360)
+                            .shadow(color: .black.opacity(0.28), radius: 14, y: 6)
+                    }
+                }
+                .padding(28)
+                .environment(\.colorScheme, dark ? .dark : .light)
+                let renderer = ImageRenderer(content: view)
+                renderer.scale = 2
+                renderer.isOpaque = false
+                if let image = renderer.nsImage, let png = pngData(image) { try? png.write(to: URL(fileURLWithPath: out)) }
+                print("ok \(out)")
+                exit(0)
+            }
             if let name = value("--card") {
                 guard let content = CardSamples.content(name) else { exit(2) }
                 let renderer = ImageRenderer(content: CardSamples.view(content).padding(12)
@@ -395,4 +459,9 @@ enum RenderMode {
         NSGraphicsContext.restoreGraphicsState()
         return rep.representation(using: .png, properties: [:])
     }
+}
+
+/// Pictures only (see `--settings-snapshot`).
+final class PictureApplication: NSApplication {
+    override var isActive: Bool { true }
 }

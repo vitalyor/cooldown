@@ -21,7 +21,7 @@ struct PhonePane: View {
                 Text(L("Cooldown для iPhone"))
                 Text(L("Карточки с кнопками, лимиты, задачи и Live Activity на телефоне. Нажатое там выполняет этот Mac."))
             }
-            .toggleStyle(.switch)
+            .settingsSwitch()
             .disabled(link.busy)
             if link.account != nil {
                 HStack(spacing: 6) {

@@ -17,6 +17,8 @@ A Swift package, SwiftUI + AppKit, no third-party dependencies. The window is a 
 | `Core/PhoneLink*` | the iPhone link on the Mac: cards and state out, commands in (see [LINK.md](LINK.md)) |
 | `Core/CodexLink`, `Core/AgentRestart` | noticing that Codex stopped answering Cooldown; a safe restart of Codex or Claude |
 | `Sources/CooldownLink/` | the end-to-end encrypted link shared by the Mac and the iPhone app |
+| `Core/RouteGuard`, `Core/NetWatch` | the VPN guard: route checks per service, network events, freezing apps (`Freezer`), the hook files, the time zone |
+| `Core/AntigravityLimits` | Antigravity's limits from its own `agy /usage` |
 
 ## One coordinator for events
 
@@ -29,6 +31,32 @@ turns are not announced; duration and the share of the limit are counted from th
 Several sources are merged by one rule (`ClaudeLimits.merge`): for each window the current one is
 taken (the latest reset time), and among readings of that window the highest wins (usage only grows
 within a window). Readings more than 20 minutes older than the freshest are ignored.
+
+## VPN guard
+
+`RouteGuard` asks each service where a request along its route comes from: Cloudflare's `/cdn-cgi/trace`
+on `api.anthropic.com`, `claude.ai`, `chatgpt.com` and `api.openai.com`; for Antigravity YouTube's service data,
+fetched with `curl --connect-to` through `cloudcode-pa.googleapis.com`, so the route is Antigravity's own.
+IPv4 and IPv6 apart, and through the system proxy if one is set; the worst answer counts.
+
+- **When.** Every 5 s while an agent works or its app is in front, 15 s otherwise, 5 s for the first minute of
+  a problem; Google at most every 15 s while Antigravity runs, every minute otherwise (frequent anonymous
+  requests look like a robot to it). At once after a network change: `NetWatch` reads the kernel's routing
+  socket and SystemConfiguration's proxy settings, and a fingerprint of the network (interface addresses,
+  default routes, proxies) tells a real change from noise.
+- **Holding.** A reading that is wrong, or unanswered twice, holds Cooldown's own requests (`RouteGuard.gate`)
+  and the agents: hooks in Claude Code (`UserPromptSubmit`, `PostToolBatch`), Codex (`UserPromptSubmit`) and
+  Antigravity (`PreInvocation` in `~/.gemini/config/hooks.json`) read the guard's files and check by themselves
+  when Cooldown's answer is missing or old. `Freezer` pauses the apps with SIGSTOP and lets them go with SIGCONT;
+  agents in a terminal optionally, with their shell held first so they stay the foreground job.
+- **Settling.** After a network change or a wake the apps pause until the next check (usually under a second);
+  an unanswered check then waits 15 s before it raises a card. Before sleep nothing is frozen (a stopped app
+  would hold the sleep up).
+- **Failing safe both ways.** A watcher shell started in a session of its own resumes everything within two
+  seconds if Cooldown dies; a pause writes its end time into the hooks' files, so it ends even with Cooldown closed.
+- **Tests.** `Cooldown --guard-test <home> <dummy.app>` runs the guard end to end on made-up answers and a
+  throwaway app; `--guard-test-terminal`, `--guard-test … --tree` and `--guard-hooks-test` (on copies of the
+  agents' settings) cover the rest.
 
 ## Keeping resource use low
 
@@ -61,11 +89,14 @@ Cooldown --hooks status            # hook state (install / uninstall)
 Cooldown --menu-icon out.png       # the menu bar icon in different states
 Cooldown --render --out out.png --provider codex --tab stats   # the window as a picture
 Cooldown --showcase --demo 1 --tab limits --clean   # the real window on demo data, for screenshots
-Cooldown --snapshot out.png --tab tasks --provider claude   # the real window with real data, as on screen
+Cooldown --snapshot out.png --tab tasks --provider claude   # the real window on saved data, as on screen
+Cooldown --settings-snapshot vpn out.png --height 760   # a settings pane on made-up data, drawn off screen
+Cooldown --render --dark --cards guard,exit,request,paused --out out.png   # cards in a column (README pictures)
 Cooldown --render --card request --dark   # one card; --render --menu for the menu bar picture
 Cooldown --selftest                       # built-in checks
 scripts/check-all.sh                      # build, self-test and unit tests
 scripts/icon-preview.sh                   # every look of the app icon
+scripts/readme-shots.sh                   # the README pictures, off screen, in English and Russian
 ```
 
 What the sources did and why a card was or wasn't shown is in
