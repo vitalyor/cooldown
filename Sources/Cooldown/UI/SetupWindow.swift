@@ -60,7 +60,7 @@ struct SetupView: View {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(L("Настройка Cooldown")).font(.system(size: 26, weight: .bold, design: .rounded))
-                    Text(L("Чтобы показывать лимиты, Cooldown нужны Claude Code и Codex на этом Mac. Пройдите шаги ниже: всё делается здесь, кроме входа в браузере."))
+                    Text(L("Cooldown показывает лимиты тех агентов, которыми вы пользуетесь. Для лимитов Claude нужен Claude Code, даже если вы пишете в Claude Desktop. Ненужного агента можно пропустить. Всё делается здесь, кроме входа в браузере."))
                         .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
                 AgentCard(provider: .claude)

@@ -1268,7 +1268,7 @@
  "Скопировать текст для нейросети": "Copy Text for the Assistant",
  "Устанавливается": "Installing",
  "Установить %@": "Install %@",
- "Чтобы показывать лимиты, Cooldown нужны Claude Code и Codex на этом Mac. Пройдите шаги ниже: всё делается здесь, кроме входа в браузере.": "To show limits, Cooldown needs Claude Code and Codex on this Mac. Follow the steps below: everything happens here except signing in through your browser.",
+ "Cooldown показывает лимиты тех агентов, которыми вы пользуетесь. Для лимитов Claude нужен Claude Code, даже если вы пишете в Claude Desktop. Ненужного агента можно пропустить. Всё делается здесь, кроме входа в браузере.": "Cooldown shows limits for the agents you use. Claude limits need Claude Code, even if you chat in Claude Desktop. You can skip an agent you don't use. Everything happens here, except signing in in the browser.",
  "Я не пользуюсь %@": "I don't use %@",
  "Показывать карточки на снимках экрана": "Show cards in screenshots",
  "Для скриншотов и записи экрана. Выключено: карточек не видно на снимках, в записи и при показе экрана — в них бывают промпты и ответы агентов.": "For screenshots and screen recordings. Off: cards stay out of screenshots, recordings and screen sharing — they may contain prompts and agent replies.",

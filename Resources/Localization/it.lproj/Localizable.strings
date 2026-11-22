@@ -214,6 +214,7 @@
 "Cooldown открывает в Claude Code экран /usage, как если бы вы набрали команду сами. Запросов к модели нет, токены не тратятся. Лимиты общие для подписки, поэтому учитывается и расход в Claude Desktop." = "Cooldown apre la schermata /usage in Claude Code, come se digitassi il comando tu. Nessuna richiesta al modello, nessun token consumato. I limiti sono comuni all’abbonamento, quindi conta anche l’uso in Claude Desktop.";
 "Cooldown открывает экран /usage в Claude Code и сразу закрывает. Запросов к модели нет, токены не тратятся; лимиты общие для всей подписки." = "Cooldown apre la schermata /usage in Claude Code e la chiude subito. Nessuna richiesta al modello, nessun token consumato; i limiti sono comuni a tutto l’abbonamento.";
 "Cooldown по очереди пробует каждое звено: приложения, лимиты, хуки, окно Claude, уведомления, обновления и свои правила безопасности. Ничего не отправляет и не меняет." = "Cooldown prova a turno ogni anello: app, limiti, hook, finestra di Claude, notifiche, aggiornamenti e le proprie regole di sicurezza. Non invia e non modifica nulla.";
+"Cooldown показывает лимиты тех агентов, которыми вы пользуетесь. Для лимитов Claude нужен Claude Code, даже если вы пишете в Claude Desktop. Ненужного агента можно пропустить. Всё делается здесь, кроме входа в браузере." = "Cooldown mostra i limiti degli agenti che usi. Per i limiti di Claude serve Claude Code, anche se scrivi in Claude Desktop. Puoi saltare l’agente che non usi. Tutto si fa qui, tranne l’accesso nel browser.";
 "Cooldown продолжает чат" = "Cooldown sta riprendendo una chat";
 "Cooldown продолжил задач: %@" = "Cooldown ha continuato attività: %@";
 "Cooldown продолжил: %@" = "Cooldown ha ripreso: %@";
@@ -1229,7 +1230,6 @@
 "Что уже работает, запуск и частота проверок" = "Cosa funziona già, avvio e frequenza dei controlli";
 "Чтобы видеть чаты Claude, нужен «Универсальный доступ» для Cooldown (Настройки → Готовность)." = "Per vedere le chat di Claude, Cooldown ha bisogno dell'autorizzazione Accessibilità (Impostazioni → Preparazione).";
 "Чтобы недельного лимита хватило до сброса %@, в день можно около %@. Завтра стоит полегче." = "Perché il limite settimanale di %@ arrivi al ripristino vanno bene circa %@ al giorno. Domani meglio rallentare un po’.";
-"Чтобы показывать лимиты, Cooldown нужны Claude Code и Codex на этом Mac. Пройдите шаги ниже: всё делается здесь, кроме входа в браузере." = "Per mostrare i limiti, Cooldown ha bisogno di Claude Code e Codex su questo Mac. Segui i passaggi: tutto avviene qui, tranne l’accesso nel browser.";
 "Чтобы хватило до сброса, в день можно около %@." = "Per arrivare al ripristino vanno bene circa %@ al giorno.";
 "Чтобы хватило до сброса: до %@ в день" = "Per arrivare al ripristino: fino a %@ al giorno";
 "Чуть сбавьте обороты — или запланируйте паузу." = "Rallenta un po’, oppure pianifica una pausa.";
