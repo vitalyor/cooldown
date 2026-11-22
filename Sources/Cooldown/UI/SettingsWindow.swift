@@ -747,6 +747,7 @@ private struct ClaudePane: View {
 private struct DiagnosticsPane: View {
     @ObservedObject private var diagnostics = Diagnostics.shared
     @State private var copied = false
+    @State private var saving = false
 
     var body: some View {
         Section {
@@ -763,6 +764,26 @@ private struct DiagnosticsPane: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(diagnostics.running)
+            }
+            .padding(.vertical, 2)
+        }
+        Section {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L("Отчёт для разработчика")).font(.headline)
+                    Footnote(text: L("Один текстовый файл: результаты проверки, версии программ, настройки, лимиты и последние записи журнала. Названия чатов, IP-адреса, почта и имя пользователя из него убраны. Никуда не отправляется: прочитайте его и пришлите разработчику сами."))
+                }
+                Spacer()
+                Button {
+                    saving = true
+                    Task {
+                        await DebugReport.save()
+                        saving = false
+                    }
+                } label: {
+                    if saving { ProgressView().controlSize(.small) } else { Text(L("Сохранить…")) }
+                }
+                .disabled(saving || diagnostics.running)
             }
             .padding(.vertical, 2)
         }

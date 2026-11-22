@@ -23,6 +23,8 @@ final class Diagnostics: ObservableObject {
     @Published private(set) var checks: [Check] = []
     @Published private(set) var running = false
     @Published private(set) var finished: Date?
+    /// The chat title the window check saw: left out of the copied report.
+    private var seenChat: String?
 
     var summary: (ok: Int, warnings: Int, failed: Int) {
         (checks.filter { $0.verdict == .ok }.count, checks.filter { $0.verdict == .warning }.count, checks.filter { $0.verdict == .failed }.count)
@@ -179,16 +181,22 @@ final class Diagnostics: ObservableObject {
             }
             return nil
         }.value
+        seenChat = chat
         set("claude-window", chat == nil ? .warning : .ok,
             chat.map { L("Виден чат «%@»", "\($0)") } ?? L("Окно читается, но открытого чата не видно"),
             advice: chat == nil ? L("Откройте любой чат в Claude Desktop и повторите.") : nil, since: start)
     }
 
     private func system() async {
-        let settings = await UNUserNotificationCenter.current().notificationSettings()
-        let allowed = settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
-        set("notifications", allowed ? .ok : .warning, allowed ? L("Разрешены") : L("Выключены в Системных настройках"),
-            advice: allowed ? nil : L("Без них Cooldown не сможет сообщить, когда экран заблокирован."))
+        // Notification settings exist only for an app bundle (not a bare build run from the command line).
+        if Bundle.main.bundleURL.pathExtension == "app" {
+            let settings = await UNUserNotificationCenter.current().notificationSettings()
+            let allowed = settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
+            set("notifications", allowed ? .ok : .warning, allowed ? L("Разрешены") : L("Выключены в Системных настройках"),
+                advice: allowed ? nil : L("Без них Cooldown не сможет сообщить, когда экран заблокирован."))
+        } else {
+            set("notifications", .skipped, "not an app bundle")
+        }
 
         var start = Date()
         let updater = GitHubUpdater.shared
@@ -221,7 +229,9 @@ final class Diagnostics: ObservableObject {
             case .skipped: mark = "–"
             case .running: mark = "…"
             }
-            var line = "\(mark) \(check.title): \(check.detail)"
+            // The chat seen in Claude Desktop is the person's own: the report is meant to be shared.
+            let detail = seenChat.flatMap { $0.isEmpty ? nil : $0 }.map { check.detail.replacingOccurrences(of: $0, with: "…") } ?? check.detail
+            var line = "\(mark) \(check.title): \(detail)"
             if let millis = check.millis, millis > 300 { line += L(" (%@ мс)", "\(millis)") }
             lines.append(line)
             if let advice = check.advice { lines.append("    → \(advice)") }

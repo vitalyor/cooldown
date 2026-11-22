@@ -241,8 +241,11 @@ actor ClaudeUsageCLI {
                 continue
             }
             if let seen = sawLimits {
+                // Claude Code 2.1.30x draws the cached numbers, then "Refreshing…" until the server
+                // answers (a second, or several over a slow VPN). A pause in the output while it still
+                // says so is not the end: wait for it (up to 15 s), or the redraw shows cached numbers.
                 let quiet = Date().timeIntervalSince(lastOutput)
-                if quiet > 0.9 || Date().timeIntervalSince(seen) > 10 {
+                if Date().timeIntervalSince(seen) > 15 || (quiet > 0.9 && !Self.refreshing(plain(bytes))) {
                     redrawFrom = bytes.count
                     lastOutput = Date()
                     var wider = winsize(ws_row: Self.rows, ws_col: 121, ws_xpixel: 0, ws_ypixel: 0)
@@ -276,6 +279,7 @@ actor ClaudeUsageCLI {
                 if text.range(of: #"Current\s*week"#, options: .regularExpression) != nil,
                    text.components(separatedBy: "Resets").count > 2 {
                     sawLimits = Date()
+                    deadline = max(deadline, Date().addingTimeInterval(20))
                 }
             }
             if !process.isRunning { break }
@@ -301,8 +305,18 @@ actor ClaudeUsageCLI {
             throw UsageError.signedOut
         }
         if text.localizedCaseInsensitiveContains("trust") { throw UsageError.trust }
-        if text.replacingOccurrences(of: " ", with: "").contains("Failedtoloadusagedata") { throw UsageError.serverFailed }
+        if text.replacingOccurrences(of: " ", with: "").contains("Failedtoloadusagedata") || refreshing(text) {
+            throw UsageError.serverFailed
+        }
         throw UsageError.unreadable
+    }
+
+    /// Claude Code is still fetching the limits: "Refreshing…" is the last thing it drew (only
+    /// "Esc to cancel" after it). Once the answer comes, it draws more below or in its place.
+    static func refreshing(_ text: String) -> Bool {
+        guard let marker = text.range(of: "Refreshing", options: .backwards) else { return false }
+        let after = String(text[marker.upperBound...].filter { !$0.isWhitespace })
+        return after.replacingOccurrences(of: "Esctocancel", with: "", options: .caseInsensitive).count < 40
     }
 
     /// The last drawing of the limits (from the last "Current session" on).

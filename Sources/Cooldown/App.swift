@@ -47,6 +47,16 @@ enum Entry {
             }
             exit(0)
         }
+        if let index = arguments.firstIndex(of: "--debug-report"), index + 1 < arguments.count {
+            // Writes the developer report (as Settings → Diagnostics does) to the given file.
+            Task { @MainActor in
+                let text = await DebugReport.build()
+                try? text.write(to: URL(fileURLWithPath: arguments[index + 1]), atomically: true, encoding: .utf8)
+                exit(0)
+            }
+            RunLoop.main.run()
+            exit(0)
+        }
         if arguments.contains("--claude-usage") {
             // Diagnostic: prints what Cooldown reads from Claude Code's /usage screen.
             // The reader reports to the main thread, so the main run loop keeps going meanwhile.

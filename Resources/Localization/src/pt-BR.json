@@ -1447,5 +1447,7 @@
  "Напоминать о часовом поясе": "Lembrar do fuso horário",
  "Напомню позже.": "Vou lembrar mais tarde.",
  "Отложить на день": "Lembrar amanhã",
- "Отложить на час": "Lembrar em uma hora"
+ "Отложить на час": "Lembrar em uma hora",
+ "Отчёт для разработчика": "Relatório para o desenvolvedor",
+ "Один текстовый файл: результаты проверки, версии программ, настройки, лимиты и последние записи журнала. Названия чатов, IP-адреса, почта и имя пользователя из него убраны. Никуда не отправляется: прочитайте его и пришлите разработчику сами.": "Um arquivo de texto: resultados da verificação, versões das ferramentas, ajustes, limites e as últimas entradas do registro. Nomes de chats, endereços IP, e-mail e nome de usuário são removidos. Nada é enviado: leia e envie você mesmo ao desenvolvedor."
 }

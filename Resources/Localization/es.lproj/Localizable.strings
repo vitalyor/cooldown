@@ -779,6 +779,7 @@
 "Обновления с GitHub" = "Actualizaciones desde GitHub";
 "Обновляю Cooldown на Mac до %@…" = "Actualizando Cooldown en el Mac a %@…";
 "Обычно телефон молчит, пока вы за Mac, и включается, когда Mac заблокирован или вас нет у него пару минут." = "Normalmente el teléfono no avisa mientras estás en el Mac y toma el relevo cuando el Mac está bloqueado o llevas un par de minutos fuera.";
+"Один текстовый файл: результаты проверки, версии программ, настройки, лимиты и последние записи журнала. Названия чатов, IP-адреса, почта и имя пользователя из него убраны. Никуда не отправляется: прочитайте его и пришлите разработчику сами." = "Un archivo de texto: resultados de la comprobación, versiones de las herramientas, ajustes, límites y las últimas entradas del registro. Se quitan los nombres de chats, las direcciones IP, el correo y el nombre de usuario. No se envía nada: léelo y envíaselo tú al desarrollador.";
 "Одна или две линии, в порядке Codex, Claude, Antigravity. Чтобы выбрать другую, сначала снимите одну из отмеченных." = "Una o dos líneas, en el orden Codex, Claude, Antigravity. Para elegir otra, primero desactiva una de las marcadas.";
 "Одобрить" = "Aprobar";
 "Окно" = "Ventana";
@@ -859,6 +860,7 @@
 "Отсканируйте QR-код — здесь или камерой iPhone" = "Escanea el código QR, aquí o con la cámara del iPhone";
 "Отсканируйте камерой iPhone" = "Escanea con la cámara del iPhone";
 "Отслеживаемые задачи Cooldown продолжит сам." = "Cooldown continúa solo las tareas vigiladas.";
+"Отчёт для разработчика" = "Informe para el desarrollador";
 "Оценка по ценам API на октябрь 2026" = "Estimación a precios de la API de octubre de 2026";
 "Очистить" = "Borrar";
 "Папка %@ не найдена." = "No se encontró la carpeta %@.";

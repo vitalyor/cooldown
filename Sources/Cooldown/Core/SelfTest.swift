@@ -187,6 +187,19 @@ enum SelfTest {
         let cachedOnly = ClaudeUsageCLI.read(stream: "Current session 98% used Resets 9:30pm Refreshing… Current week (all models) 2% used Resets Oct 23 at 7pm",
                                              redraw: nil, now: now)
         expect(cachedOnly?.session == nil && cachedOnly?.weekly?.usedPercent == 2, "cached session is not used")
+        // Claude Code 2.1.30x: "Refreshing…" at the bottom until the server answers.
+        expect(ClaudeUsageCLI.refreshing("Current session 3% used Resets 2:29pm Usage credits are off Refreshing…\n\nEsc to cancel"),
+               "still fetching")
+        expect(!ClaudeUsageCLI.refreshing("Current session 3% used Resets 2:29pm Refreshing… Esc to cancel Last 24h · 97% of your usage was at >150k context "
+                                          + "Usage credits are off · /usage-credits to turn them on Esc to cancel"), "fetched")
+        let newer = "Current session 8% used Resets 2:29pm Current week (all models) 17% used Resets Nov 27 at 6:59pm Usage credits are off "
+        let fetched = ClaudeUsageCLI.read(stream: newer + "Refreshing… Esc to cancel Last 24h Usage credits are off Esc to cancel " + newer + "Esc to cancel",
+                                          redraw: newer + "Esc to cancel", now: now)
+        expect(fetched?.session?.usedPercent == 8 && fetched?.weekly?.usedPercent == 17, "the redraw after the fetch is read")
+
+        // The developer report keeps nothing personal, and keeps clock times and versions.
+        let redacted = DebugReport.redact("start «Мой чат» 203.0.113.24 2a02:6b8::1 13:05:12.268 v2.1.303 a@b.co token=abc123 Bearer abcdefgh12")
+        expect(redacted == "start «…» <ip> <ip> 13:05:12.268 v2.1.303 <email> token=<hidden> Bearer <hidden>", "report redaction: \(redacted)")
 
         // Russian plural forms.
         expect(AppLanguage.pluralIndex(1, forms: 3) == 0 && AppLanguage.pluralIndex(3, forms: 3) == 1

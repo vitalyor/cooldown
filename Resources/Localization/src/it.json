@@ -1447,5 +1447,7 @@
  "Напоминать о часовом поясе": "Ricorda il fuso orario",
  "Напомню позже.": "Te lo ricorderò più tardi.",
  "Отложить на день": "Ricordamelo domani",
- "Отложить на час": "Ricordamelo tra un'ora"
+ "Отложить на час": "Ricordamelo tra un'ora",
+ "Отчёт для разработчика": "Rapporto per lo sviluppatore",
+ "Один текстовый файл: результаты проверки, версии программ, настройки, лимиты и последние записи журнала. Названия чатов, IP-адреса, почта и имя пользователя из него убраны. Никуда не отправляется: прочитайте его и пришлите разработчику сами.": "Un file di testo: risultati del controllo, versioni degli strumenti, impostazioni, limiti e le ultime voci del registro. Nomi delle chat, indirizzi IP, e-mail e nome utente vengono rimossi. Non viene inviato nulla: leggilo e invialo tu allo sviluppatore."
 }
