@@ -331,7 +331,8 @@ public final class LinkClient {
     private var wanted = false
     private var attempt = 0
     private var retry: Task<Void, Never>?
-    private var outbox: [LinkFrame] = []
+    /// Frames waiting for a connection, with when they were queued.
+    private var outbox: [(frame: LinkFrame, at: Date)] = []
     /// Envelopes written but not yet acknowledged by the relay. A connection can die with frames
     /// still in its buffer; those go again on the next one (the relay drops a second copy).
     private var unacked: [(id: String, frame: LinkFrame, at: Date)] = []
@@ -371,8 +372,8 @@ public final class LinkClient {
         } else {
             // Only the newest of frames that replace each other ("keep": the state, a Live
             // Activity): after an outage the phone gets today's picture, not every one before it.
-            if let keep = frame.keep, let to = frame.to { outbox.removeAll { $0.keep == keep && $0.to == to } }
-            outbox.append(frame)
+            if let keep = frame.keep, let to = frame.to { outbox.removeAll { $0.frame.keep == keep && $0.frame.to == to } }
+            outbox.append((frame, Date()))
             if outbox.count > 200 { outbox.removeFirst(outbox.count - 200) }
         }
     }
@@ -400,9 +401,24 @@ public final class LinkClient {
         }
     }
 
+    /// A frame sent late, after an outage: dropped once its own time is over, and silent (no
+    /// alert) once it is a few minutes old — a "20 % left" from hours ago must not ring now.
+    nonisolated static func afterOutage(_ frame: LinkFrame, queued: Date, now: Date = Date()) -> LinkFrame? {
+        let age = now.timeIntervalSince(queued)
+        if let ttl = frame.ttl, age > Double(ttl) { return nil }
+        var frame = frame
+        // Quiet, not gone: what it takes off the phone ("remove") and the badge still count.
+        if age > 5 * 60, frame.push != nil {
+            frame.push?.sound = false
+            frame.push?.level = "passive"
+            frame.push?.urgent = nil
+        }
+        return frame
+    }
+
     func writeFailed(_ error: Error, frame: LinkFrame, on connection: URLSessionWebSocketTask) {
         guard wanted, task === connection else { return }
-        outbox.append(frame)
+        outbox.append((frame, Date()))
         dropped(error.localizedDescription)
     }
 
@@ -511,8 +527,9 @@ public final class LinkClient {
             beat(on: t, generation: generation)
             // Unacknowledged ones from the last connection first, then what queued meanwhile.
             let fresh = unacked.filter { Date().timeIntervalSince($0.at) < 3600 }
-            let queued = Set(outbox.compactMap(\.id))
-            let waiting = fresh.filter { !queued.contains($0.id) }.map(\.frame) + outbox
+            let queued = Set(outbox.compactMap(\.frame.id))
+            let waiting = (fresh.filter { !queued.contains($0.id) }.map { ($0.frame, $0.at) } + outbox)
+                .compactMap { Self.afterOutage($0.0, queued: $0.1) }
             unacked = []
             outbox = []
             for f in waiting { write(f, on: t) }

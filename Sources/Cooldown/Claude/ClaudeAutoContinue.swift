@@ -56,6 +56,13 @@ final class ClaudeAutoContinue: ObservableObject {
             showCards()
             return
         }
+        // Claude Desktop in a language whose "stopped by the limit" Cooldown cannot read: it could
+        // not tell a stopped chat from a finished one. The chats stay on the list, with cards.
+        guard ClaudeSender.knowsLanguage else {
+            lastSummary = L("Claude Desktop не на русском и не на английском: Cooldown не может проверить, что чат остановил лимит. Продолжите кнопкой на карточке.")
+            showCards()
+            return
+        }
         self.reset = reset
         limitRetries = 0
         task?.cancel()

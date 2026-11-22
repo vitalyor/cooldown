@@ -218,9 +218,12 @@ final class ToastController: ObservableObject {
 
     /// Newest card right under the icon, older ones below it.
     private func frames() -> [NSRect] {
-        let screen = NSScreen.main ?? NSScreen.screens[0]
+        // The screen the menu bar icon is on (several displays, each with its own menu bar): the
+        // cards hang under the icon, not on whichever screen has the focus.
+        let found = anchor()
+        let screen = found.flatMap { rect in NSScreen.screens.first { $0.frame.intersects(rect) } } ?? NSScreen.main ?? NSScreen.screens[0]
         let visible = screen.visibleFrame
-        let anchorRect = anchor() ?? NSRect(x: visible.maxX - 200, y: visible.maxY, width: 24, height: 22)
+        let anchorRect = found ?? NSRect(x: visible.maxX - 200, y: visible.maxY, width: 24, height: 22)
         var x = anchorRect.midX - Self.width / 2
         x = min(max(x, visible.minX + 8), visible.maxX - Self.width - 8)
         var top = anchorRect.minY - 6

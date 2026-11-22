@@ -25,7 +25,7 @@ enum ClaudeSender {
 
     enum SendError: LocalizedError {
         case noPermission, notRunning, notFront, noInput, chatNotOpened(String)
-        case inputNotEmpty, notConfirmed, busy, notStopped(String)
+        case inputNotEmpty, notConfirmed, busy, notStopped(String), cannotVerify
 
         var errorDescription: String? {
             switch self {
@@ -39,6 +39,7 @@ enum ClaudeSender {
             case .notConfirmed: return L("Не удалось подтвердить, что Claude принял сообщение. Проверьте чат — повторно оно не отправится.")
             case .busy: return L("Cooldown уже отправляет сообщение в Claude. Дождитесь конца и повторите.")
             case .notStopped(let title): return L("«%@» не был остановлен лимитом — ответ закончился сам. Продолжать не стал.", "\(title)")
+            case .cannotVerify: return L("Claude Desktop не на русском и не на английском: Cooldown не может проверить, что открытый чат остановил лимит. Откройте нужный чат и продолжите сами.")
             }
         }
     }
@@ -140,6 +141,15 @@ enum ClaudeSender {
     /// `onlyIfStopped` (the automatic path): continue only a chat that the limit really stopped —
     /// Claude shows its own notice and "Повторить попытку" there. Claude's own button is pressed
     /// when it is there (exactly what the person would do); otherwise the message is typed.
+    /// Claude Desktop's own language ("locale" in its config, else the Mac's): Cooldown knows its
+    /// words for a limit stop and for the retry button only in Russian and English.
+    nonisolated static var knowsLanguage: Bool {
+        let config = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/Claude/config.json")
+        let saved = (try? JSONSerialization.jsonObject(with: Data(contentsOf: config)) as? [String: Any])?["locale"] as? String
+        let language = (saved ?? Locale.preferredLanguages.first ?? "en").lowercased()
+        return language.hasPrefix("ru") || language.hasPrefix("en")
+    }
+
     static func continueChat(_ chat: ClaudeChat? = nil, promptForPermission: Bool = true, onlyIfStopped: Bool = false) async throws {
         try await send(text, to: chat, promptForPermission: promptForPermission, retryIfStopped: true, onlyIfStopped: onlyIfStopped)
     }
@@ -189,6 +199,8 @@ enum ClaudeSender {
     static func send(_ message: String, to chat: ClaudeChat?, promptForPermission: Bool = true,
                      retryIfStopped: Bool = false, onlyIfStopped: Bool = false) async throws {
         guard !sending else { throw SendError.busy }
+        // "Only if the limit stopped it" cannot be checked in a language Cooldown does not read.
+        if onlyIfStopped && !knowsLanguage { throw SendError.cannotVerify }
         try RouteGuard.check(.claude)
         sending = true
         defer { sending = false }
@@ -337,7 +349,9 @@ enum ClaudeSender {
             AXUIElementPerformAction(button, kAXPressAction as CFString)
             if await waitOpen() { return }
         }
-        if let window = window(of: app), let all = button(described: "Показать все", in: window, last: true) { // l10n:skip
+        // Claude Desktop's own words (its button), not Cooldown's: not translated.
+        let showAll = ["Показать все", "Show all"] // l10n:skip
+        if let window = window(of: app), let all = showAll.lazy.compactMap({ button(described: $0, in: window, last: true) }).first {
             AXUIElementPerformAction(all, kAXPressAction as CFString)
             for _ in 0..<15 {
                 try await Task.sleep(for: .milliseconds(200))

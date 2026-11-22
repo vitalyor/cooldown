@@ -119,6 +119,8 @@
 "Claude Code — продолжает сам" = "Claude Code: sigue solo";
 "Claude Code, Codex и Antigravity CLI, запущенные в Терминале, тоже замирают, даже посреди ответа. Терминал не реагирует, пока VPN не вернётся, потом всё продолжится. Выключено — их сообщения держат хуки." = "Claude Code, Codex y Antigravity CLI abiertos en Terminal también se pausan, incluso a mitad de una respuesta. Terminal no responde hasta que vuelva la VPN; luego todo continúa. Desactivado: sus hooks retienen los mensajes.";
 "Claude Desktop не запущен" = "Claude Desktop no está abierto";
+"Claude Desktop не на русском и не на английском: Cooldown не может проверить, что открытый чат остановил лимит. Откройте нужный чат и продолжите сами." = "Claude Desktop no está en ruso ni en inglés: Cooldown no puede comprobar que el límite detuvo el chat abierto. Abre el chat que quieras y continúalo tú.";
+"Claude Desktop не на русском и не на английском: Cooldown не может проверить, что чат остановил лимит. Продолжите кнопкой на карточке." = "Claude Desktop no está en ruso ni en inglés: Cooldown no puede comprobar que el límite detuvo el chat. Continúalo con el botón de la tarjeta.";
 "Claude Desktop: лимит кончается" = "Claude Desktop: el límite se está acabando";
 "Claude завершился с ошибкой (код %@). Подробности в журнале Cooldown." = "Claude terminó con un error (código %@). Detalles en el registro de Cooldown.";
 "Claude задал %@ вопроса" = "Claude hizo %@ preguntas";

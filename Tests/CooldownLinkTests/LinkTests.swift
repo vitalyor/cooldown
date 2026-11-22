@@ -155,4 +155,17 @@ final class LinkConnectionLifecycleTests: XCTestCase {
         XCTAssertEqual(LinkNodes.better(than: a, [b: 0.50]), b, "the current one stopped answering")
         XCTAssertNil(LinkNodes.better(than: a, [:]))
     }
+
+    func testFramesAfterAnOutage() {
+        var frame = LinkFrame(t: "env")
+        frame.ttl = 600
+        frame.push = LinkPush(sound: true, level: "active", remove: ["old"], badge: 2, urgent: true)
+        let now = Date()
+        XCTAssertEqual(LinkClient.afterOutage(frame, queued: now.addingTimeInterval(-30), now: now)?.push?.sound, true, "fresh: as it was")
+        let late = LinkClient.afterOutage(frame, queued: now.addingTimeInterval(-400), now: now)
+        XCTAssertEqual(late?.push?.level, "passive", "a few minutes old: no alert")
+        XCTAssertEqual(late?.push?.remove, ["old"], "removals still go")
+        XCTAssertEqual(late?.push?.badge, 2)
+        XCTAssertNil(LinkClient.afterOutage(frame, queued: now.addingTimeInterval(-700), now: now), "past its time: dropped")
+    }
 }

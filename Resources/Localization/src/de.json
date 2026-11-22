@@ -1465,5 +1465,7 @@
  "Приложение Codex обновилось, и Cooldown пока не понимает его. Обновите Cooldown; задача ждёт.": "Die Codex-App wurde aktualisiert und Cooldown versteht sie noch nicht. Aktualisiere Cooldown; die Aufgabe wartet.",
  "Сейчас он запущен с образа диска или из «Загрузок». Перетащите его в папку «Программы» и откройте оттуда — иначе строка статуса, хуки и обновления не будут работать.": "Es läuft vom Disk-Image oder aus „Downloads“. Ziehe es in den Ordner „Programme“ und öffne es von dort – sonst funktionieren Statuszeile, Hooks und Updates nicht.",
  "Сервер лимитов Claude просит подождать; Cooldown спросит позже.": "Der Claude-Limitserver bittet zu warten; Cooldown fragt später erneut.",
- "в открытый чат Claude, если он остановлен лимитом": "in den geöffneten Claude-Chat, falls das Limit ihn gestoppt hat"
+ "в открытый чат Claude, если он остановлен лимитом": "in den geöffneten Claude-Chat, falls das Limit ihn gestoppt hat",
+ "Claude Desktop не на русском и не на английском: Cooldown не может проверить, что открытый чат остановил лимит. Откройте нужный чат и продолжите сами.": "Claude Desktop ist weder auf Russisch noch auf Englisch: Cooldown kann nicht prüfen, ob der offene Chat vom Limit gestoppt wurde. Öffne den gewünschten Chat und setze ihn selbst fort.",
+ "Claude Desktop не на русском и не на английском: Cooldown не может проверить, что чат остановил лимит. Продолжите кнопкой на карточке.": "Claude Desktop ist weder auf Russisch noch auf Englisch: Cooldown kann nicht prüfen, ob das Limit den Chat gestoppt hat. Setze ihn mit der Taste auf der Karte fort."
 }
