@@ -411,6 +411,18 @@ enum RenderMode {
                 print("ok \(out)")
                 exit(0)
             }
+            if let fix = value("--claude-fix") {
+                // The card on the Claude tab when its limits cannot be read for a known reason.
+                let view = ClaudeFixCard(fix: fix == "api" ? .apiBilling : .firstRun, store: model.claude)
+                    .frame(width: 420).padding(16)
+                    .background(Color(nsColor: dark ? NSColor(white: 0.12, alpha: 1) : NSColor(white: 0.97, alpha: 1)))
+                    .environment(\.colorScheme, dark ? .dark : .light)
+                let renderer = ImageRenderer(content: view)
+                renderer.scale = 2
+                if let image = renderer.nsImage, let png = pngData(image) { try? png.write(to: URL(fileURLWithPath: out)) }
+                print("ok \(out)")
+                exit(0)
+            }
             if let names = value("--cards") {
                 // Several cards in a column, as they stack under the icon (pictures for the README).
                 let contents = names.split(separator: ",").compactMap { CardSamples.content(String($0)) }

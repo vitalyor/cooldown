@@ -278,6 +278,7 @@ actor ClaudeUsageCLI {
                 let text = plain(bytes)
                 let flat = text.replacingOccurrences(of: " ", with: "")
                 if flat.localizedCaseInsensitiveContains("trustthisfolder") || Self.firstRun(flat) { break }
+                if Self.apiBilling(flat), flat.contains("Estimatedcost") { break }
                 // The usage server says "not now": waiting longer only asks again.
                 if flat.contains("Usageendpointisratelimited") { break }
                 // No numbers of its own yet ("Loading usage data…"): give a slow connection time.
@@ -334,6 +335,7 @@ actor ClaudeUsageCLI {
         try? text.write(to: logs.appendingPathComponent("claude-usage-unread.txt"), atomically: true, encoding: .utf8)
         let flat = text.replacingOccurrences(of: " ", with: "")
         if Self.firstRun(flat) { throw UsageError.firstRun }
+        if Self.apiBilling(flat) { throw UsageError.apiBilling }
         if stale || flat.contains("Failedtoloadusagedata") || pending(text) { throw UsageError.serverFailed }
         if ["Notloggedin", "Pleaserun/login", "Authenticationrequired", "Selectloginmethod", "InvalidAPIkey", "OAuthtokenhasexpired"]
             .contains(where: { flat.localizedCaseInsensitiveContains($0) }) {
@@ -352,6 +354,10 @@ actor ClaudeUsageCLI {
     static func firstRun(_ flat: String) -> Bool {
         ["Choosethetextstyle", "Let'sgetstarted", "Let’sgetstarted"].contains { flat.localizedCaseInsensitiveContains($0) }
     }
+
+    /// Claude Code is signed in with an Anthropic Console key ("API Usage Billing" under the model):
+    /// paying per request has no 5-hour or weekly limits, /usage shows only the session's cost.
+    static func apiBilling(_ flat: String) -> Bool { flat.localizedCaseInsensitiveContains("APIUsageBilling") }
 
     /// Claude Code is still fetching the limits: "Refreshing…" (or "Loading usage data…" before it
     /// has any numbers) is the last thing it drew, with only "Esc to cancel" after it.
@@ -515,7 +521,7 @@ actor ClaudeUsageCLI {
     }
 
     enum UsageError: LocalizedError, Equatable {
-        case terminal, signedOut, trust, unreadable, missing, serverFailed, rateLimited, firstRun
+        case terminal, signedOut, trust, unreadable, missing, serverFailed, rateLimited, firstRun, apiBilling
         case claude(String)
 
         var errorDescription: String? {
@@ -525,6 +531,7 @@ actor ClaudeUsageCLI {
             case .signedOut: return L("Claude Code не вошёл в аккаунт. Откройте настройку Cooldown и нажмите «Войти».")
             case .trust: return L("Claude Code ждёт разрешения работать в пустой папке Cooldown.")
             case .firstRun: return L("Claude Code ещё ни разу не запускали: вместо лимитов он показывает первую настройку. Нажмите «Открыть в Терминале», выберите тему и войдите в аккаунт.")
+            case .apiBilling: return L("Claude Code вошёл по API-ключу (Anthropic Console): при такой оплате у Claude нет лимитов на 5 часов и неделю. Чтобы Cooldown их показывал, войдите в Claude Code через подписку Claude.")
             case .unreadable: return L("Не удалось прочитать экран /usage в Claude Code.")
             case .serverFailed: return L("Claude Code не смог загрузить лимиты с сервера; Cooldown повторит через минуту.")
             case .rateLimited: return L("Сервер лимитов Claude просит подождать; Cooldown спросит позже.")

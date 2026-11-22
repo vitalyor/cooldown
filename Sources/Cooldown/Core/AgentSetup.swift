@@ -242,9 +242,20 @@ final class AgentSetup: ObservableObject {
 
     /// Claude Code's own first-run setup (text style, sign-in), in Cooldown's folder for /usage.
     func openClaudeFirstRun() {
+        openClaude(L("Пройдите первую настройку Claude Code: выберите тему, войдите в аккаунт и, если спросит, разрешите работать в этой папке. Когда появится поле ввода, наберите /exit."),
+                   [[]])
+    }
+
+    /// From an Anthropic Console key to the Claude subscription: sign out, then sign in with claude.ai.
+    func openClaudeSubscriptionLogin() {
+        openClaude(L("Claude Code выйдет из входа по API-ключу и откроет браузер. Войдите тем аккаунтом Claude, где есть подписка Pro или Max, и вернитесь сюда."),
+                   [["auth", "logout"], ["auth", "login", "--claudeai"]])
+    }
+
+    private func openClaude(_ steps: String, _ runs: [[String]]) {
         guard let binary = binary(.claude) else { return }
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("cooldown-claude-first-run.command")
-        try? Self.runInTerminal(SetupGuide.firstRunScript(binary: binary, folder: ClaudeUsageCLI.workFolder), at: url)
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("cooldown-claude-fix.command")
+        try? Self.runInTerminal(SetupGuide.claudeScript(binary: binary, folder: ClaudeUsageCLI.workFolder, steps: steps, runs: runs), at: url)
     }
 
     private static func runInTerminal(_ script: String, at url: URL) throws {
@@ -286,12 +297,13 @@ enum SetupGuide {
         return lines.joined(separator: "\n") + "\n"
     }
 
-    static func firstRunScript(binary: URL, folder: URL) -> String {
-        let steps = L("Пройдите первую настройку Claude Code: выберите тему, войдите в аккаунт и, если спросит, разрешите работать в этой папке. Когда появится поле ввода, наберите /exit.")
+    /// Claude Code run by hand in Terminal, in Cooldown's folder for /usage, once per entry of `runs`.
+    static func claudeScript(binary: URL, folder: URL, steps: String, runs: [[String]]) -> String {
         let done = L("Готово. Вернитесь в Cooldown и нажмите «Проверить снова». Это окно можно закрыть.")
-        return ["#!/bin/zsh", "clear", "echo \(quoted(steps))", "echo", "cd \(quoted(folder.path))",
-                "PATH=\(quoted(binary.deletingLastPathComponent().path)):\"$PATH\" \(quoted(binary.path))",
-                "echo", "echo \(quoted(done))", "rm -f \"$0\""].joined(separator: "\n") + "\n"
+        let path = "PATH=\(quoted(binary.deletingLastPathComponent().path)):\"$PATH\""
+        let commands = runs.map { ([path, quoted(binary.path)] + $0.map(quoted)).joined(separator: " ") }
+        return (["#!/bin/zsh", "clear", "echo \(quoted(steps))", "echo", "cd \(quoted(folder.path))"] + commands
+                + ["echo", "echo \(quoted(done))", "rm -f \"$0\""]).joined(separator: "\n") + "\n"
     }
 
     /// What to paste into any AI assistant that can run commands. In English on purpose: every

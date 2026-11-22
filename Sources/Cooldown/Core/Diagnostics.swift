@@ -141,6 +141,8 @@ final class Diagnostics: ObservableObject {
             } catch {
                 set("claude-usage", .failed, error.localizedDescription, advice: (error as? ClaudeUsageCLI.UsageError) == .firstRun
                     ? L("Откройте вкладку Claude в Cooldown и нажмите «Открыть в Терминале».")
+                    : (error as? ClaudeUsageCLI.UsageError) == .apiBilling
+                    ? L("Откройте вкладку Claude в Cooldown и нажмите «Войти через подписку».")
                     : L("Запустите claude в Терминале и проверьте вход; затем повторите проверку."), since: start)
             }
         } else {

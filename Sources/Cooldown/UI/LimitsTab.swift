@@ -46,15 +46,12 @@ struct LimitsTab: View {
             ClaudeConnect()
         } else if store.id == .claude, usage.needsPermission {
             EmptyView()
+        } else if store.id == .claude, let fix = ClaudeFix(error: store.limitError) {
+            ClaudeFixCard(fix: fix, store: store)
         } else if let error = store.limitError {
             Well {
                 Note(symbol: "exclamationmark.triangle.fill", text: error, color: Theme.amber)
-                if store.id == .claude, error == ClaudeUsageCLI.UsageError.firstRun.localizedDescription {
-                    HStack(spacing: 8) {
-                        Button(L("Открыть в Терминале")) { AgentSetup.shared.openClaudeFirstRun() }.buttonStyle(.glassProminent).tint(store.tint)
-                        Button(L("Проверить снова")) { Task { await store.refreshLimits(force: true) } }.buttonStyle(.glass)
-                    }
-                } else if store.id != .antigravity {
+                if store.id != .antigravity {
                     Button(L("Открыть настройки")) { SettingsWindow.shared.show(store.id == .codex ? .codex : .claude) }.buttonStyle(.link)
                 }
             }
@@ -65,6 +62,63 @@ struct LimitsTab: View {
             }
             .frame(maxWidth: .infinity, minHeight: 220)
         }
+    }
+}
+
+/// A known reason Claude's limits cannot be read, said plainly, with the steps and a button that does them.
+enum ClaudeFix {
+    case firstRun, apiBilling
+
+    init?(error: String?) {
+        switch error {
+        case ClaudeUsageCLI.UsageError.firstRun.localizedDescription: self = .firstRun
+        case ClaudeUsageCLI.UsageError.apiBilling.localizedDescription: self = .apiBilling
+        default: return nil
+        }
+    }
+}
+
+struct ClaudeFixCard: View {
+    let fix: ClaudeFix
+    @ObservedObject var store: ProviderStore
+
+    var body: some View {
+        Well {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Image(systemName: fix == .firstRun ? "terminal.fill" : "key.fill").foregroundStyle(Theme.amber)
+                Text(fix == .firstRun ? L("Claude Code ещё не настроен") : L("Claude Code вошёл по API-ключу"))
+                    .font(.system(size: 14, weight: .semibold))
+            }
+            Text(fix == .firstRun
+                 ? L("Его ни разу не запускали, и вместо лимитов он показывает свою первую настройку. Пройти её может только человек.")
+                 : L("Он платит за каждый запрос через Anthropic Console. У такого входа нет лимитов на 5 часов и неделю, поэтому показывать нечего. Лимиты есть у подписки Claude Pro или Max."))
+                .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text("\(index + 1).").monospacedDigit().foregroundStyle(.secondary)
+                        Text(step).fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+            .font(.callout)
+            HStack(spacing: 8) {
+                Button(fix == .firstRun ? L("Открыть в Терминале") : L("Войти через подписку")) {
+                    fix == .firstRun ? AgentSetup.shared.openClaudeFirstRun() : AgentSetup.shared.openClaudeSubscriptionLogin()
+                }
+                .buttonStyle(.glassProminent).tint(store.tint)
+                Button(L("Проверить снова")) { Task { await store.refreshLimits(force: true) } }.buttonStyle(.glass)
+            }
+            if fix == .apiBilling {
+                Footnote(text: L("Подписки нет? Тогда лимитов у Claude нет вовсе — это не ошибка. Остальное в Cooldown работает как обычно."))
+            }
+        }
+    }
+
+    private var steps: [String] {
+        fix == .firstRun
+            ? [L("Нажмите «Открыть в Терминале»."), L("Выберите тему и войдите в аккаунт Claude."), L("Наберите /exit и нажмите «Проверить снова».")]
+            : [L("Нажмите «Войти через подписку»: откроется Терминал, затем браузер."), L("Войдите аккаунтом Claude с подпиской Pro или Max."), L("Вернитесь сюда и нажмите «Проверить снова».")]
     }
 }
 

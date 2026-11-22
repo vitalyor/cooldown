@@ -1471,5 +1471,19 @@
  "Claude Code ещё ни разу не запускали: вместо лимитов он показывает первую настройку. Нажмите «Открыть в Терминале», выберите тему и войдите в аккаунт.": "Claude Code wurde noch nie gestartet: Statt der Limits zeigt es die Ersteinrichtung. Klicke auf „Im Terminal öffnen“, wähle ein Design und melde dich an.",
  "Откройте вкладку Claude в Cooldown и нажмите «Открыть в Терминале».": "Öffne in Cooldown den Tab Claude und klicke auf „Im Terminal öffnen“.",
  "Открыть в Терминале": "Im Terminal öffnen",
- "Пройдите первую настройку Claude Code: выберите тему, войдите в аккаунт и, если спросит, разрешите работать в этой папке. Когда появится поле ввода, наберите /exit.": "Schließe die Ersteinrichtung von Claude Code ab: Wähle ein Design, melde dich an und erlaube, falls gefragt, die Arbeit in diesem Ordner. Sobald das Eingabefeld erscheint, gib /exit ein."
+ "Пройдите первую настройку Claude Code: выберите тему, войдите в аккаунт и, если спросит, разрешите работать в этой папке. Когда появится поле ввода, наберите /exit.": "Schließe die Ersteinrichtung von Claude Code ab: Wähle ein Design, melde dich an und erlaube, falls gefragt, die Arbeit in diesem Ordner. Sobald das Eingabefeld erscheint, gib /exit ein.",
+ "Claude Code вошёл по API-ключу": "Claude Code ist mit einem API-Schlüssel angemeldet",
+ "Claude Code вошёл по API-ключу (Anthropic Console): при такой оплате у Claude нет лимитов на 5 часов и неделю. Чтобы Cooldown их показывал, войдите в Claude Code через подписку Claude.": "Claude Code ist mit einem API-Schlüssel angemeldet (Anthropic Console): Bei dieser Abrechnung hat Claude keine 5-Stunden- oder Wochenlimits. Damit Cooldown sie anzeigt, melde dich in Claude Code mit deinem Claude-Abo an.",
+ "Claude Code выйдет из входа по API-ключу и откроет браузер. Войдите тем аккаунтом Claude, где есть подписка Pro или Max, и вернитесь сюда.": "Claude Code meldet sich vom API-Schlüssel ab und öffnet den Browser. Melde dich mit dem Claude-Konto an, das ein Pro- oder Max-Abo hat, und komm dann hierher zurück.",
+ "Claude Code ещё не настроен": "Claude Code ist noch nicht eingerichtet",
+ "Войдите аккаунтом Claude с подпиской Pro или Max.": "Melde dich mit einem Claude-Konto mit Pro oder Max an.",
+ "Войти через подписку": "Mit Abo anmelden",
+ "Выберите тему и войдите в аккаунт Claude.": "Wähle ein Design und melde dich bei deinem Claude-Konto an.",
+ "Его ни разу не запускали, и вместо лимитов он показывает свою первую настройку. Пройти её может только человек.": "Es wurde noch nie gestartet und zeigt statt der Limits seine Ersteinrichtung. Die kann nur ein Mensch durchlaufen.",
+ "Наберите /exit и нажмите «Проверить снова».": "Gib /exit ein und klicke auf „Erneut prüfen“.",
+ "Нажмите «Войти через подписку»: откроется Терминал, затем браузер.": "Klicke auf „Mit Abo anmelden“: Erst öffnet sich das Terminal, dann der Browser.",
+ "Нажмите «Открыть в Терминале».": "Klicke auf „Im Terminal öffnen“.",
+ "Он платит за каждый запрос через Anthropic Console. У такого входа нет лимитов на 5 часов и неделю, поэтому показывать нечего. Лимиты есть у подписки Claude Pro или Max.": "Es zahlt pro Anfrage über die Anthropic Console. Diese Anmeldung hat keine 5-Stunden- oder Wochenlimits, daher gibt es nichts anzuzeigen. Limits gibt es mit einem Claude-Pro- oder Max-Abo.",
+ "Откройте вкладку Claude в Cooldown и нажмите «Войти через подписку».": "Öffne in Cooldown den Tab Claude und klicke auf „Mit Abo anmelden“.",
+ "Подписки нет? Тогда лимитов у Claude нет вовсе — это не ошибка. Остальное в Cooldown работает как обычно.": "Kein Abo? Dann hat Claude überhaupt keine Limits – das ist kein Fehler. Alles andere in Cooldown funktioniert wie gewohnt."
 }

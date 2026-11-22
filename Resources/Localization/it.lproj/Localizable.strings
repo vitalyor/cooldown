@@ -109,6 +109,10 @@
 "Antigravity прислал ответ в незнакомом формате." = "Antigravity ha risposto in un formato sconosciuto.";
 "Apple доставляет уведомления на этот iPhone с задержкой в минуты. Так бывает на мобильных сетях с ограничениями: телефон подключается к сервису уведомлений Apple только время от времени. Помогает Wi‑Fi или VPN на телефоне." = "Apple consegna le notifiche a questo iPhone con minuti di ritardo. Succede sulle reti mobili con restrizioni: il telefono raggiunge il servizio di notifiche di Apple solo ogni tanto. Aiuta il Wi‑Fi o una VPN sul telefono.";
 "Claude Code %@ устарел: при сбое проверки сообщение может уйти. Обновите его (claude update)." = "Claude Code %@ non è aggiornato: se il controllo non riesce, un messaggio potrebbe partire comunque. Aggiornalo (claude update).";
+"Claude Code вошёл по API-ключу" = "Claude Code ha effettuato l’accesso con una chiave API";
+"Claude Code вошёл по API-ключу (Anthropic Console): при такой оплате у Claude нет лимитов на 5 часов и неделю. Чтобы Cooldown их показывал, войдите в Claude Code через подписку Claude." = "Claude Code ha effettuato l’accesso con una chiave API (Anthropic Console): con questa fatturazione Claude non ha limiti di 5 ore né settimanali. Per vederli in Cooldown, accedi a Claude Code con il tuo abbonamento Claude.";
+"Claude Code выйдет из входа по API-ключу и откроет браузер. Войдите тем аккаунтом Claude, где есть подписка Pro или Max, и вернитесь сюда." = "Claude Code uscirà dall’accesso con chiave API e aprirà il browser. Accedi con l’account Claude che ha l’abbonamento Pro o Max, poi torna qui.";
+"Claude Code ещё не настроен" = "Claude Code non è ancora configurato";
 "Claude Code ещё ни разу не запускали: вместо лимитов он показывает первую настройку. Нажмите «Открыть в Терминале», выберите тему и войдите в аккаунт." = "Claude Code non è mai stato avviato: invece dei limiti mostra la configurazione iniziale. Fai clic su «Apri nel Terminale», scegli un tema e accedi.";
 "Claude Code ждёт разрешения работать в пустой папке Cooldown." = "Claude Code attende il permesso di lavorare nella cartella vuota di Cooldown.";
 "Claude Code не вошёл в аккаунт. Откройте настройку Cooldown и нажмите «Войти»." = "Claude Code non ha effettuato l’accesso. Apri la configurazione di Cooldown e premi Accedi.";
@@ -336,9 +340,11 @@
 "Включить автопродолжение" = "Attiva la ripresa automatica";
 "Включить снова" = "Riattiva";
 "Включённый звук сразу проигрывается, чтобы его можно было услышать." = "Il suono attivato viene riprodotto subito, così puoi sentirlo.";
+"Войдите аккаунтом Claude с подпиской Pro или Max." = "Accedi con un account Claude con Pro o Max.";
 "Войдите в %@" = "Accedi a %@";
 "Войдите в аккаунт. Откроется браузер, подтвердите вход:" = "Accedi al tuo account. Si apre un browser, conferma lì:";
 "Войти в %@" = "Accedi a %@";
+"Войти через подписку" = "Accedi con l’abbonamento";
 "Вопрос не найден." = "La domanda non è stata trovata.";
 "Вопросы и автопродолжение не работают, пока его не перезапустить." = "Domande e ripresa automatica non funzionano finché non viene riavviato.";
 "Вопросы и автопродолжение не работают, пока его не перезапустить. Cooldown сделает это сам, как только в Codex ничего не будет идти." = "Domande e ripresa automatica non funzionano finché non viene riavviato. Cooldown lo farà da solo appena Codex è libero.";
@@ -359,6 +365,7 @@
 "Вчера" = "Ieri";
 "Вы выключили автопродолжение." = "Hai disattivato la ripresa automatica.";
 "Вы отметили, что не пользуетесь %@: его вкладка и линия в строке меню скрыты." = "Hai indicato di non usare %@: la sua scheda e la linea nella barra dei menu sono nascoste.";
+"Выберите тему и войдите в аккаунт Claude." = "Scegli un tema e accedi al tuo account Claude.";
 "Выберите чаты Claude, которые нужно продолжить, когда лимит восстановится. Если не выбрать, Cooldown сам запомнит чат, в котором кончился лимит." = "Scegli le chat di Claude da riprendere quando il limite si ripristina. Se non ne scegli, Cooldown ricorderà la chat in cui il limite è finito.";
 "Выбрать другой диалог" = "Scegli un’altra conversazione";
 "Выбрать другую сессию" = "Scegli un’altra sessione";
@@ -431,6 +438,7 @@
 "Доступна версия %@" = "Versione %@ disponibile";
 "Доступна версия Cooldown %@" = "Cooldown %@ è disponibile";
 "Дошло до iPhone за %@ с." = "Arrivata all’iPhone in %@ s.";
+"Его ни разу не запускали, и вместо лимитов он показывает свою первую настройку. Пройти её может только человек." = "Non è mai stato avviato, quindi al posto dei limiti mostra la configurazione iniziale. Solo una persona può completarla.";
 "Если Codex задал вопрос или ждёт разрешения, Cooldown не жмёт за вас. Появляется оранжевая точка в строке меню и уведомление: откройте задачу и решите сами." = "Se Codex fa una domanda o attende un permesso, Cooldown non decide al posto tuo. Nella barra dei menu compare un punto arancione con una notifica: apri l’attività e decidi tu.";
 "Если браузер показал код, вставьте его сюда:" = "Se il browser mostra un codice, incollalo qui:";
 "Если в вашем темпе окно закончится до времени сброса." = "Se al tuo ritmo la finestra finisce prima dell’ora di ripristino.";
@@ -655,6 +663,9 @@
 "На связи" = "Online";
 "На этот проект ушло %@ работы %@ с начала недели." = "Questo progetto ha preso il %@ del lavoro di %@ dall’inizio della settimana.";
 "На этот проект ушло %@ работы %@ с начала недели. Всего неделя израсходована на %@." = "Questo progetto ha preso il %@ del lavoro di %@ dall’inizio della settimana. In totale la settimana è consumata al %@.";
+"Наберите /exit и нажмите «Проверить снова»." = "Digita /exit e fai clic su «Controlla di nuovo».";
+"Нажмите «Войти через подписку»: откроется Терминал, затем браузер." = "Fai clic su «Accedi con l’abbonamento»: si aprirà il Terminale, poi il browser.";
+"Нажмите «Открыть в Терминале»." = "Fai clic su «Apri nel Terminale».";
 "Нажмите «Продолжить», когда будете за Mac." = "Premi «Continua» quando sei di nuovo al Mac.";
 "Нажмите на проект, чтобы увидеть его задачи." = "Fai clic su un progetto per vederne le attività.";
 "Нажмите, чтобы отменить" = "Fai clic per annullare";
@@ -802,6 +813,7 @@
 "Окно на 5 часов сбросилось, можно работать дальше." = "La finestra di 5 ore è stata ripristinata: puoi continuare a lavorare.";
 "Окно на 5 часов сбросилось. «Продолжить» отправит сообщение в открытый чат Claude." = "La finestra di 5 ore è stata ripristinata. «Riprendi» invierà un messaggio nella chat di Claude aperta.";
 "Окно читается, но открытого чата не видно" = "La finestra è leggibile, ma non si vede nessuna chat aperta";
+"Он платит за каждый запрос через Anthropic Console. У такого входа нет лимитов на 5 часов и неделю, поэтому показывать нечего. Лимиты есть у подписки Claude Pro или Max." = "Paga ogni richiesta tramite Anthropic Console. Questo accesso non ha limiti di 5 ore né settimanali, quindi non c’è nulla da mostrare. I limiti arrivano con un abbonamento Claude Pro o Max.";
 "Основные" = "Generali";
 "Осталось %@" = "Restano %@";
 "Осталось %@. «%@» остановится на полпути — сброс в %@." = "Resta %@. «%@» si fermerà a metà: ripristino alle %@.";
@@ -835,6 +847,7 @@
 "Откройте Codex: он попросит проверить новые хуки — разрешите хуки Cooldown. В терминале то же делает команда /hooks." = "Apri Codex: ti chiederà di controllare i nuovi hook; consenti quelli di Cooldown. Nel terminale fa lo stesso il comando /hooks.";
 "Откройте Cooldown на iPhone или просто наведите камеру на код. Код одноразовый и действует 5 минут." = "Apri Cooldown sull’iPhone o punta semplicemente la fotocamera sul codice. Il codice vale una volta, per 5 minuti.";
 "Откройте Терминал: нажмите ⌘ и Пробел, введите «Терминал» и нажмите Return." = "Apri Terminale: premi ⌘ e Spazio, digita «Terminale» e premi Invio.";
+"Откройте вкладку Claude в Cooldown и нажмите «Войти через подписку»." = "Apri la scheda Claude in Cooldown e fai clic su «Accedi con l’abbonamento».";
 "Откройте вкладку Claude в Cooldown и нажмите «Открыть в Терминале»." = "Apri la scheda Claude in Cooldown e fai clic su «Apri nel Terminale».";
 "Откройте любой чат в Claude Desktop и повторите." = "Apri una chat qualsiasi in Claude Desktop e riprova.";
 "Открывать при входе в систему" = "Apri al login";
@@ -921,6 +934,7 @@
 "Подключиться" = "Connetti";
 "Подключиться к Mac?" = "Connettere al Mac?";
 "Подключён: Claude может сообщать о готовом ответе и читать лимиты." = "Connesso: Claude può segnalare una risposta finita e leggere i limiti.";
+"Подписки нет? Тогда лимитов у Claude нет вовсе — это не ошибка. Остальное в Cooldown работает как обычно." = "Nessun abbonamento? Allora Claude non ha limiti: non è un errore. Il resto di Cooldown funziona come sempre.";
 "Подробности — из сессий Codex и Claude Code за 45 дней; итоги по дням для «Года работы» хранятся дольше. Всё только на этом Mac." = "I dettagli provengono dalle sessioni di Codex e Claude Code degli ultimi 45 giorni; i totali giornalieri di «Anno di lavoro» si conservano più a lungo. Tutto resta su questo Mac.";
 "Подтвердите действие" = "Conferma azione";
 "Подтвердить" = "Conferma";
