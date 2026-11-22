@@ -29,6 +29,7 @@
 "%@ ждёт вашего ответа" = "%@ is waiting for your answer";
 "%@ ждёт вашего решения" = "%@ is waiting for your decision";
 "%@ закончил «%@»" = "%@ finished “%@”";
+"%@ закрыт для записи, Cooldown его не трогает." = "%@ is read-only; Cooldown leaves it alone.";
 "%@ из %@" = "%@ of %@";
 "%@ лимит на 5 часов закончился" = "%@ the 5-hour limit ran out";
 "%@ мин" = "%@ min";
@@ -113,6 +114,7 @@
 "Claude Code не найден. Откройте настройку Cooldown: она установит его по одной кнопке." = "Claude Code was not found. Open Cooldown setup: it installs it with one button.";
 "Claude Code не смог загрузить лимиты с сервера; Cooldown повторит через минуту." = "Claude Code couldn't load the limits from the server; Cooldown will retry in a minute.";
 "Claude Code один раз спросит, можно ли ему работать в папке. Это пустая служебная папка Cooldown." = "Claude Code will ask once whether it may work in the folder. It's Cooldown's own empty service folder.";
+"Claude Code ответил: %@" = "Claude Code said: %@";
 "Claude Code уже не ждёт этого ответа." = "Claude Code is no longer waiting for this answer.";
 "Claude Code — продолжает сам" = "Claude Code — continues by itself";
 "Claude Code, Codex и Antigravity CLI, запущенные в Терминале, тоже замирают, даже посреди ответа. Терминал не реагирует, пока VPN не вернётся, потом всё продолжится. Выключено — их сообщения держат хуки." = "Claude Code, Codex and Antigravity CLI running in Terminal pause too, even mid-answer. Terminal does not respond until the VPN is back, then everything carries on. Off: their hooks hold their messages instead.";
@@ -161,7 +163,6 @@
 "Codex не принял сообщение." = "Codex didn’t accept the message.";
 "Codex не сказал, где открыт диалог: %@" = "Codex did not say where the conversation is open: %@";
 "Codex не сообщил лимиты." = "Codex did not report the limits.";
-"Codex не сообщил окно лимита." = "Codex did not report the limit window.";
 "Codex не сообщил состояние диалога." = "Codex did not report the conversation's state.";
 "Codex не сообщил, ждёт ли диалог ответа." = "Codex did not say whether the conversation is waiting for an answer.";
 "Codex перестал отвечать Cooldown" = "Codex stopped answering Cooldown";
@@ -209,6 +210,7 @@
 "Cooldown закрыт." = "Cooldown is closed.";
 "Cooldown запустит задачу в Codex, как только у него будет лимит." = "Cooldown will start the task in Codex as soon as it has limit.";
 "Cooldown запустится сам после перезагрузки Mac." = "Cooldown will start by itself after the Mac restarts.";
+"Cooldown запущен не из папки «Программы». Перенесите его туда — тогда он сможет обновляться." = "Cooldown is not running from the Applications folder. Move it there and it can update itself.";
 "Cooldown на Mac" = "Cooldown on the Mac";
 "Cooldown обновлён до %@" = "Cooldown updated to %@";
 "Cooldown открывает в Claude Code экран /usage, как если бы вы набрали команду сами. Запросов к модели нет, токены не тратятся. Лимиты общие для подписки, поэтому учитывается и расход в Claude Desktop." = "Cooldown opens the /usage screen in Claude Code, as if you typed the command yourself. No model requests, no tokens spent. Limits are shared across the subscription, so Claude Desktop usage counts too.";
@@ -321,6 +323,7 @@
 "Ввести ссылку" = "Enter link";
 "Вернитесь сюда и нажмите «Проверить снова»." = "Come back here and press “Check again”.";
 "Вернуть мой пояс (%@)" = "Restore my time zone (%@)";
+"Версию %@ не удалось поставить на место старой. Скачайте её с GitHub и перетащите в «Программы»." = "Version %@ could not replace the old one. Download it from GitHub and drag it to Applications.";
 "Версия %@" = "Version %@";
 "Версия %@ загружена и готова" = "Version %@ downloaded and ready";
 "Версия, лицензия и благодарности" = "Version, license and thanks";
@@ -384,6 +387,7 @@
 "Дальше" = "Next";
 "Данные %@ назад" = "Data from %@ ago";
 "Данные давно не обновлялись" = "The data hasn’t been updated for a while";
+"Данные о лимитах Claude устарели; Cooldown обновит их." = "Claude limit data is out of date; Cooldown will refresh it.";
 "Данные свежие" = "Data is fresh";
 "Даёт Claude официальный способ сообщать Cooldown о готовом ответе. Перезапустите Claude после подключения." = "Gives Claude an official way to tell Cooldown that an answer is finished. Restart Claude after connecting.";
 "Даёт самые свежие цифры, пока вы работаете в Claude Code." = "Gives the freshest numbers while you work in Claude Code.";
@@ -404,6 +408,7 @@
 "Диалог не открыт в Codex — жду, когда он загрузится." = "The conversation isn't open in Codex — waiting for it to load.";
 "Диалог не сохраняется, такой продолжить нельзя." = "The conversation isn't saved, so it can't be continued.";
 "Диалог сейчас не открыт в приложении Codex." = "The conversation isn't open in the Codex app right now.";
+"Диалог удалён в Codex — его не продолжить." = "The conversation was deleted in Codex — it cannot be continued.";
 "Длинную задачу лучше разбить на части." = "Split a long task into smaller pieces.";
 "Для задач дольше минуты, с последними словами агента." = "For tasks longer than a minute, with the agent's last words.";
 "Для мелких задач подойдёт модель полегче." = "A lighter model will do for small tasks.";
@@ -511,6 +516,8 @@
 "Запущено: «%@»" = "Started: “%@”";
 "Защита VPN" = "VPN Guard";
 "Защита VPN выключена" = "VPN guard is off";
+"Защита VPN сейчас не пускает запросы к Claude" = "The VPN guard is not letting requests to Claude through right now";
+"Защита VPN сейчас не пускает запросы к Codex" = "The VPN guard is not letting requests to Codex through right now";
 "Защита выключена до %@" = "Protection off until %@";
 "Защита выключена на час." = "Protection is off for an hour.";
 "Защита для %@" = "Guard for %@";
@@ -724,12 +731,12 @@
 "Неделя, Opus" = "Week, Opus";
 "Неделя, Sonnet" = "Week, Sonnet";
 "Неделя: осталось %@%%" = "Week: %@%% left";
-"Незнакомая версия протокола Codex." = "Unfamiliar Codex protocol version.";
 "Незнакомое состояние последней задачи." = "Unfamiliar state of the latest task.";
 "Неизвестно, дошло ли продолжение. Проверьте диалог — сам я туда больше не отправлю." = "It's unknown whether the continuation arrived. Check the conversation — I won't send anything there by myself again.";
 "Нет «Универсального доступа»" = "No Accessibility permission";
 "Нет данных" = "No data";
 "Нет доступа к камере. Разрешите его в Настройках или отсканируйте код камерой iPhone." = "No camera access. Allow it in Settings or scan the code with the iPhone camera.";
+"Нет прав на запись в папку, где лежит Cooldown. Обновите его вручную с GitHub или попросите администратора." = "No permission to write to the folder Cooldown is in. Update it by hand from GitHub or ask an administrator.";
 "Нет связи" = "No connection";
 "Нет связи с GitHub." = "No connection to GitHub.";
 "Нет связи с сервером" = "No connection to the server";
@@ -775,8 +782,10 @@
 "Обновить сейчас" = "Refresh now";
 "Обновление не установлено" = "Update not installed";
 "Обновление не установлено: %@" = "Update not installed: %@";
+"Обновление отложено" = "Update postponed";
 "Обновления" = "Updates";
 "Обновления с GitHub" = "Updates from GitHub";
+"Обновлю, когда защита VPN отпустит приложения и команды с телефона выполнятся." = "I will update once the VPN guard lets the apps go and phone commands have run.";
 "Обновляю Cooldown на Mac до %@…" = "Updating Cooldown on the Mac to %@…";
 "Обычно телефон молчит, пока вы за Mac, и включается, когда Mac заблокирован или вас нет у него пару минут." = "Usually the phone stays quiet while you’re at the Mac and takes over when the Mac is locked or you’ve been away for a couple of minutes.";
 "Один текстовый файл: результаты проверки, версии программ, настройки, лимиты и последние записи журнала. Названия чатов, IP-адреса, почта и имя пользователя из него убраны. Никуда не отправляется: прочитайте его и пришлите разработчику сами." = "One text file: check results, tool versions, settings, limits and the latest log entries. Chat names, IP addresses, e-mail and the user name are taken out. Nothing is sent: read it and send it to the developer yourself.";
@@ -876,6 +885,7 @@
 "Перезапустить" = "Restart";
 "Перезапустить %@" = "Restart %@";
 "Перенесено из прошлой версии Cooldown." = "Carried over from the previous version of Cooldown.";
+"Перенесите Cooldown в «Программы»" = "Move Cooldown to Applications";
 "Перерыв по расписанию. Не вашему, но всё же." = "A scheduled break. Not your schedule, but still.";
 "Пересобрать" = "Rebuild";
 "Пересобрать статистику" = "Rebuild statistics";
@@ -958,6 +968,7 @@
 "Приложение Codex не запущено." = "The Codex app isn't running.";
 "Приложение Codex не ответило вовремя." = "The Codex app didn't answer in time.";
 "Приложение Codex не установлено." = "The Codex app isn't installed.";
+"Приложение Codex обновилось, и Cooldown пока не понимает его. Обновите Cooldown; задача ждёт." = "The Codex app was updated and Cooldown does not understand it yet. Update Cooldown; the task is waiting.";
 "Приложение Codex слишком старое. Обновите его." = "The Codex app is too old. Please update it.";
 "Приложения работают через прокси" = "Apps are working through the proxy";
 "Пример · ничего не отправлено" = "Sample · nothing was sent";
@@ -1075,11 +1086,13 @@
 "Сейчас лимит не расходуется." = "The limit isn't being spent right now.";
 "Сейчас нельзя: %@. Перезапущу, когда освободится." = "Not now: %@. I will restart it once it is free.";
 "Сейчас ни одна задача не ждёт сброса." = "No task is waiting for a reset right now.";
+"Сейчас он запущен с образа диска или из «Загрузок». Перетащите его в папку «Программы» и откройте оттуда — иначе строка статуса, хуки и обновления не будут работать." = "It is running from the disk image or from Downloads. Drag it to the Applications folder and open it from there — otherwise the status line, hooks and updates will not work.";
 "Сейчас откроется браузер. Подтвердите вход и вернитесь сюда." = "A browser will open now. Confirm the sign-in and come back here.";
 "Сейчас работают в Codex" = "Working in Codex now";
 "Сейчас установлена %@. Обновление займёт несколько секунд; настройки и история сохранятся." = "%@ is installed now. The update takes a few seconds; settings and history are kept.";
 "Сервер Cooldown недоступен: %@" = "The Cooldown server is unavailable: %@";
 "Сервер больше не знает этот Mac. Включите Cooldown для iPhone заново." = "The server no longer knows this Mac. Turn Cooldown for iPhone on again.";
+"Сервер лимитов Claude просит подождать; Cooldown спросит позже." = "The Claude limits server asks to wait; Cooldown will ask later.";
 "Сессии Claude Code в терминале или во вкладке Code. После сброса лимита Cooldown продолжит их сам, без вашего нажатия." = "Claude Code sessions in the terminal or the Code tab. After the limit resets Cooldown continues them by itself, without your click.";
 "Сессию кто-то открыл, подождём минуту." = "Someone opened the session; waiting a minute.";
 "Сессия %@" = "Session %@";
@@ -1252,7 +1265,7 @@
 "больше всего — «%@»" = "most of all — “%@”";
 "в " = "in ";
 "в лимит упирались %@" = "hit the limit %@";
-"в открытый чат Claude" = "to the open Claude chat";
+"в открытый чат Claude, если он остановлен лимитом" = "to the open Claude chat, if the limit stopped it";
 "в поле ввода Claude есть неотправленный текст" = "Claude's message box has unsent text";
 "в чат «%@»" = "to the chat “%@”";
 "версия github обновить скачивать" = "version github update download";
@@ -1360,7 +1373,6 @@
 "токенов Claude Code" = "Claude Code tokens";
 "токенов Codex" = "Codex tokens";
 "только что" = "just now";
-"файл состояния повреждён" = "the state file is damaged";
 "факт" = "actual";
 "фокус не беспокоить сон ночь тихие часы" = "focus do not disturb sleep night quiet hours";
 "чат|чата|чатов" = "chat|chats";

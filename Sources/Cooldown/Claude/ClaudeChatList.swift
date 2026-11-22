@@ -190,6 +190,10 @@ final class ClaudeChatList: ObservableObject {
     /// "Continue" card is done, on the Mac and on the phone.
     func chatStarted(_ key: String) {
         let id = key.hasPrefix("chat:") ? String(key.dropFirst(5)) : key
+        // The chat the "limit is back" card was about works again: that card is done too.
+        if ClaudeSender.pendingChat.map({ !$0.id.isEmpty && $0.id == id }) ?? false {
+            ToastController.shared.dismiss(key: "reset-claude")
+        }
         guard let entry = entries.first(where: { !$0.chat.id.isEmpty && $0.chat.id == id }) else { return }
         ToastController.shared.dismiss(key: "claude-chat-\(entry.id)")
     }

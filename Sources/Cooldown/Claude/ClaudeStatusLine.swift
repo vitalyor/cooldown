@@ -117,8 +117,7 @@ enum ClaudeStatusLine {
             try FileManager.default.copyItem(at: url, to: backup)
         }
         let data = try JSONSerialization.data(withJSONObject: settings, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
-        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try data.write(to: url, options: .atomic)
+        try AgentHooks.writeSettings(data, to: url)
     }
 
     /// Puts Cooldown in front of the existing status line command, keeping that command working.

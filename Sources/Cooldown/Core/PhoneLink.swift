@@ -89,6 +89,8 @@ final class PhoneLink: ObservableObject {
     var done: [String: Date] = [:]
     /// Commands that type into Claude, waiting for the Mac to be unlocked (for as long as they live).
     var afterUnlock: [(cmd: LinkCommand, phone: String, at: Date)] = []
+    /// Phone commands still waiting for the unlock and still in time (expired ones hold nothing up).
+    var commandsWaiting: Bool { afterUnlock.contains { Date().timeIntervalSince($0.at) < $0.cmd.ttl } }
     @Published var rehearsing = false
     var keepAliveIDs: [String: Date] = [:]
     var lastKeepAlive = Date.distantPast

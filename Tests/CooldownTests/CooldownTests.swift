@@ -350,7 +350,7 @@ final class HookGroupPreservationTests: XCTestCase {
 }
 
 final class AutoResumeStopPersistenceTests: XCTestCase {
-    func testStopReportsUnreadableStateAndPersistsSuccessfulStop() async throws {
+    func testDamagedStateIsKeptAsideAndStopPersists() async throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("cooldown-stop-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: folder) }
         let store = ResumeStore(folder: folder, legacy: nil)
@@ -363,11 +363,14 @@ final class AutoResumeStopPersistenceTests: XCTestCase {
         let saved = try Data(contentsOf: file)
         try Data("{broken".utf8).write(to: file)
         let resume = AutoResume(store: store)
-        do {
-            try await resume.stop(id)
-            XCTFail("a failed state write must not be reported as a successful stop")
-        } catch {}
-        XCTAssertEqual(try Data(contentsOf: file), Data("{broken".utf8))
+        // A damaged file is kept aside (never lost) and auto-continue starts empty: with no watch
+        // nothing can be sent, so stopping is honestly done.
+        try await resume.stop(id)
+        let aside = try FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix("state.json.damaged-") }
+        XCTAssertEqual(aside.count, 1)
+        XCTAssertEqual(try aside.first.map { try Data(contentsOf: $0) }, Data("{broken".utf8))
+        XCTAssertNil(try store.load().watch(id))
         try saved.write(to: file)
         try await resume.stop(id)
         XCTAssertEqual(try store.load().watch(id)?.enabled, false)

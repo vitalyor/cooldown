@@ -61,6 +61,12 @@ final class GitHubUpdater: ObservableObject {
     /// Looks for a newer release; `manual` reports the result even when there is nothing new.
     func check(manual: Bool = false, announce shouldAnnounce: Bool = true) async {
         guard let repo = Self.repo, !checking else { return }
+        // Betas switched off: a beta already on offer (or downloaded) is not installed after all.
+        if !Settings.updateBeta, available?.version.contains("-") == true {
+            available = nil
+            prepared = nil
+            ToastController.shared.dismiss(key: "github-update")
+        }
         checking = true
         defer { checking = false }
         do {
@@ -121,7 +127,8 @@ final class GitHubUpdater: ObservableObject {
         if mode == "download" {
             Task {
                 if prepared?.version != release.version { _ = try? await prepare(release) }
-                guard prepared?.version == release.version, offered != release.version else { return }
+                // A card that cannot be shown now (screen locked, quiet hours) is offered at the next check.
+                guard prepared?.version == release.version, offered != release.version, ToastController.shared.canShow else { return }
                 offered = release.version
                 ToastController.shared.show(ToastContent(key: "github-update", kind: .info, provider: nil,
                                                          title: L("Cooldown %@ загружена", "\(release.version)"),
@@ -131,14 +138,23 @@ final class GitHubUpdater: ObservableObject {
             return
         }
         if mode == "auto" {
+            // This version failed to swap in once: no quiet retries at every check; a card instead.
+            if UserDefaults.standard.string(forKey: "updateFailed") == release.version {
+                offerCard(release)
+                return
+            }
             // Installed when nobody is in the middle of something: the Mac idle a couple of minutes.
             // Not while the VPN guard holds something (a restart would let the apps go for a
             // moment), nor while phone commands wait for the Mac to be unlocked (a restart would
             // lose them).
             if (ToastController.idleSeconds > 120 || ToastController.screenLocked) && !RouteGuard.shared.holding
-                && PhoneLink.shared.afterUnlock.isEmpty {
+                && !PhoneLink.shared.commandsWaiting {
                 Task { await install() }
             } else {
+                // Waiting more than a day (the guard keeps holding, the Mac is never idle): say so
+                // with a card, so the update does not wait unseen for ever.
+                if autoWaitSince[release.version] == nil { autoWaitSince[release.version] = Date() }
+                if let since = autoWaitSince[release.version], Date().timeIntervalSince(since) > 24 * 3600 { offerCard(release) }
                 // One retry at a time, for the release still on offer.
                 retry?.cancel()
                 retry = Task { @MainActor in
@@ -149,12 +165,35 @@ final class GitHubUpdater: ObservableObject {
             }
             return
         }
-        guard offered != release.version else { return }
+        guard offered != release.version, ToastController.shared.canShow else { return }
         offered = release.version
         ToastController.shared.show(ToastContent(key: "github-update", kind: .info, provider: nil,
                                                  title: L("Доступна версия Cooldown %@", "\(release.version)"),
                                                  body: L("Сейчас установлена %@. Обновление займёт несколько секунд; настройки и история сохранятся.", "\(Self.current)"),
                                                  actions: [.installRelease, .openReleasePage], life: .sticky))
+    }
+
+    private var autoWaitSince: [String: Date] = [:]
+
+    private func offerCard(_ release: Release) {
+        guard offered != release.version, ToastController.shared.canShow else { return }
+        offered = release.version
+        ToastController.shared.show(ToastContent(key: "github-update", kind: .info, provider: nil,
+                                                 title: L("Доступна версия Cooldown %@", "\(release.version)"),
+                                                 body: L("Сейчас установлена %@. Обновление займёт несколько секунд; настройки и история сохранятся.", "\(Self.current)"),
+                                                 actions: [.installRelease, .openReleasePage], life: .sticky))
+    }
+
+    /// Where the app runs from, if an update cannot replace it there.
+    static var locationProblem: String? {
+        let path = Bundle.main.bundlePath
+        if path.contains("/AppTranslocation/") || path.hasPrefix("/Volumes/") {
+            return L("Cooldown запущен не из папки «Программы». Перенесите его туда — тогда он сможет обновляться.")
+        }
+        if !FileManager.default.isWritableFile(atPath: (path as NSString).deletingLastPathComponent) {
+            return L("Нет прав на запись в папку, где лежит Cooldown. Обновите его вручную с GitHub или попросите администратора.")
+        }
+        return nil
     }
 
     // MARK: Installing
@@ -174,6 +213,22 @@ final class GitHubUpdater: ObservableObject {
     /// `dryRun`: download and check everything, but do not replace the app (for diagnostics).
     func install(dryRun: Bool = false) async {
         guard !installing, let release = available else { return }
+        guard Settings.updateBeta || !release.version.contains("-") else { available = nil; return }
+        if !dryRun, let problem = Self.locationProblem {
+            // Said before anything is downloaded, and once per version (not at every check).
+            state = problem
+            if UserDefaults.standard.string(forKey: "updateLocationSaid") != release.version {
+                UserDefaults.standard.set(release.version, forKey: "updateLocationSaid")
+                ToastController.shared.show(ToastCatalog.failure(L("Обновление не установлено"), problem))
+            }
+            return
+        }
+        if !dryRun, RouteGuard.shared.holding || PhoneLink.shared.commandsWaiting {
+            // A restart would let the paused apps go for a moment, or lose the phone's commands.
+            state = L("Обновлю, когда защита VPN отпустит приложения и команды с телефона выполнятся.")
+            ToastController.shared.show(ToastCatalog.failure(L("Обновление отложено"), state ?? ""))
+            return
+        }
         installing = true
         defer { installing = false }
         do {
@@ -186,6 +241,7 @@ final class GitHubUpdater: ObservableObject {
             }
             if dryRun { state = L("Проверено: %@ готова к установке.", "\(release.version)"); return }
             state = L("Устанавливаю %@…", "\(release.version)")
+            UserDefaults.standard.set(release.version, forKey: "updatingTo")
             try Self.replaceApp(with: app)
         } catch {
             state = L("Обновление не установлено: %@", "\(error.localizedDescription)")
@@ -329,7 +385,18 @@ final class GitHubUpdater: ObservableObject {
     func greetIfUpdated() {
         guard let from = UserDefaults.standard.string(forKey: "updatedFrom") else { return }
         UserDefaults.standard.removeObject(forKey: "updatedFrom")
-        guard from != Self.current else { return }
+        let target = UserDefaults.standard.string(forKey: "updatingTo")
+        UserDefaults.standard.removeObject(forKey: "updatingTo")
+        guard from != Self.current else {
+            // Restarted on the same version: the new one could not be put in place.
+            guard let target, target != Self.current else { return }
+            UserDefaults.standard.set(target, forKey: "updateFailed")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                ToastController.shared.show(ToastCatalog.failure(L("Обновление не установлено"),
+                    L("Версию %@ не удалось поставить на место старой. Скачайте её с GitHub и перетащите в «Программы».", target)))
+            }
+            return
+        }
         EventLog.shared.add(CooldownEvent(kind: .info, provider: nil, title: L("Cooldown обновлён до %@", "\(Self.current)"), body: L("Была версия %@.", "\(from)")))
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
             ToastController.shared.show(ToastContent(key: "updated", kind: .info, provider: nil,
@@ -339,7 +406,7 @@ final class GitHubUpdater: ObservableObject {
     }
 
     func openReleasePage() {
-        let url = available?.page ?? Self.repo.flatMap { URL(string: "https://github.com/\($0)/releases/latest") }
+        let url = available?.page ?? Self.repo.flatMap { URL(string: "https://github.com/\($0)/releases/tag/v\(Self.current)") }
         if let url { NSWorkspace.shared.open(url) }
     }
 

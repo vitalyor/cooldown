@@ -38,6 +38,11 @@ final class ScheduledRunner: ObservableObject {
 
     init(url: URL = Settings.appSupport.appendingPathComponent("scheduled.json")) {
         self.url = url
+        if let data = try? Data(contentsOf: url), (try? JSONDecoder().decode([ScheduledTask].self, from: data)) == nil {
+            // Unreadable (damaged, or from a version that wrote it differently): kept aside, not
+            // overwritten by the next task added.
+            try? FileManager.default.moveItem(at: url, to: url.appendingPathExtension("unreadable-\(Int(Date().timeIntervalSince1970))"))
+        }
         if let data = try? Data(contentsOf: url), let saved = try? JSONDecoder().decode([ScheduledTask].self, from: data) {
             // A run interrupted by quitting Cooldown is not resumed silently.
             tasks = saved.map { task in

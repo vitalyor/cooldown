@@ -25,7 +25,12 @@ final class SetupWindow: NSObject, NSWindowDelegate {
             await AgentSetup.shared.refresh()
             guard !UserDefaults.standard.bool(forKey: "setupShown"), !DemoController.shared.active else { return }
             UserDefaults.standard.set(true, forKey: "setupShown")
-            if ProviderID.agents.contains(where: AgentSetup.shared.needsHelp) { show() }
+            // One agent working is enough to start: the window opens when none is ready yet, or
+            // when one is installed but not signed in. A missing agent the person may never use is
+            // offered on its own tab, with "I don't use it".
+            let setup = AgentSetup.shared
+            let ready = ProviderID.agents.contains { setup.agent($0).stage == .ready }
+            if !ready || ProviderID.agents.contains(where: { setup.needsHelp($0) && setup.agent($0).stage == .signedOut }) { show() }
         }
     }
 

@@ -17,6 +17,10 @@ enum CodexPaths {
         var candidates: [String] = []
         let custom = override.trimmingCharacters(in: .whitespacesAndNewlines)
         if !custom.isEmpty { candidates.append((custom as NSString).expandingTildeInPath) }
+        // The app wherever it is (~/Applications, another folder), not only in /Applications.
+        if let app = CodexApp.url?.path {
+            candidates += ["\(app)/Contents/Resources/codex-cli/bin/codex", "\(app)/Contents/Resources/codex"]
+        }
         candidates += [
             "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex",
             "/Applications/Codex.app/Contents/Resources/codex-cli/bin/codex",

@@ -168,37 +168,49 @@ enum SelfTest {
         expect(ClaudeAutoContinue.allowsWork(auto(1, 99, weeklyReset: now.addingTimeInterval(-60)), now: now),
                "a weekly window past its reset is full again")
 
+        // /usage screens are read as of 20:00 on Oct 20 (resets: a few hours and a few days ahead).
+        let usageNow = Calendar.current.date(from: DateComponents(year: 2026, month: 10, day: 20, hour: 20)) ?? now
         // /usage: only the last drawing counts.
         let screen = "Current session 98% used Resets 9:30pm Current week (all models) 77% used Resets Oct 23 at 7pm Refreshing… "
             + "Current session 3% used Resets 12:50am Current week (all models) 1% used Resets Oct 23 at 7pm"
         let latest = ClaudeUsageCLI.latestScreen(screen)
         expect(!latest.contains("98%"), "the cached drawing is skipped")
-        expect(ClaudeUsageCLI.parse(latest, now: now)?.session?.usedPercent == 3, "the fresh drawing is read")
+        expect(ClaudeUsageCLI.parse(latest, now: usageNow)?.session?.usedPercent == 3, "the fresh drawing is read")
 
         // /usage: a redraw that lost the session line (the screen grew) still gives both windows,
         // and the cached numbers before "Refreshing…" are never used.
         let stream = "Current session 98% used Resets 9:30pm Current week (all models) 77% used Resets Oct 23 at 7pm Refreshing… "
             + "Current session 4% used Resets 12:50am Current week (all models) 2% used Resets Oct 23 at 7pm What's contributing… "
         let redraw = "Current week (all models) 2% used Resets Oct 23 at 7pm Current week (Fable) 0% used Resets Oct 23 at 7pm"
-        let both = ClaudeUsageCLI.read(stream: stream + redraw, redraw: redraw, now: now)
+        let both = ClaudeUsageCLI.read(stream: stream + redraw, redraw: redraw, now: usageNow)
         expect(both?.session?.usedPercent == 4, "session found outside the redraw")
         expect(both?.weekly?.usedPercent == 2, "week from the redraw")
         expect(both?.extras.count == 1, "per-model week kept")
         let cachedOnly = ClaudeUsageCLI.read(stream: "Current session 98% used Resets 9:30pm Refreshing… Current week (all models) 2% used Resets Oct 23 at 7pm",
-                                             redraw: nil, now: now)
+                                             redraw: nil, now: usageNow)
         expect(cachedOnly?.session == nil && cachedOnly?.weekly?.usedPercent == 2, "cached session is not used")
         // Claude Code 2.1.30x: "Refreshing…" at the bottom until the server answers.
-        expect(ClaudeUsageCLI.refreshing("Current session 3% used Resets 2:29pm Usage credits are off Refreshing…\n\nEsc to cancel"),
+        expect(ClaudeUsageCLI.pending("Current session 3% used Resets 2:29pm Usage credits are off Refreshing…\n\nEsc to cancel"),
                "still fetching")
-        expect(!ClaudeUsageCLI.refreshing("Current session 3% used Resets 2:29pm Refreshing… Esc to cancel Last 24h · 97% of your usage was at >150k context "
+        expect(!ClaudeUsageCLI.pending("Current session 3% used Resets 2:29pm Refreshing… Esc to cancel Last 24h · 97% of your usage was at >150k context "
                                           + "Usage credits are off · /usage-credits to turn them on Esc to cancel"), "fetched")
-        let newer = "Current session 8% used Resets 2:29pm Current week (all models) 17% used Resets Nov 27 at 6:59pm Usage credits are off "
+        let newer = "Current session 8% used Resets 11:29pm Current week (all models) 17% used Resets Oct 24 at 6:59pm Usage credits are off "
         let fetched = ClaudeUsageCLI.read(stream: newer + "Refreshing… Esc to cancel Last 24h Usage credits are off Esc to cancel " + newer + "Esc to cancel",
-                                          redraw: newer + "Esc to cancel", now: now)
+                                          redraw: newer + "Esc to cancel", now: usageNow)
         expect(fetched?.session?.usedPercent == 8 && fetched?.weekly?.usedPercent == 17, "the redraw after the fetch is read")
 
+        // /usage wording a later Claude Code might use.
+        let later = ClaudeUsageCLI.parse("Current session 92% left Resets 23:29 Current week (all models) 17% used Resets in 2d 3h", now: usageNow)
+        expect(later?.session?.usedPercent == 8, "% left is read")
+        expect(later?.weekly.map { abs($0.resetsAt.timeIntervalSince(usageNow) - (2 * 86_400 + 3 * 3_600)) < 1 } == true, "relative reset is read")
+        expect(ClaudeUsageCLI.resetDate("7 (Europe/Moscow)", zone: .current, now: usageNow) == nil, "a bare number is not a time")
+
+        expect(ClaudeUsageCLI.pending("Settings Status Usage\n  Loading usage data…\n\n  Esc to cancel"), "first run: still loading")
+        expect(ClaudeUsageCLI.resetDate("Jan 2, 2027 at 7pm (Europe/Moscow)", zone: .current, now: usageNow).map {
+            Calendar.current.component(.year, from: $0) } == 2027, "a reset in the next year")
+
         // The developer report keeps nothing personal, and keeps clock times and versions.
-        let redacted = DebugReport.redact("start «Мой чат» 203.0.113.24 2a02:6b8::1 13:05:12.268 v2.1.303 a@b.co token=abc123 Bearer abcdefgh12")
+        let redacted = DebugReport.redact("start «Мой чат» 203.0.113.24 2a02:6b8::1 13:05:12.268 v2.1.303 a@b.co token=abc123 Bearer abcdefgh12") // l10n:skip
         expect(redacted == "start «…» <ip> <ip> 13:05:12.268 v2.1.303 <email> token=<hidden> Bearer <hidden>", "report redaction: \(redacted)")
 
         // Russian plural forms.

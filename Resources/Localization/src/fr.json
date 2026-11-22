@@ -1449,5 +1449,21 @@
  "Отложить на день": "Me rappeler demain",
  "Отложить на час": "Me rappeler dans une heure",
  "Отчёт для разработчика": "Rapport pour le développeur",
- "Один текстовый файл: результаты проверки, версии программ, настройки, лимиты и последние записи журнала. Названия чатов, IP-адреса, почта и имя пользователя из него убраны. Никуда не отправляется: прочитайте его и пришлите разработчику сами.": "Un fichier texte : résultats de la vérification, versions des outils, réglages, limites et dernières entrées du journal. Les noms de discussions, adresses IP, e-mails et le nom d’utilisateur en sont retirés. Rien n’est envoyé : lisez-le et envoyez-le vous-même au développeur."
+ "Один текстовый файл: результаты проверки, версии программ, настройки, лимиты и последние записи журнала. Названия чатов, IP-адреса, почта и имя пользователя из него убраны. Никуда не отправляется: прочитайте его и пришлите разработчику сами.": "Un fichier texte : résultats de la vérification, versions des outils, réglages, limites et dernières entrées du journal. Les noms de discussions, adresses IP, e-mails et le nom d’utilisateur en sont retirés. Rien n’est envoyé : lisez-le et envoyez-le vous-même au développeur.",
+ "%@ закрыт для записи, Cooldown его не трогает.": "%@ est en lecture seule ; Cooldown n’y touche pas.",
+ "Claude Code ответил: %@": "Claude Code a répondu : %@",
+ "Cooldown запущен не из папки «Программы». Перенесите его туда — тогда он сможет обновляться.": "Cooldown ne tourne pas depuis le dossier Applications. Déplacez-le là-bas pour qu’il puisse se mettre à jour.",
+ "Версию %@ не удалось поставить на место старой. Скачайте её с GitHub и перетащите в «Программы».": "La version %@ n’a pas pu remplacer l’ancienne. Téléchargez-la depuis GitHub et glissez-la dans Applications.",
+ "Данные о лимитах Claude устарели; Cooldown обновит их.": "Les données de limites de Claude sont périmées ; Cooldown va les actualiser.",
+ "Диалог удалён в Codex — его не продолжить.": "La conversation a été supprimée dans Codex — impossible de la poursuivre.",
+ "Защита VPN сейчас не пускает запросы к Claude": "La protection VPN bloque pour l’instant les requêtes vers Claude",
+ "Защита VPN сейчас не пускает запросы к Codex": "La protection VPN bloque pour l’instant les requêtes vers Codex",
+ "Нет прав на запись в папку, где лежит Cooldown. Обновите его вручную с GitHub или попросите администратора.": "Pas de droit d’écriture dans le dossier de Cooldown. Mettez-le à jour à la main depuis GitHub ou demandez à un administrateur.",
+ "Обновление отложено": "Mise à jour reportée",
+ "Обновлю, когда защита VPN отпустит приложения и команды с телефона выполнятся.": "Je mettrai à jour dès que la protection VPN libérera les apps et que les commandes du téléphone seront exécutées.",
+ "Перенесите Cooldown в «Программы»": "Déplacez Cooldown dans Applications",
+ "Приложение Codex обновилось, и Cooldown пока не понимает его. Обновите Cooldown; задача ждёт.": "L’app Codex a été mise à jour et Cooldown ne la comprend pas encore. Mettez Cooldown à jour ; la tâche attend.",
+ "Сейчас он запущен с образа диска или из «Загрузок». Перетащите его в папку «Программы» и откройте оттуда — иначе строка статуса, хуки и обновления не будут работать.": "Il tourne depuis l’image disque ou depuis Téléchargements. Glissez-le dans le dossier Applications et ouvrez-le de là — sinon la ligne d’état, les hooks et les mises à jour ne marcheront pas.",
+ "Сервер лимитов Claude просит подождать; Cooldown спросит позже.": "Le serveur des limites de Claude demande d’attendre ; Cooldown redemandera plus tard.",
+ "в открытый чат Claude, если он остановлен лимитом": "dans la discussion Claude ouverte, si la limite l’a arrêtée"
 }

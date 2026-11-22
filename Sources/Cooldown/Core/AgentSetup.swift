@@ -131,6 +131,10 @@ final class AgentSetup: ObservableObject {
             let process = Process()
             process.executableURL = binary
             process.arguments = arguments
+            var environment = environment
+            // The tool's own folder first: an npm install under nvm/fnm needs its `node` beside it.
+            let own = [binary.deletingLastPathComponent().path, binary.resolvingSymlinksInPath().deletingLastPathComponent().path]
+            environment["PATH"] = (own + [environment["PATH"] ?? ""]).joined(separator: ":")
             process.environment = environment
             let pipe = Pipe()
             process.standardOutput = pipe

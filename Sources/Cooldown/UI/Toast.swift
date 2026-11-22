@@ -326,7 +326,9 @@ final class ToastController: ObservableObject {
         case .continueClaudeChat(let chat):
             Task {
                 do { try await ClaudeSender.continueChat(chat) } catch {
-                    ToastController.shared.show(ToastCatalog.failure(L("Не отправлено в «%@»", "\(chat.title)"), error.localizedDescription, provider: .claude))
+                    // The button stays: after giving Accessibility or clearing the input, one more press.
+                    ToastController.shared.show(ToastCatalog.failure(L("Не отправлено в «%@»", "\(chat.title)"), error.localizedDescription, provider: .claude,
+                                                                     retry: [.continueClaudeChat(chat), .openClaude]))
                 }
             }
         case .openClaude:
@@ -346,8 +348,12 @@ final class ToastController: ObservableObject {
                 return
             }
             Task {
-                do { try await ClaudeSender.continueChat(ClaudeSender.pendingChat) } catch {
-                    ToastController.shared.show(ToastCatalog.failure(L("Не отправлено"), error.localizedDescription, provider: .claude))
+                // No chat was known: only an open chat the limit stopped gets the message, never
+                // whichever chat happens to be open now.
+                let chat = ClaudeSender.pendingChat
+                do { try await ClaudeSender.continueChat(chat, onlyIfStopped: chat == nil) } catch {
+                    ToastController.shared.show(ToastCatalog.failure(L("Не отправлено"), error.localizedDescription, provider: .claude,
+                                                                     retry: [.continueClaude(demo: false), .openClaude]))
                 }
             }
         }

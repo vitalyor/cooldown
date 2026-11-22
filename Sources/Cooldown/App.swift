@@ -61,7 +61,10 @@ enum Entry {
             // Diagnostic: prints what Cooldown reads from Claude Code's /usage screen.
             // The reader reports to the main thread, so the main run loop keeps going meanwhile.
             Task { @MainActor in
-                if let binary = ClaudePaths.binary(override: Settings.claudePath) {
+                // `--claude-usage <path>` reads through another claude (a test double, an older version).
+                let index = arguments.firstIndex(of: "--claude-usage")! + 1
+                let given = index < arguments.count && !arguments[index].hasPrefix("-") ? URL(fileURLWithPath: arguments[index]) : nil
+                if let binary = given ?? ClaudePaths.binary(override: Settings.claudePath) {
                     do {
                         let s = try await ClaudeUsageCLI.shared.read(binary: binary, force: true)
                         for w in [s.session, s.weekly].compactMap({ $0 }) + s.extras {

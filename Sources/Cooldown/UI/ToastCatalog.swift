@@ -36,10 +36,12 @@ enum ToastCatalog {
     static func limitReset(_ provider: ProviderID, demo: Bool = false) -> ToastContent {
         if provider == .claude {
             // Needs the person: Cooldown never writes into a Claude chat on its own.
-            let target = ClaudeSender.pendingChat.map { L("в чат «%@»", "\($0.title)") } ?? L("в открытый чат Claude")
+            // The chat named on the card is the one the button continues, whenever it is pressed.
+            let chat = demo ? nil : ClaudeSender.pendingChat
+            let target = chat.map { L("в чат «%@»", "\($0.title)") } ?? L("в открытый чат Claude, если он остановлен лимитом")
             return ToastContent(key: "reset-claude", kind: .reset, provider: .claude, title: L("Лимит Claude восстановился"),
                                 body: L("Можно продолжать. «Продолжить» отправит «%@» %@.", "\(ClaudeSender.text)", "\(target)"),
-                                actions: [.continueClaude(demo: demo), .openClaude], life: .sticky)
+                                actions: [chat.map { .continueClaudeChat($0) } ?? .continueClaude(demo: demo), .openClaude], life: .sticky)
         }
         if provider == .antigravity {
             return ToastContent(key: "reset-antigravity", kind: .reset, provider: .antigravity, title: L("Лимит %@ восстановлен", "Antigravity"),
@@ -103,8 +105,8 @@ enum ToastCatalog {
                             actions: actions.isEmpty ? [.openPanel] : actions, life: .sticky)
     }
 
-    static func failure(_ title: String, _ body: String, provider: ProviderID? = nil) -> ToastContent {
-        ToastContent(key: "fail-\(title)", kind: .warning, provider: provider, title: title, body: body, life: .sticky)
+    static func failure(_ title: String, _ body: String, provider: ProviderID? = nil, retry: [ToastAction] = []) -> ToastContent {
+        ToastContent(key: "fail-\(title)", kind: .warning, provider: provider, title: title, body: body, actions: retry, life: .sticky)
     }
 }
 

@@ -534,6 +534,8 @@ enum ClaudeSender {
             let chunk = Array(units[index..<min(index + 16, units.count)])
             for down in [true, false] {
                 let event = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: down)
+                // Keys the person happens to hold (Shift, ⌘) must not ride along.
+                event?.flags = []
                 chunk.withUnsafeBufferPointer { event?.keyboardSetUnicodeString(stringLength: $0.count, unicodeString: $0.baseAddress) }
                 event?.postToPid(pid)
             }
@@ -545,7 +547,9 @@ enum ClaudeSender {
     private static func press(keyCode: CGKeyCode, to pid: pid_t) {
         let source = CGEventSource(stateID: .hidSystemState)
         for down in [true, false] {
-            CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: down)?.postToPid(pid)
+            let event = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: down)
+            event?.flags = []   // a held Shift would make Return a new line instead of "send"
+            event?.postToPid(pid)
         }
     }
 }

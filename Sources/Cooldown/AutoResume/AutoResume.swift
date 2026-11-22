@@ -461,10 +461,13 @@ final class AutoResume: @unchecked Sendable {
             // Cooldown was not running when the limit came back and the person closed Codex.
             // Open it once in the background; the next look can then load the conversation.
             let now = Date()
-            if let until = Self.codexSpentUntil, until > now.addingTimeInterval(60) {
+            // Right after Cooldown starts there is no reading yet: the reset remembered from the
+            // last run counts, so Codex is not opened while its limit is still spent.
+            let spentUntil = Self.codexSpentUntil ?? Settings.pendingReset(.codex)
+            if let until = spentUntil, until > now.addingTimeInterval(60) {
                 return Outcome(status: "waiting_quota", reason: L("Жду сброса лимита Codex."), kind: .temporary, next: 60)
             }
-            if StartupRecovery.shouldOpenCodex(isRunning: false, spentUntil: Self.codexSpentUntil, lastAsked: launchAsked[id], now: now) {
+            if StartupRecovery.shouldOpenCodex(isRunning: false, spentUntil: spentUntil, lastAsked: launchAsked[id], now: now) {
                 launchAsked[id] = now
                 DispatchQueue.main.async { CodexApp.openInBackground() }
                 return Outcome(status: "waiting_connection", reason: L("Открываю Codex, чтобы продолжить задачу."),
@@ -504,9 +507,11 @@ final class AutoResume: @unchecked Sendable {
         // would only pull the app forward; a restart of the app is what helps.
         let recent = CodexThreadIndex.thread(id: id).map { Date().timeIntervalSince($0.updatedAt) < 300 } ?? false
         let loadedInVain = loadAsked[id].map { Date().timeIntervalSince($0) > 45 } ?? false
-        if recent || loadedInVain {
+        // Only a load that was asked for and did not come counts: a window closed by the person
+        // right after the limit stopped the turn is not a broken link (and no reason to restart Codex).
+        if loadedInVain {
             if brokenNoted.insert(id).inserted {
-                AgentActivity.trace("auto-continue \(id): Codex does not answer (\(recent ? "in use" : "loaded") but no window found)")
+                AgentActivity.trace("auto-continue \(id): Codex does not answer (\(recent ? "in use, " : "")loaded but no window found)")
                 DispatchQueue.main.async {
                     MainActor.assumeIsolated { CodexLink.broken() }
                 }
@@ -527,6 +532,11 @@ final class AutoResume: @unchecked Sendable {
             defer { official.close() }
             let judged = ResumeRules.judgeHistory(try official.readThread(id))
             guard ResumeStatus.canMonitor(judged.state) else { return stopOutcome(judged.state, judged.reason) }
+        } catch CodexError.server(let message) where CodexThreadIndex.thread(id: id) == nil
+                    && ["not found", "no thread", "unknown thread", "does not exist"].contains(where: message.lowercased().contains) {
+            // Deleted: gone from Codex's list and Codex does not know it. Watching it would cost an
+            // app-server start every few minutes, forever.
+            return Outcome(status: "stopped", reason: L("Диалог удалён в Codex — его не продолжить."), disable: true, next: nil)
         } catch {
             return waiting
         }

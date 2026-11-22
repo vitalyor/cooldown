@@ -229,6 +229,9 @@ final class RouteGuard: ObservableObject {
     /// After a network change or a wake, a check that could not answer keeps the apps paused
     /// this long without alarm: the VPN may still be connecting.
     private var settlingSince: Date?
+    /// Since when the network has kept changing with no answer in between (settlingSince starts
+    /// over at every change). A network that never settles must not keep the apps paused silently.
+    private var unsettledSince: Date?
     private var sleepObservers: [NSObjectProtocol] = []
     /// Bumped by every network change and by turning the guard off: a round that started before
     /// is out of date, its results are dropped, and a new round follows.
@@ -302,6 +305,7 @@ final class RouteGuard: ObservableObject {
         case .ok: return false
         case .forbidden, .refused: return true
         case .unchecked:
+            if reading.at == .distantPast, let since = unsettledSince, Date().timeIntervalSince(since) > 60 { return true }
             if let since = settlingSince, Date().timeIntervalSince(since) < 15 { return false }
             return reading.misses >= 2
         }
@@ -450,6 +454,7 @@ final class RouteGuard: ObservableObject {
             readings[service] = RouteReading(verdict: .unchecked, exit: nil, appVerdict: .unchecked, appExit: nil, at: .distantPast)
         }
         settlingSince = Date()
+        if unsettledSince == nil { unsettledSince = Date() }
         problemSince = nil
         enforce()
         if launchObserver == nil {
@@ -483,6 +488,7 @@ final class RouteGuard: ObservableObject {
         lastCard = ""
         problemSince = nil
         settlingSince = nil
+        unsettledSince = nil
         rerun = false
         pending = [:]
         cliNoted = false
@@ -498,6 +504,8 @@ final class RouteGuard: ObservableObject {
         // Online or offline is a change by itself; anything else the system reports (roaming, a
         // new flag) counts only if the network's fingerprint moved.
         guard online != wasOnline else { netEvent(); return }
+        // Time offline is not time spent waiting for a VPN: the minute starts over.
+        unsettledSince = nil
         lastFingerprint = NetWatch.fingerprint()
         networkChanged()
     }
@@ -519,6 +527,7 @@ final class RouteGuard: ObservableObject {
         guard Self.live(Date()), !sleeping else { return }
         generation += 1
         settlingSince = Date()
+        if unsettledSince == nil { unsettledSince = Date() }
         age()
         enforce()
         guard check else { return }
@@ -534,8 +543,11 @@ final class RouteGuard: ObservableObject {
     func goingToSleep() {
         guard Self.live(Date()) else { return }
         sleeping = true
+        // A stopped app cannot answer the system and would hold the sleep up.
+        Freezer.shared.thawAll()
         generation += 1
         settlingSince = Date()
+        if unsettledSince == nil { unsettledSince = Date() }
         age()
     }
 
@@ -567,7 +579,7 @@ final class RouteGuard: ObservableObject {
     /// VPN may still be connecting; no card for this. `app`: the apps' route, else the direct one.
     private func settling(_ service: GuardService, app: Bool) -> Bool {
         guard Self.live(Date()), !sleeping, let reading = readings[service] else { return false }
-        if reading.at == .distantPast { return true }
+        if reading.at == .distantPast { return unsettledSince.map { Date().timeIntervalSince($0) <= 60 } ?? true }
         guard let since = settlingSince, Date().timeIntervalSince(since) < 15 else { return false }
         return (app ? reading.appVerdict : reading.verdict) == .unchecked
     }
@@ -615,19 +627,24 @@ final class RouteGuard: ObservableObject {
         timer?.invalidate()
         writeHookFiles()
         var started = generation
+        var passes = 0
         repeat {
             rerun = false
             started = generation
+            passes += 1
             let services = GuardService.watched.filter(due)
+            // A network that changes faster than a pass takes would throw every answer away: from
+            // the third pass on, the answers count anyway (they are as fresh as any could be).
+            let keep = passes >= 3
             await withTaskGroup(of: (GuardService, RouteTrace).self) { group in
                 for service in services {
                     group.addTask { (service, await Self.tracer(service)) }
                 }
-                for await (service, trace) in group where started == generation && Self.live(Date()) {
+                for await (service, trace) in group where (keep || started == generation) && Self.live(Date()) {
                     record(service, trace)
                 }
             }
-        } while (rerun || started != generation) && Self.live(Date())
+        } while (rerun || started != generation) && passes < 3 && Self.live(Date())
         checking = false
         // Paced by what must be caught quickly: the apps' route, and the direct one unless a proxy
         // carries the apps (a terminal going direct through Clash is not a reason to slow down).
@@ -635,7 +652,7 @@ final class RouteGuard: ObservableObject {
             guard let reading = readings[service], reading.appVerdict == .ok, reading.at != .distantPast else { return false }
             return reading.proxied || reading.verdict == .ok
         }
-        if all { problemSince = nil; settlingSince = nil } else if problemSince == nil { problemSince = Date() }
+        if all { problemSince = nil; settlingSince = nil; unsettledSince = nil } else if problemSince == nil { problemSince = Date() }
         checkTimeZone()
         expirePending()
         announce()
@@ -1005,12 +1022,24 @@ final class RouteGuard: ObservableObject {
 
     func enforce() {
         guard Settings.guardEnabled else { return }
-        if Settings.guardFreeze {
-            let services = GuardService.watched.filter { appsStopped($0) || settling($0, app: true) }
-            let terminal = Settings.guardFreezeTerminal ? GuardService.watched.filter { cliStopped($0) || settling($0, app: false) } : []
+        if sleeping {
+            Freezer.shared.thawAll()
+        } else if Settings.guardFreeze {
+            // Offline nothing can leave: only a route known to be wrong keeps its apps paused; a
+            // check that cannot answer (no network) is no reason to keep anyone stopped.
+            let known: (RouteVerdict) -> Bool = { $0 == .forbidden || $0 == .refused }
+            let services = GuardService.watched.filter {
+                online ? appsStopped($0) || settling($0, app: true) : readings[$0].map { known($0.appVerdict) } ?? false
+            }
+            let terminal = !Settings.guardFreezeTerminal ? [] : GuardService.watched.filter {
+                // A system proxy carries the apps and only the direct route is wrong: a terminal agent
+                // may well use the proxy too (HTTPS_PROXY); its hook holds the ones that do not.
+                guard !cliOnly($0) else { return false }
+                return online ? cliStopped($0) || settling($0, app: false) : readings[$0].map { known($0.verdict) } ?? false
+            }
             // Cooldown's own `codex exec` tasks go direct and have no hook between steps: they pause
             // with the route (an exception to "never Cooldown's own").
-            let own = cliStopped(.openai) || settling(.openai, app: false) ? ScheduledRunner.shared.runningPids : []
+            let own = online && (cliStopped(.openai) || settling(.openai, app: false)) ? ScheduledRunner.shared.runningPids : []
             // Offline nothing can leave: nothing new is frozen, but what no longer needs it goes on.
             Freezer.shared.set(Set(services.flatMap(\.apps)), terminal: terminal, own: own, onlyThaw: !online)
         } else {
@@ -1521,8 +1550,11 @@ enum TimeZoneSwitch {
     }
 
     @MainActor static func set(_ zone: String) async throws {
-        if saved == nil { Settings.set([TimeZone.current.identifier, automatic ? "auto" : "manual"], forKey: "timeZoneSaved") }
+        // What to come back to is noted only once the switch happened (a cancelled password
+        // dialog must not leave an old zone to be "restored" later).
+        let original = [TimeZone.current.identifier, automatic ? "auto" : "manual"]
         try await run(zone, automatic: false)
+        if saved == nil { Settings.set(original, forKey: "timeZoneSaved") }
     }
 
     @MainActor static func restore() async throws {

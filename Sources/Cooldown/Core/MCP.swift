@@ -64,11 +64,9 @@ enum CooldownMCP {
     }
 
     private static func writeConfig(_ root: [String: Any]) throws {
-        let fm = FileManager.default
         AgentHooks.backup(configURL)
-        try fm.createDirectory(at: configURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         let data = try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
-        try data.write(to: configURL, options: .atomic)
+        try AgentHooks.writeSettings(data, to: configURL)
     }
 
     // MARK: Running as the MCP server

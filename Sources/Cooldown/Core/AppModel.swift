@@ -95,6 +95,12 @@ final class ProviderStore: ObservableObject {
                 }
                 let before = history.samples
                 history.add(samples: live)
+                // Claude Desktop's own record fits only windows already known: on a first run they
+                // become known with this reading, so it is taken in now (not only at the next launch).
+                if id == .claude, before.isEmpty || Date().timeIntervalSince(desktopImported) > 3600 {
+                    desktopImported = Date()
+                    history.add(samples: ClaudeDesktopUsage.samples(fitting: history.samples))
+                }
                 if history.samples != before {
                     samples = history.samples
                     save()
@@ -163,6 +169,8 @@ final class ProviderStore: ObservableObject {
     }
 
     /// Readings from elsewhere (Claude Desktop's own record) added to the history once.
+    private var desktopImported = Date.distantPast
+
     func importSamples(_ extra: [LimitSample]) {
         guard !extra.isEmpty else { return }
         history.add(samples: extra)
@@ -326,6 +334,18 @@ final class AppModel: ObservableObject {
         UpdateWatch.start()
         GitHubUpdater.shared.start()
         GitHubUpdater.shared.greetIfUpdated()
+        // Run from the downloaded disk image or straight from Downloads (macOS then runs a copy
+        // from a hidden place that changes every launch): the status line, hooks and updates
+        // would point at a path that disappears.
+        let here = Bundle.main.bundlePath
+        if !isRenderMode, here.contains("/AppTranslocation/") || here.hasPrefix("/Volumes/") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                ToastController.shared.show(ToastContent(key: "move-to-applications", kind: .info, provider: nil,
+                    title: L("Перенесите Cooldown в «Программы»"),
+                    body: L("Сейчас он запущен с образа диска или из «Загрузок». Перетащите его в папку «Программы» и откройте оттуда — иначе строка статуса, хуки и обновления не будут работать."),
+                    actions: [], life: .sticky))
+            }
+        }
         AutoResume.shared.onChange = { rows in AppModel.shared.resumeChanged(rows) }
         AutoResume.shared.start()
         CodexRequestWatcher.shared.start()
@@ -492,7 +512,7 @@ final class AppModel: ObservableObject {
         guard !Self.notified("\(fresh.provider.rawValue)-", reset: session.resetsAt, tail: "-\(Int(lowest))") else { return }
         notified += crossed.map { "\(window)-\(Int($0))" }
         Settings.notifiedKeys = notified
-        Notifier.shared.post(id: key, title: L("%@: осталось %@", "\(name)", "\(Format.percent(remaining))"),
+        Notifier.shared.post(id: "low-" + key, title: L("%@: осталось %@", "\(name)", "\(Format.percent(remaining))"),
                              body: L("Лимит на 5 часов заканчивается. Сброс в %@.", "\(Format.time(session.resetsAt))"),
                              toast: ToastCatalog.limitLow(fresh.provider, remaining: remaining, reset: session.resetsAt))
     }
@@ -528,6 +548,12 @@ final class AppModel: ObservableObject {
                     confirmAsked[provider] = Date()
                     Task { await self.store(provider).refreshLimits(force: true) }
                 }
+                continue
+            }
+            // The five-hour window turned over, but the week is still spent: nothing to continue
+            // yet. The "is back" moment is the weekly reset; the "spent" card stays as it is.
+            if let weekly = AgentActivity.spent(provider), weekly > pending.addingTimeInterval(30 * 60) {
+                Settings.setPendingReset(provider, weekly)
                 continue
             }
             Settings.setPendingReset(provider, nil)
@@ -668,7 +694,7 @@ final class AppModel: ObservableObject {
         case "waiting_quota":
             Notifier.shared.post(id: "task-\(id)-wait-\(Int(Date().timeIntervalSince1970) / 3600)", title: L("%@: задача ждёт сброса", "\(provider.displayName)"),
                                  body: L("%@ продолжится автоматически после сброса лимита.", "\(name)"),
-                                 toast: ToastCatalog.taskWaiting(provider, title: title, until: store(provider).snapshot?.session?.resetsAt))
+                                 toast: ToastCatalog.taskWaiting(provider, title: title, until: AgentActivity.spent(provider) ?? store(provider).snapshot?.session?.resetsAt))
         case "stopped":
             // Finished turns are announced by the session watcher, with the agent's own last words.
             break

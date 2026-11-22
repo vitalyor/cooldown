@@ -34,8 +34,15 @@ extension PhoneLink {
             }
         case "env":
             guard let session, let id = frame.id else { return }
-            guard let box = try? session.open(frame), let from = frame.from else { return }
+            // Taken off the relay whether or not it opens: one that cannot be opened (a replay, a
+            // box too old for the clock) would only come back at every reconnect.
             client?.got([id])
+            let box: LinkBox
+            do { box = try session.open(frame) } catch {
+                AgentActivity.trace("phone: an envelope did not open (\(error)); a phone clock far off can cause this")
+                return
+            }
+            guard let from = frame.from else { return }
             receive(box, from: from)
         default:
             break
@@ -206,7 +213,7 @@ extension PhoneLink {
             switch action {
             case .continueClaude:
                 let chat = ClaudeSender.pendingChat
-                try await ClaudeSender.continueChat(chat)
+                try await ClaudeSender.continueChat(chat, onlyIfStopped: chat == nil)
                 return LinkResult(cmd: cmd.id, code: "ok", text: chat.map { L("Отправлено в «%@».", "\($0.title)") } ?? L("Отправлено в открытый чат Claude."))
             case .continueClaudeChat(let chat):
                 try await ClaudeSender.continueChat(chat)

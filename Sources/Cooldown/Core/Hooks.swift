@@ -338,7 +338,9 @@ enum AgentHooks {
         done
         rm -rf "$tmp"
       fi
-      [ -z "$proxy" ] && printf '%s %s' "$verdict" "$now" > "$cache" 2>/dev/null
+      # Only a passing answer is kept: a slow round or a VPN that just came back must not hold the
+      # next messages for 15 s when Cooldown is not there to say otherwise.
+      [ -z "$proxy" ] && [ "$verdict" = ok ] && printf '%s %s' "$verdict" "$now" > "$cache" 2>/dev/null
     fi
     [ "$verdict" = ok ] && pass
     msg=$(cat "$dir/msg-$service-$verdict" 2>/dev/null)
@@ -369,7 +371,7 @@ enum AgentHooks {
     /// If Cooldown is removed, the command finds no script and lets everything through, so an
     /// agent is never left blocked by a guard that no longer exists.
     static func guardCommand(_ service: String, _ when: String) -> String {
-        "/bin/sh -c 'f=\"$HOME/Library/Application Support/Cooldown/hooks/\(guardMarker)\"; [ -x \"$f\" ] || exit 0; exec \"$f\" \(service) \(when)'"
+        "/bin/sh -c 'f=\"$HOME/Library/Application Support/Cooldown/hooks/\(guardMarker)\"; [ -x \"$f\" ] || { [ \"\(when)\" = invocation ] && printf \"{}\\\\n\"; exit 0; }; exec \"$f\" \(service) \(when)'"
     }
 
     private static func guardPlan(_ agent: Agent) -> [(event: String, handler: [String: Any])] {
@@ -443,6 +445,22 @@ enum AgentHooks {
 
     /// A copy of a settings file before Cooldown changes it; the newest three are kept (they hold
     /// the person's whole settings, secrets in `env` included, so they must not pile up).
+    /// Writes another tool's settings file the way a person's editor would: through a symlink
+    /// (a dotfiles repo keeps its link), with the file's own permissions, and never over a file
+    /// the person made read-only.
+    static func writeSettings(_ data: Data, to url: URL) throws {
+        let fm = FileManager.default
+        let target = url.resolvingSymlinksInPath()
+        let permissions = (try? fm.attributesOfItem(atPath: target.path))?[.posixPermissions] as? NSNumber
+        if fm.fileExists(atPath: target.path), !fm.isWritableFile(atPath: target.path) {
+            throw NSError(domain: "Cooldown", code: 13, userInfo: [NSLocalizedDescriptionKey:
+                L("%@ закрыт для записи, Cooldown его не трогает.", "\(url.lastPathComponent)")])
+        }
+        try fm.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try data.write(to: target, options: .atomic)
+        if let permissions { try? fm.setAttributes([.posixPermissions: permissions], ofItemAtPath: target.path) }
+    }
+
     static func backup(_ url: URL, keep: Int = 3) {
         let fm = FileManager.default
         guard fm.fileExists(atPath: url.path) else { return }
@@ -468,13 +486,11 @@ enum AgentHooks {
 
     private static func write(_ agent: Agent, _ root: [String: Any]) throws {
         let url = file(agent)
-        let fm = FileManager.default
         backup(url)
         // The same layout these files are written in (sorted keys, pretty), so other tools'
         // entries come out byte-for-byte as they were.
         let data = try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
-        try fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try data.write(to: url, options: .atomic)
+        try writeSettings(data, to: url)
     }
 }
 
@@ -708,8 +724,7 @@ enum AntigravityGuard {
 
     private static func write(_ root: [String: Any]) throws {
         AgentHooks.backup(file)
-        try FileManager.default.createDirectory(at: configFolder, withIntermediateDirectories: true)
         let data = try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
-        try data.write(to: file, options: .atomic)
+        try AgentHooks.writeSettings(data, to: file)
     }
 }

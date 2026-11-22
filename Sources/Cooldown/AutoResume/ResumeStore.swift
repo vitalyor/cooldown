@@ -107,7 +107,17 @@ final class ResumeStore {
             let bytes = try handle.readToEnd() ?? Data()
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .secondsSince1970
-            do { data = try decoder.decode(ResumeData.self, from: bytes) } catch { throw Failure.io(L("файл состояния повреждён")) }
+            do { data = try decoder.decode(ResumeData.self, from: bytes) } catch {
+                // A damaged file would stop auto-continue for good. Keep it aside and start with no
+                // watches: nothing is sent for a watch that is gone, so this cannot send twice.
+                let aside = folder.appendingPathComponent("state.json.damaged-\(Int(Date().timeIntervalSince1970))")
+                try? FileManager.default.moveItem(at: file, to: aside)
+                AgentActivity.trace("auto-continue: state file damaged, kept as \(aside.lastPathComponent), starting empty")
+                var fresh = ResumeData()
+                fresh.migrated = true
+                try write(fresh)
+                return fresh
+            }
         }
         if !data.migrated {
             data.migrated = true

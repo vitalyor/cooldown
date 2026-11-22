@@ -284,7 +284,9 @@ final class CodexIPCConnection {
             guard state == nil, failure == nil else { return }
             switch Self.stateChange(message, thread: thread, owner: owner) {
             case .snapshot(let value): state = value
-            case .refused(let reason): failure = CodexIPCError.app(reason)
+            // A newer Codex speaks a protocol Cooldown does not know yet: wait (with a clear word)
+            // instead of switching every watch off after an update of the app.
+            case .refused(let reason): failure = reason == Self.newerProtocol ? CodexIPCError.connection(reason) : CodexIPCError.app(reason)
             case .patches, .unrelated: break
             }
         }
@@ -310,13 +312,15 @@ final class CodexIPCConnection {
         case unrelated
     }
 
+    static let newerProtocol = L("Приложение Codex обновилось, и Cooldown пока не понимает его. Обновите Cooldown; задача ждёт.")
+
     /// What a broadcast says about one conversation, trusting only its owner window.
     static func stateChange(_ message: [String: Any], thread: String, owner: String) -> StateChange {
         guard message["method"] as? String == "thread-stream-state-changed",
               let params = message["params"] as? [String: Any],
               params["conversationId"] as? String == thread, params["hostId"] as? String == "local",
               message["sourceClientId"] as? String == owner else { return .unrelated }
-        guard JSON.number(message["version"]) == 11 else { return .refused(L("Незнакомая версия протокола Codex.")) }
+        guard JSON.number(message["version"]) == 11 else { return .refused(Self.newerProtocol) }
         guard let change = params["change"] as? [String: Any] else { return .refused(L("Codex прислал состояние в незнакомом виде.")) }
         switch change["type"] as? String {
         case "snapshot":

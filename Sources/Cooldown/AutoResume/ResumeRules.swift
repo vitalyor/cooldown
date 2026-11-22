@@ -284,11 +284,14 @@ enum ResumeRules {
         case let kind as String where kind == "rate_limit_reached": flaggedAsReached = true
         default: return .blocked(L("Codex сообщил незнакомый вид ограничения."))
         }
-        guard let primary = bucket["primary"], !JSON.isNull(primary) else {
-            return .blocked(L("Codex не сообщил окно лимита."))
+        // No five-hour window: it has not started since the last reset. Not a reason to give up
+        // (that would turn the watch off right when the limit is back): only Codex's own "yes"
+        // lets it go on, otherwise read again in a minute.
+        if JSON.isNull(bucket["primary"] ?? NSNull()), ordinary != true {
+            return .stale(now.addingTimeInterval(60))
         }
         var windows: [(used: Double, resets: Date)] = []
-        for raw in [primary as Any?, bucket["secondary"]] {
+        for raw in [bucket["primary"], bucket["secondary"]] {
             guard let raw, !JSON.isNull(raw) else { continue }
             guard let window = raw as? [String: Any], let used = JSON.number(window["usedPercent"]), (0...100).contains(used),
                   let resets = JSON.number(window["resetsAt"]), resets > 0,

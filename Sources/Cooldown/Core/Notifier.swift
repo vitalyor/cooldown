@@ -108,10 +108,17 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
                                          body: L("В обычном режиме Cooldown сейчас вывел бы Claude вперёд и отправил в открытый чат: «%@»", "\(ClaudeSender.text)"))
                 }
             } else if response.actionIdentifier == Self.continueAction {
-                // The person pressed "Продолжить": one message, sent because they asked for it.
+                // The person pressed "Продолжить": one message, sent because they asked for it —
+                // and only while the reset it was about is still open (a notification can sit in
+                // Notification Center for days; the chat may have long gone on by then).
                 Task { @MainActor in
+                    guard ToastController.shared.isShowing("reset-claude") || PhoneLink.shared.hasCard("reset-claude") else {
+                        ClaudeApp.open()
+                        return
+                    }
                     do {
-                        try await ClaudeSender.continueChat(ClaudeSender.pendingChat)
+                        let chat = ClaudeSender.pendingChat
+                        try await ClaudeSender.continueChat(chat, onlyIfStopped: chat == nil)
                         // Done from the notification: the card (and the phone's button) must not send it again.
                         ToastController.shared.dismiss(key: "reset-claude")
                     } catch {

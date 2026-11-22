@@ -82,11 +82,14 @@ actor ClaudeUsageCLI {
         // not retried more often than the normal pace.
         if (1...3).contains(failuresInRow) { pause = min(pause, 60 * pow(2, Double(failuresInRow - 1))) }
         if turnFinished { pause = min(pause, 60) }
+        // The usage server asked to wait: asking every minute would only keep it saying so.
+        if (lastError as? UsageError) == .rateLimited { pause = max(pause, 5 * 60) }
         // A few seconds' slack: the caller's minute timer would otherwise miss a one-minute pause
         // by a hair and make it two.
         if !force, Date().timeIntervalSince(lastAttempt) < pause - 5 {
-            if let last { return last }
+            // The last try failed: that is the news, not the reading before it.
             if let lastError { throw lastError }
+            if let last { return last }
         }
         if let running { return try await running.value }
         let task = Task.detached(priority: .utility) {
@@ -192,7 +195,10 @@ actor ClaudeUsageCLI {
         process.executableURL = binary
         // Only the usage screen is wanted: no hooks (Cooldown's own or other tools'), no status
         // line, no update checks or other background traffic for this short run.
-        process.arguments = ["/usage", "--settings", #"{"disableAllHooks":true,"statusLine":{"type":"command","command":"true"}}"#]
+        process.arguments = ["/usage", "--settings", #"{"disableAllHooks":true,"statusLine":{"type":"command","command":"true"}}"#,
+                             // None of the person's MCP servers: they would start (and may ask for
+                             // sign-ins or permissions) on every run, only to be closed a second later.
+                             "--strict-mcp-config", "--mcp-config", #"{"mcpServers":{}}"#]
         // An empty folder of Cooldown's own: started in the home folder, Claude Code looks around it,
         // and macOS then asks on Cooldown's behalf for Photos, Documents and the like.
         process.currentDirectoryURL = workFolder
@@ -207,7 +213,9 @@ actor ClaudeUsageCLI {
         environment["DISABLE_AUTOUPDATER"] = "1"
         environment["COLUMNS"] = "120"
         environment["LINES"] = String(Self.rows)
-        environment["PATH"] = "\(home)/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+        // Its own folder first: an npm install under nvm/fnm starts with `#!/usr/bin/env node`.
+        let own = [binary.deletingLastPathComponent().path, binary.resolvingSymlinksInPath().deletingLastPathComponent().path]
+        environment["PATH"] = (own + ["\(home)/.local/bin", "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"]).joined(separator: ":")
         process.environment = environment
         let terminal = FileHandle(fileDescriptor: slave, closeOnDealloc: true)
         process.standardInput = terminal
@@ -229,27 +237,38 @@ actor ClaudeUsageCLI {
         var lastOutput = Date()
         var sawLimits: Date?
         var redrawFrom: Int?
+        var width: UInt16 = 120
+        let started = Date()
         while Date() < deadline {
             var descriptor = pollfd(fd: master, events: Int16(POLLIN), revents: 0)
             if poll(&descriptor, 1, 100) > 0 {
                 let count = Darwin.read(master, &chunk, chunk.count)
                 if count > 0 { bytes.append(chunk, count: count); lastOutput = Date() } else if count == 0 { break }
             }
-            if let redrawFrom {
-                if Date().timeIntervalSince(lastOutput) > 0.5, bytes.count > redrawFrom { break }
+            if let from = redrawFrom {
                 if !process.isRunning { break }
-                continue
+                guard Date().timeIntervalSince(lastOutput) > 0.5, bytes.count > from else { continue }
+                // Claude Code 2.1.30x draws its last numbers with "Refreshing…" (or "Loading usage
+                // data…" with none) until the server answers — a second, or many over a slow VPN —
+                // and then may only erase that line. Each full redraw shows where it really is: still
+                // waiting, look again a moment later (up to 40 s); otherwise this drawing is the one.
+                let drawn = plain(bytes.suffix(from: bytes.startIndex + from))
+                // A drawing that still has "Refreshing" anywhere got mixed with the answer arriving
+                // at the same moment: not a clean picture either.
+                if Self.pending(drawn) || drawn.contains("Refreshing"), let seen = sawLimits, Date().timeIntervalSince(seen) < 40 {
+                    redrawFrom = nil
+                    lastOutput = Date()
+                    continue
+                }
+                break
             }
             if let seen = sawLimits {
-                // Claude Code 2.1.30x draws the cached numbers, then "Refreshing…" until the server
-                // answers (a second, or several over a slow VPN). A pause in the output while it still
-                // says so is not the end: wait for it (up to 15 s), or the redraw shows cached numbers.
-                let quiet = Date().timeIntervalSince(lastOutput)
-                if Date().timeIntervalSince(seen) > 15 || (quiet > 0.9 && !Self.refreshing(plain(bytes))) {
+                if Date().timeIntervalSince(lastOutput) > 0.9 || Date().timeIntervalSince(seen) > 40 {
                     redrawFrom = bytes.count
                     lastOutput = Date()
-                    var wider = winsize(ws_row: Self.rows, ws_col: 121, ws_xpixel: 0, ws_ypixel: 0)
-                    _ = ioctl(master, TIOCSWINSZ, &wider)
+                    width = width == 120 ? 121 : 120
+                    var size = winsize(ws_row: Self.rows, ws_col: width, ws_xpixel: 0, ws_ypixel: 0)
+                    _ = ioctl(master, TIOCSWINSZ, &size)
                     kill(process.processIdentifier, SIGWINCH)
                     deadline = max(deadline, Date().addingTimeInterval(5))
                 }
@@ -259,6 +278,10 @@ actor ClaudeUsageCLI {
                 let text = plain(bytes)
                 let flat = text.replacingOccurrences(of: " ", with: "")
                 if flat.localizedCaseInsensitiveContains("trustthisfolder") { break }
+                // The usage server says "not now": waiting longer only asks again.
+                if flat.contains("Usageendpointisratelimited") { break }
+                // No numbers of its own yet ("Loading usage data…"): give a slow connection time.
+                if flat.contains("Loadingusagedata") { deadline = max(deadline, started.addingTimeInterval(50)) }
                 let failures = flat.components(separatedBy: "Failedtoloadusagedata").count - 1
                 if failures > retries {
                     if retries >= 3 { break }
@@ -276,10 +299,11 @@ actor ClaudeUsageCLI {
                 }
                 // Claude Code sometimes draws spaces as cursor jumps, so words may arrive glued together.
                 // /usage first draws its cached numbers with "Refreshing…", then the fresh ones.
+                // A week with its numbers (Pro with an idle session has only one "Resets" line).
                 if text.range(of: #"Current\s*week"#, options: .regularExpression) != nil,
-                   text.components(separatedBy: "Resets").count > 2 {
+                   text.range(of: #"%\s*(used|left)"#, options: .regularExpression) != nil, text.contains("Resets") {
                     sawLimits = Date()
-                    deadline = max(deadline, Date().addingTimeInterval(20))
+                    deadline = max(deadline, Date().addingTimeInterval(45))
                 }
             }
             if !process.isRunning { break }
@@ -297,24 +321,36 @@ actor ClaudeUsageCLI {
         clearTranscripts()
         let text = plain(bytes)
         let redraw = redrawFrom.map { plain(bytes.suffix(from: bytes.startIndex + $0)) }
-        if let snapshot = read(stream: text, redraw: redraw, now: Date()) { return snapshot }
+        // What the last drawing says about itself comes first: numbers it could not refresh are old.
+        let latest = (redraw ?? text).replacingOccurrences(of: " ", with: "")
+        if latest.contains("Usageendpointisratelimited") || text.replacingOccurrences(of: " ", with: "").contains("Usageendpointisratelimited") {
+            throw UsageError.rateLimited
+        }
+        let stale = ["last-knownusage", "couldnotrefresh", "Couldnotrefreshusagedata"].contains { latest.localizedCaseInsensitiveContains($0) }
+        if stale, latest.localizedCaseInsensitiveContains("ratelimited") { throw UsageError.rateLimited }
+        if !stale, let snapshot = read(stream: text, redraw: redraw, now: Date()) { return snapshot }
         let logs = Settings.appSupport.appendingPathComponent("logs", isDirectory: true)
         try? FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true)
         try? text.write(to: logs.appendingPathComponent("claude-usage-unread.txt"), atomically: true, encoding: .utf8)
-        if text.localizedCaseInsensitiveContains("login") || text.localizedCaseInsensitiveContains("sign in") {
+        let flat = text.replacingOccurrences(of: " ", with: "")
+        if stale || flat.contains("Failedtoloadusagedata") || pending(text) { throw UsageError.serverFailed }
+        if ["Notloggedin", "Pleaserun/login", "Authenticationrequired", "Selectloginmethod", "InvalidAPIkey", "OAuthtokenhasexpired"]
+            .contains(where: { flat.localizedCaseInsensitiveContains($0) }) {
             throw UsageError.signedOut
         }
-        if text.localizedCaseInsensitiveContains("trust") { throw UsageError.trust }
-        if text.replacingOccurrences(of: " ", with: "").contains("Failedtoloadusagedata") || refreshing(text) {
-            throw UsageError.serverFailed
+        if flat.localizedCaseInsensitiveContains("trustthisfolder") || flat.localizedCaseInsensitiveContains("trustthefiles") { throw UsageError.trust }
+        // Claude Code's own error line, word for word: more use than "could not read".
+        if let line = text.components(separatedBy: "\n").last(where: { $0.trimmingCharacters(in: .whitespaces).hasPrefix("Error:") }) {
+            throw UsageError.claude(String(line.trimmingCharacters(in: .whitespaces).prefix(200)))
         }
         throw UsageError.unreadable
     }
 
-    /// Claude Code is still fetching the limits: "Refreshing…" is the last thing it drew (only
-    /// "Esc to cancel" after it). Once the answer comes, it draws more below or in its place.
-    static func refreshing(_ text: String) -> Bool {
-        guard let marker = text.range(of: "Refreshing", options: .backwards) else { return false }
+    /// Claude Code is still fetching the limits: "Refreshing…" (or "Loading usage data…" before it
+    /// has any numbers) is the last thing it drew, with only "Esc to cancel" after it.
+    static func pending(_ text: String) -> Bool {
+        let markers = ["Refreshing", "Loading usage data", "Loadingusagedata"].compactMap { text.range(of: $0, options: .backwards) }
+        guard let marker = markers.max(by: { $0.lowerBound < $1.lowerBound }) else { return false }
         let after = String(text[marker.upperBound...].filter { !$0.isWhitespace })
         return after.replacingOccurrences(of: "Esctocancel", with: "", options: .caseInsensitive).count < 40
     }
@@ -326,7 +362,7 @@ actor ClaudeUsageCLI {
     /// cached numbers ("Refreshing…") were replaced: first from the full redraw, and a window
     /// missing there from the rest of the fresh output. Cached numbers are never used.
     static func read(stream text: String, redraw: String?, now: Date) -> LimitSnapshot? {
-        let primary = redraw.flatMap { $0.contains("Refreshing") ? nil : parse(latestScreen($0), now: now) }
+        let primary = redraw.flatMap { pending($0) || $0.contains("Refreshing") ? nil : parse(latestScreen($0), now: now) }
         // After the last "Refreshing…" everything drawn is fresh; per window, its last drawing wins.
         var tail = text
         if let marker = text.range(of: "Refreshing", options: .backwards) { tail = String(text[marker.upperBound...]) }
@@ -392,14 +428,20 @@ actor ClaudeUsageCLI {
             .components(separatedBy: "\u{1}").dropFirst()
         for block in blocks {
             let header = block.prefix { $0 != "\n" }.trimmingCharacters(in: .whitespaces)
-            guard let used = firstMatch(#"(\d+(?:\.\d+)?)\s*%\s*used"#, in: block).flatMap(Double.init) else { continue }
+            // "% used" today; "% left" is read too, in case a later version turns it around.
+            guard let used = firstMatch(#"(\d+(?:\.\d+)?)\s*%\s*used"#, in: block).flatMap(Double.init)
+                    ?? firstMatch(#"(\d+(?:\.\d+)?)\s*%\s*left"#, in: block).flatMap(Double.init).map({ 100 - $0 }) else { continue }
             let resetText = firstMatch(#"Resets\s*([^\n(]+)"#, in: block)?.trimmingCharacters(in: .whitespaces)
-            let zone = firstMatch(#"Resets[^\n(]*\(([A-Za-z_]+/[A-Za-z_]+)"#, in: block).flatMap(TimeZone.init(identifier:))
+            let zone = firstMatch(#"Resets[^\n(]*\(([A-Za-z_]+(?:/[A-Za-z0-9_+\-]+)+)"#, in: block).flatMap(TimeZone.init(identifier:))
             let lower = header.lowercased().replacingOccurrences(of: " ", with: "")
             let kind: WindowKind = lower.hasPrefix("session") || lower.contains("5-hour") || lower.contains("5hour") ? .session : .weekly
             // Never invent a reset time. A made-up five-hour or weekly reset would win the merge
             // against a real reading and send auto-continue at the wrong moment.
             guard let resetText, let resets = resetDate(resetText, zone: zone ?? .current, now: now) else { continue }
+            // A reset outside its window's length is a misread (an old time pushed to tomorrow):
+            // it would win the merge and send auto-continue at the wrong moment.
+            guard resets > now.addingTimeInterval(-60),
+                  resets < now.addingTimeInterval(Double(kind.defaultMinutes) * 60 + 3_600) else { continue }
             var window = LimitWindow(kind: kind, usedPercent: min(100, max(0, used)),
                                      durationMinutes: kind.defaultMinutes, resetsAt: resets)
             if kind == .session {
@@ -417,18 +459,28 @@ actor ClaudeUsageCLI {
         return snapshot.session != nil || snapshot.weekly != nil ? snapshot : nil
     }
 
-    /// "6:10pm", "Oct 23 at 7pm", "Oct 23, 7:30am" in the time zone the screen names.
+    /// "6:10pm", "Oct 23 at 7pm", "Oct 23, 7:30am" in the time zone the screen names; also a
+    /// 24-hour "18:10" and "in 3h 20m", in case a later version writes it so.
     static func resetDate(_ text: String, zone: TimeZone, now: Date) -> Date? {
-        let pattern = #"^(?:([A-Za-z]{3})[a-z]*\s*(\d{1,2})(?:,)?\s*(?:at\s*)?)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)"#
+        if let relative = try? NSRegularExpression(pattern: #"^in\s*(?:(\d+)\s*d[a-z]*)?\s*(?:(\d+)\s*h[a-z]*)?\s*(?:(\d+)\s*m[a-z]*)?"#, options: .caseInsensitive),
+           let match = relative.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)), match.range.length > 3 {
+            let parts = (1...3).map { Range(match.range(at: $0), in: text).flatMap { Double(text[$0]) } ?? 0 }
+            let seconds = parts[0] * 86_400 + parts[1] * 3_600 + parts[2] * 60
+            return seconds > 0 ? now.addingTimeInterval(seconds) : nil
+        }
+        // "Jan 2, 2027 at 7pm": a reset in the next year carries it.
+        let pattern = #"^(?:([A-Za-z]{3})[a-z]*\s*(\d{1,2})(?:,?\s*(\d{4}))?(?:,)?\s*(?:at\s*)?)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?"#
         guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
               let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) else { return nil }
         func group(_ index: Int) -> String? { Range(match.range(at: index), in: text).map { String(text[$0]) } }
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = zone
-        guard var hour = group(3).flatMap(Int.init) else { return nil }
-        let minute = group(4).flatMap(Int.init) ?? 0
-        let pm = group(5)?.lowercased() == "pm"
-        if hour == 12 { hour = pm ? 12 : 0 } else if pm { hour += 12 }
+        guard var hour = group(4).flatMap(Int.init) else { return nil }
+        // A bare number is not a time: a 24-hour time always has its minutes.
+        guard group(6) != nil || group(5) != nil, hour < 24 else { return nil }
+        let minute = group(5).flatMap(Int.init) ?? 0
+        let pm = group(6)?.lowercased() == "pm"
+        if group(6) != nil { if hour == 12 { hour = pm ? 12 : 0 } else if pm { hour += 12 } }
         var parts = calendar.dateComponents([.year, .month, .day], from: now)
         parts.hour = hour
         parts.minute = minute
@@ -437,8 +489,9 @@ actor ClaudeUsageCLI {
             guard let index = months.firstIndex(of: month.lowercased()) else { return nil }
             parts.month = index + 1
             parts.day = day
+            if let year = group(3).flatMap(Int.init) { parts.year = year }
             guard var date = calendar.date(from: parts) else { return nil }
-            if date < now.addingTimeInterval(-86_400) { date = calendar.date(byAdding: .year, value: 1, to: date) ?? date }
+            if group(3) == nil, date < now.addingTimeInterval(-86_400) { date = calendar.date(byAdding: .year, value: 1, to: date) ?? date }
             return date
         }
         guard var date = calendar.date(from: parts) else { return nil }
@@ -454,8 +507,9 @@ actor ClaudeUsageCLI {
         return String(string[range])
     }
 
-    enum UsageError: LocalizedError {
-        case terminal, signedOut, trust, unreadable, missing, serverFailed
+    enum UsageError: LocalizedError, Equatable {
+        case terminal, signedOut, trust, unreadable, missing, serverFailed, rateLimited
+        case claude(String)
 
         var errorDescription: String? {
             switch self {
@@ -465,6 +519,8 @@ actor ClaudeUsageCLI {
             case .trust: return L("Claude Code ждёт разрешения работать в пустой папке Cooldown.")
             case .unreadable: return L("Не удалось прочитать экран /usage в Claude Code.")
             case .serverFailed: return L("Claude Code не смог загрузить лимиты с сервера; Cooldown повторит через минуту.")
+            case .rateLimited: return L("Сервер лимитов Claude просит подождать; Cooldown спросит позже.")
+            case .claude(let line): return L("Claude Code ответил: %@", line)
             }
         }
     }

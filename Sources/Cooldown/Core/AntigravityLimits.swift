@@ -75,7 +75,13 @@ enum AntigravityLimits {
     /// Antigravity groups its models; each group has a 5-hour and a weekly limit. The first group
     /// (Gemini, its default models) gives the main windows, the others come as labelled extras.
     static func parse(_ data: Data, now: Date) throws -> LimitSnapshot {
-        guard let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { throw Failure.unexpected("") }
+        // A warning or banner may come before the JSON: read from the first "{". With no JSON at
+        // all, agy's first line is the reason (signed out, an old version) and is shown as it is.
+        let text = String(decoding: data, as: UTF8.self)
+        let json = text.firstIndex(of: "{").map { Data(text[$0...].utf8) } ?? data
+        guard let root = (try? JSONSerialization.jsonObject(with: json)) as? [String: Any] else {
+            throw Failure.unexpected(String(text.trimmingCharacters(in: .whitespacesAndNewlines).components(separatedBy: "\n").first?.prefix(200) ?? ""))
+        }
         guard let groups = ((root["command"] as? [String: Any])?["data"] as? [String: Any])?["groups"] as? [[String: Any]], !groups.isEmpty else {
             throw Failure.unexpected((root["response"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "")
         }

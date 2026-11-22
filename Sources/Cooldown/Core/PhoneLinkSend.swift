@@ -11,7 +11,7 @@ extension PhoneLink {
     func send(_ box: LinkBox, to phones: [String]? = nil, ttl: TimeInterval = 600, keep: String? = nil, push: LinkPush?) -> [String] {
         guard let session, let client, let account else { return [] }
         var push = push
-        if push != nil { push?.badge = cards.values.filter { !$0.card.actions.filter { $0.input != true }.isEmpty }.count }
+        if push != nil { push?.badge = liveCards.filter { !$0.card.actions.filter { $0.input != true }.isEmpty }.count }
         var ids: [String] = []
         for peer in account.peers where phones == nil || phones!.contains(peer.id) {
             var b = box
@@ -88,7 +88,7 @@ extension PhoneLink {
         if probe > 0 { return probe * 60 }
         guard Settings.phoneKeepAlive, paired else { return nil }
         let working = ProviderID.agents.contains { !AgentActivity.shared.working($0).isEmpty }
-        let waitingPress = cards.values.contains { !$0.card.actions.filter { $0.input != true }.isEmpty }
+        let waitingPress = liveCards.contains { !$0.card.actions.filter { $0.input != true }.isEmpty }
         let resetSoon = ProviderID.agents.contains { p in AgentActivity.spent(p).map { $0.timeIntervalSinceNow < 15 * 60 } ?? false }
         guard working || waitingPress || resetSoon else { return nil }
         // Only mobile data puts the phone's line to sleep. On Wi-Fi a rare one is enough to notice
@@ -311,7 +311,14 @@ extension PhoneLink {
     }
 
     /// A card was answered or closed on the Mac: it goes away on the phone as well.
-    func hasCard(_ key: String) -> Bool { cards[key] != nil }
+    func hasCard(_ key: String) -> Bool { cards[key].map { ($0.card.expires ?? .distantFuture) > Date() } ?? false }
+
+    /// Cards the phone still shows: one past its time is gone there, so it neither counts on the
+    /// badge nor keeps the phone's line awake (a card nobody answered on the Mac stayed here).
+    var liveCards: [(content: ToastContent, card: LinkCard, pushed: Bool)] {
+        let now = Date()
+        return cards.values.filter { ($0.card.expires ?? .distantFuture) > now }
+    }
 
     func resolve(_ key: String, by: String = "mac") {
         ClaudeChatList.shared.cardClosed(key)

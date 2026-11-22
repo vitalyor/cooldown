@@ -76,7 +76,13 @@ echo "Released $TAG"
 # The Homebrew cask (github.com/vitalyor/homebrew-tap) follows the release, when its clone is next to this one.
 TAP="${COOLDOWN_TAP:-../homebrew-tap}"
 if [ -z "$BETA" ] && [ -f "$TAP/Casks/cooldown.rb" ]; then
+  # The tap's own latest first: a stale clone would push over it or fail to push.
+  git -C "$TAP" pull -q --ff-only || { echo "HOMEBREW TAP NOT UPDATED: could not pull $TAP"; exit 1; }
   SHA=$(shasum -a 256 "$OUT/Cooldown-$VERSION.dmg" | cut -d' ' -f1)
   sed -i '' -e "s/^  version \".*\"/  version \"$VERSION\"/" -e "s/^  sha256 \".*\"/  sha256 \"$SHA\"/" "$TAP/Casks/cooldown.rb"
-  ( cd "$TAP" && git commit -qam "Cooldown $VERSION" && git push -q ) && echo "Homebrew tap updated"
+  if ( cd "$TAP" && git commit -qam "Cooldown $VERSION" && git push -q ); then
+    echo "Homebrew tap updated"
+  else
+    echo "HOMEBREW TAP NOT UPDATED: commit or push failed in $TAP"; exit 1
+  fi
 fi

@@ -91,13 +91,16 @@ final class Diagnostics: ObservableObject {
         }
 
         start = Date()
-        do {
+        // The VPN guard says the route is wrong: no request to OpenAI, not even for a check.
+        if !RouteGuard.allows(.codex) {
+            set("codex-limits", .skipped, L("Защита VPN сейчас не пускает запросы к Codex"))
+        } else { do {
             let snapshot = try await CodexLimits.fetch(binaryOverride: Settings.codexPath)
             let left = snapshot.session.map { L("осталось %@", "\(Format.percent($0.remainingPercent))") } ?? L("окно не начато")
             set("codex-limits", .ok, left, since: start)
         } catch {
             set("codex-limits", .failed, error.localizedDescription, advice: L("Проверьте, что codex вошёл в аккаунт (codex login) и есть сеть."), since: start)
-        }
+        } }
 
         switch AgentHooks.status(.codex) {
         case .off: set("codex-hooks", .warning, L("Не подключены"), advice: L("Подключите в «Настройки → Codex»: события придут сразу, а не по файлам."))
@@ -121,22 +124,16 @@ final class Diagnostics: ObservableObject {
             await window()
             return
         }
-        let version: String = await Task.detached {
-            let process = Process()
-            process.executableURL = binary
-            process.arguments = ["--version"]
-            let pipe = Pipe()
-            process.standardOutput = pipe
-            process.standardError = FileHandle.nullDevice
-            guard (try? process.run()) != nil else { return "" }
-            process.waitUntilExit()
-            return String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-        }.value
+        // With its PATH and a time limit (a hanging tool must not hang the check).
+        let version = await AgentSetup.capture(binary, ["--version"], timeout: 10).output
+            .trimmingCharacters(in: .whitespacesAndNewlines).components(separatedBy: "\n").last ?? ""
         set("claude-binary", version.isEmpty ? .warning : .ok,
             (version.isEmpty ? "" : version + " · ") + (binary.path as NSString).abbreviatingWithTildeInPath, since: start)
 
         start = Date()
-        if Settings.claudeUsageCLI {
+        if Settings.claudeUsageCLI, !RouteGuard.allows(.claude) {
+            set("claude-usage", .skipped, L("Защита VPN сейчас не пускает запросы к Claude"))
+        } else if Settings.claudeUsageCLI {
             do {
                 let snapshot = try await ClaudeUsageCLI.shared.read(binary: binary, force: true)
                 let left = snapshot.session.map { L("осталось %@", "\(Format.percent($0.remainingPercent))") } ?? L("окно не начато")

@@ -96,9 +96,12 @@ enum ClaudePaths {
 
 enum ClaudeError: LocalizedError {
     case notConnected
+    case outdated
 
     var errorDescription: String? {
         switch self {
+        case .outdated:
+            return L("Данные о лимитах Claude устарели; Cooldown обновит их.")
         case .notConnected:
             return L("Лимиты Claude ещё не подключены.")
         }
@@ -135,7 +138,8 @@ enum ClaudeLimits {
         }
         if let bridged { candidates.append(bridged) }
         guard var merged = merge(candidates, desktop: ClaudeDesktopUsage.latest()) else {
-            throw firstError ?? ClaudeError.notConnected
+            // Readings there are, only too old (the Mac slept): not "not connected".
+            throw firstError ?? (candidates.isEmpty ? ClaudeError.notConnected : ClaudeError.outdated)
         }
         if merged.plan == nil { merged.plan = ClaudePlan.current() }
         return merged

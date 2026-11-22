@@ -137,7 +137,7 @@ private struct LimitsHistory: View {
             }
             Well {
                 if points.isEmpty {
-                    EmptyChart(text: store.id == .claude
+                    EmptyChart(text: store.id == .claude && store.samples.isEmpty
                                ? L("Истории лимитов Claude пока нет: она копится, пока лимиты подключены.")
                                : L("За этот период данных о лимитах нет."))
                 } else {

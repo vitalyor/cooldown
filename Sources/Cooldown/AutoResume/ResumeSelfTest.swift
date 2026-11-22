@@ -128,7 +128,10 @@ enum ResumeSelfTest {
         if case .blocked = ResumeRules.judgeLimits(bucket(30) { $0["spendControlReached"] = true }, now: now) {} else { failures.append("auto-continue: spend control blocks") }
         if case .blocked = ResumeRules.judgeLimits(bucket(30) { $0["individualLimit"] = ["x": 1] }, now: now) {} else { failures.append("auto-continue: an individual limit blocks") }
         if case .blocked = ResumeRules.judgeLimits(bucket(30) { $0["rateLimitReachedType"] = "workspace_owner_limit" }, now: now) {} else { failures.append("auto-continue: unknown reached type blocks") }
-        if case .blocked = ResumeRules.judgeLimits(bucket(30) { $0["primary"] = NSNull() }, now: now) {} else { failures.append("auto-continue: missing window blocks") }
+        expect(ResumeRules.judgeLimits(bucket(30) { $0["primary"] = NSNull() }, now: now) == .stale(now.addingTimeInterval(60)),
+               "a window not started yet waits for Codex to say yes")
+        expect(ResumeRules.judgeLimits(bucket(30) { $0["primary"] = NSNull(); $0["ordinaryUsageAllowed"] = true }, now: now) == .available,
+               "a window not started yet, and Codex says yes")
         if case .blocked = ResumeRules.judgeLimits(bucket(30) { $0["primary"] = ["usedPercent": "30", "resetsAt": 1, "windowDurationMins": 300] }, now: now) {} else {
             failures.append("auto-continue: invalid window blocks")
         }
