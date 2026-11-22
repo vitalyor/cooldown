@@ -139,7 +139,9 @@ final class Diagnostics: ObservableObject {
                 let left = snapshot.session.map { L("осталось %@", "\(Format.percent($0.remainingPercent))") } ?? L("окно не начато")
                 set("claude-usage", .ok, "/usage: " + left, since: start)
             } catch {
-                set("claude-usage", .failed, error.localizedDescription, advice: L("Запустите claude в Терминале и проверьте вход; затем повторите проверку."), since: start)
+                set("claude-usage", .failed, error.localizedDescription, advice: (error as? ClaudeUsageCLI.UsageError) == .firstRun
+                    ? L("Откройте вкладку Claude в Cooldown и нажмите «Открыть в Терминале».")
+                    : L("Запустите claude в Терминале и проверьте вход; затем повторите проверку."), since: start)
             }
         } else {
             set("claude-usage", .skipped, L("Чтение через Claude Code выключено"))

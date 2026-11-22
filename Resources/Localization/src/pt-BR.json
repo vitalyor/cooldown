@@ -1467,5 +1467,9 @@
  "Сервер лимитов Claude просит подождать; Cooldown спросит позже.": "O servidor de limites do Claude pede para esperar; o Cooldown pergunta depois.",
  "в открытый чат Claude, если он остановлен лимитом": "no chat do Claude aberto, se o limite o interrompeu",
  "Claude Desktop не на русском и не на английском: Cooldown не может проверить, что открытый чат остановил лимит. Откройте нужный чат и продолжите сами.": "O Claude Desktop não está em russo nem em inglês: o Cooldown não consegue verificar se o limite parou o chat aberto. Abra o chat certo e continue você mesmo.",
- "Claude Desktop не на русском и не на английском: Cooldown не может проверить, что чат остановил лимит. Продолжите кнопкой на карточке.": "O Claude Desktop não está em russo nem em inglês: o Cooldown não consegue verificar se o limite parou o chat. Continue pelo botão do cartão."
+ "Claude Desktop не на русском и не на английском: Cooldown не может проверить, что чат остановил лимит. Продолжите кнопкой на карточке.": "O Claude Desktop não está em russo nem em inglês: o Cooldown não consegue verificar se o limite parou o chat. Continue pelo botão do cartão.",
+ "Claude Code ещё ни разу не запускали: вместо лимитов он показывает первую настройку. Нажмите «Открыть в Терминале», выберите тему и войдите в аккаунт.": "O Claude Code nunca foi iniciado: em vez dos limites, ele mostra a configuração inicial. Clique em “Abrir no Terminal”, escolha um tema e entre na conta.",
+ "Откройте вкладку Claude в Cooldown и нажмите «Открыть в Терминале».": "Abra a aba Claude no Cooldown e clique em “Abrir no Terminal”.",
+ "Открыть в Терминале": "Abrir no Terminal",
+ "Пройдите первую настройку Claude Code: выберите тему, войдите в аккаунт и, если спросит, разрешите работать в этой папке. Когда появится поле ввода, наберите /exit.": "Conclua a configuração inicial do Claude Code: escolha um tema, entre na conta e, se for solicitado, permita que ele trabalhe nesta pasta. Quando aparecer o campo de entrada, digite /exit."
 }

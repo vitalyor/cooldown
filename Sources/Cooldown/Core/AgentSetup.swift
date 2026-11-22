@@ -235,14 +235,22 @@ final class AgentSetup: ObservableObject {
     /// Opens Terminal running the same steps. A .command file needs no automation permission.
     func openInTerminal(_ provider: ProviderID) {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("cooldown-setup-\(provider.rawValue).command")
-        let script = SetupGuide.terminalScript(provider, installed: binary(provider) != nil)
-        do {
-            try script.write(to: url, atomically: true, encoding: .utf8)
-            try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: url.path)
-            NSWorkspace.shared.open(url)
-        } catch {
+        do { try Self.runInTerminal(SetupGuide.terminalScript(provider, installed: binary(provider) != nil), at: url) } catch {
             agents[provider]?.problem = error.localizedDescription
         }
+    }
+
+    /// Claude Code's own first-run setup (text style, sign-in), in Cooldown's folder for /usage.
+    func openClaudeFirstRun() {
+        guard let binary = binary(.claude) else { return }
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("cooldown-claude-first-run.command")
+        try? Self.runInTerminal(SetupGuide.firstRunScript(binary: binary, folder: ClaudeUsageCLI.workFolder), at: url)
+    }
+
+    private static func runInTerminal(_ script: String, at url: URL) throws {
+        try script.write(to: url, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: url.path)
+        NSWorkspace.shared.open(url)
     }
 }
 
@@ -276,6 +284,14 @@ enum SetupGuide {
         lines += ["echo", "echo \(quoted(L("Сейчас откроется браузер. Подтвердите вход и вернитесь сюда.")))", signIn(provider),
                   "echo", "echo \(quoted(done))", "rm -f \"$0\""]
         return lines.joined(separator: "\n") + "\n"
+    }
+
+    static func firstRunScript(binary: URL, folder: URL) -> String {
+        let steps = L("Пройдите первую настройку Claude Code: выберите тему, войдите в аккаунт и, если спросит, разрешите работать в этой папке. Когда появится поле ввода, наберите /exit.")
+        let done = L("Готово. Вернитесь в Cooldown и нажмите «Проверить снова». Это окно можно закрыть.")
+        return ["#!/bin/zsh", "clear", "echo \(quoted(steps))", "echo", "cd \(quoted(folder.path))",
+                "PATH=\(quoted(binary.deletingLastPathComponent().path)):\"$PATH\" \(quoted(binary.path))",
+                "echo", "echo \(quoted(done))", "rm -f \"$0\""].joined(separator: "\n") + "\n"
     }
 
     /// What to paste into any AI assistant that can run commands. In English on purpose: every

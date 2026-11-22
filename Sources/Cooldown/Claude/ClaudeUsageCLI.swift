@@ -277,7 +277,7 @@ actor ClaudeUsageCLI {
             do {
                 let text = plain(bytes)
                 let flat = text.replacingOccurrences(of: " ", with: "")
-                if flat.localizedCaseInsensitiveContains("trustthisfolder") { break }
+                if flat.localizedCaseInsensitiveContains("trustthisfolder") || Self.firstRun(flat) { break }
                 // The usage server says "not now": waiting longer only asks again.
                 if flat.contains("Usageendpointisratelimited") { break }
                 // No numbers of its own yet ("Loading usage data…"): give a slow connection time.
@@ -333,6 +333,7 @@ actor ClaudeUsageCLI {
         try? FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true)
         try? text.write(to: logs.appendingPathComponent("claude-usage-unread.txt"), atomically: true, encoding: .utf8)
         let flat = text.replacingOccurrences(of: " ", with: "")
+        if Self.firstRun(flat) { throw UsageError.firstRun }
         if stale || flat.contains("Failedtoloadusagedata") || pending(text) { throw UsageError.serverFailed }
         if ["Notloggedin", "Pleaserun/login", "Authenticationrequired", "Selectloginmethod", "InvalidAPIkey", "OAuthtokenhasexpired"]
             .contains(where: { flat.localizedCaseInsensitiveContains($0) }) {
@@ -344,6 +345,12 @@ actor ClaudeUsageCLI {
             throw UsageError.claude(String(line.trimmingCharacters(in: .whitespaces).prefix(200)))
         }
         throw UsageError.unreadable
+    }
+
+    /// Claude Code was never started by hand: it shows its first-run setup (text style, sign-in)
+    /// instead of /usage. Only the person can go through it.
+    static func firstRun(_ flat: String) -> Bool {
+        ["Choosethetextstyle", "Let'sgetstarted", "Let’sgetstarted"].contains { flat.localizedCaseInsensitiveContains($0) }
     }
 
     /// Claude Code is still fetching the limits: "Refreshing…" (or "Loading usage data…" before it
@@ -508,7 +515,7 @@ actor ClaudeUsageCLI {
     }
 
     enum UsageError: LocalizedError, Equatable {
-        case terminal, signedOut, trust, unreadable, missing, serverFailed, rateLimited
+        case terminal, signedOut, trust, unreadable, missing, serverFailed, rateLimited, firstRun
         case claude(String)
 
         var errorDescription: String? {
@@ -517,6 +524,7 @@ actor ClaudeUsageCLI {
             case .missing: return L("Claude Code не найден. Откройте настройку Cooldown: она установит его по одной кнопке.")
             case .signedOut: return L("Claude Code не вошёл в аккаунт. Откройте настройку Cooldown и нажмите «Войти».")
             case .trust: return L("Claude Code ждёт разрешения работать в пустой папке Cooldown.")
+            case .firstRun: return L("Claude Code ещё ни разу не запускали: вместо лимитов он показывает первую настройку. Нажмите «Открыть в Терминале», выберите тему и войдите в аккаунт.")
             case .unreadable: return L("Не удалось прочитать экран /usage в Claude Code.")
             case .serverFailed: return L("Claude Code не смог загрузить лимиты с сервера; Cooldown повторит через минуту.")
             case .rateLimited: return L("Сервер лимитов Claude просит подождать; Cooldown спросит позже.")

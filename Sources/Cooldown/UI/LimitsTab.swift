@@ -49,7 +49,12 @@ struct LimitsTab: View {
         } else if let error = store.limitError {
             Well {
                 Note(symbol: "exclamationmark.triangle.fill", text: error, color: Theme.amber)
-                if store.id != .antigravity {
+                if store.id == .claude, error == ClaudeUsageCLI.UsageError.firstRun.localizedDescription {
+                    HStack(spacing: 8) {
+                        Button(L("Открыть в Терминале")) { AgentSetup.shared.openClaudeFirstRun() }.buttonStyle(.glassProminent).tint(store.tint)
+                        Button(L("Проверить снова")) { Task { await store.refreshLimits(force: true) } }.buttonStyle(.glass)
+                    }
+                } else if store.id != .antigravity {
                     Button(L("Открыть настройки")) { SettingsWindow.shared.show(store.id == .codex ? .codex : .claude) }.buttonStyle(.link)
                 }
             }

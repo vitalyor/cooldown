@@ -109,6 +109,7 @@
 "Antigravity прислал ответ в незнакомом формате." = "Antigravity respondió en un formato desconocido.";
 "Apple доставляет уведомления на этот iPhone с задержкой в минуты. Так бывает на мобильных сетях с ограничениями: телефон подключается к сервису уведомлений Apple только время от времени. Помогает Wi‑Fi или VPN на телефоне." = "Apple entrega las notificaciones a este iPhone con minutos de retraso. Pasa en redes móviles con restricciones: el teléfono solo llega de vez en cuando al servicio de notificaciones de Apple. Ayuda el Wi‑Fi o una VPN en el teléfono.";
 "Claude Code %@ устарел: при сбое проверки сообщение может уйти. Обновите его (claude update)." = "Claude Code %@ está desactualizado: si falla la comprobación, un mensaje podría enviarse igualmente. Actualízalo (claude update).";
+"Claude Code ещё ни разу не запускали: вместо лимитов он показывает первую настройку. Нажмите «Открыть в Терминале», выберите тему и войдите в аккаунт." = "Claude Code nunca se ha iniciado: en lugar de los límites muestra la configuración inicial. Haz clic en «Abrir en Terminal», elige un tema e inicia sesión.";
 "Claude Code ждёт разрешения работать в пустой папке Cooldown." = "Claude Code espera permiso para trabajar en la carpeta vacía de Cooldown.";
 "Claude Code не вошёл в аккаунт. Откройте настройку Cooldown и нажмите «Войти»." = "Claude Code no ha iniciado sesión. Abre la configuración de Cooldown y pulsa Iniciar sesión.";
 "Claude Code не найден. Откройте настройку Cooldown: она установит его по одной кнопке." = "No se encontró Claude Code. Abre la configuración de Cooldown: lo instala con un botón.";
@@ -834,6 +835,7 @@
 "Откройте Codex: он попросит проверить новые хуки — разрешите хуки Cooldown. В терминале то же делает команда /hooks." = "Abre Codex: te pedirá revisar los nuevos hooks; permite los de Cooldown. En la terminal hace lo mismo el comando /hooks.";
 "Откройте Cooldown на iPhone или просто наведите камеру на код. Код одноразовый и действует 5 минут." = "Abre Cooldown en el iPhone o simplemente apunta la cámara al código. El código sirve una vez, durante 5 minutos.";
 "Откройте Терминал: нажмите ⌘ и Пробел, введите «Терминал» и нажмите Return." = "Abre Terminal: pulsa ⌘ y Espacio, escribe «Terminal» y pulsa Retorno.";
+"Откройте вкладку Claude в Cooldown и нажмите «Открыть в Терминале»." = "Abre la pestaña Claude en Cooldown y haz clic en «Abrir en Terminal».";
 "Откройте любой чат в Claude Desktop и повторите." = "Abre cualquier chat en Claude Desktop y vuelve a intentarlo.";
 "Открывать при входе в систему" = "Abrir al iniciar sesión";
 "Открываю Codex, чтобы продолжить задачу." = "Abriendo Codex para continuar la tarea.";
@@ -844,6 +846,7 @@
 "Открыть Codex" = "Abrir Codex";
 "Открыть Cooldown" = "Abrir Cooldown";
 "Открыть в Codex" = "Abrir en Codex";
+"Открыть в Терминале" = "Abrir en Terminal";
 "Открыть журнал" = "Abrir registro";
 "Открыть задачи" = "Abrir tareas";
 "Открыть защиту VPN" = "Abrir protección VPN";
@@ -1033,6 +1036,7 @@
 "Продумать структуру таблицы учёта" = "Diseñar la estructura de la tabla contable";
 "Проект съедает много недели" = "Un proyecto consume mucho de la semana";
 "Проекты" = "Proyectos";
+"Пройдите первую настройку Claude Code: выберите тему, войдите в аккаунт и, если спросит, разрешите работать в этой папке. Когда появится поле ввода, наберите /exit." = "Completa la configuración inicial de Claude Code: elige un tema, inicia sesión y, si te lo pide, permite que trabaje en esta carpeta. Cuando aparezca el campo de entrada, escribe /exit.";
 "Проценты рядом с линиями" = "Porcentajes junto a las líneas";
 "Прошлое продолжение не подтвердилось. Откройте диалог и проверьте его — автоматически туда ничего не отправится, пока вы сами не продолжите работу." = "La reanudación anterior no se confirmó. Abre la conversación y revísala: no se enviará nada allí automáticamente hasta que tú mismo continúes el trabajo.";
 "Пульт Cooldown в кармане" = "El mando de Cooldown en tu bolsillo";

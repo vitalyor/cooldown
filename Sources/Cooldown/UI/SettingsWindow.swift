@@ -69,7 +69,7 @@ final class SettingsNavigation: ObservableObject {
 }
 
 enum SettingsPane: String, CaseIterable, Identifiable {
-    case general, menubar, notifications, iphone, quiet, vpn, codex, claude, antigravity, updates, data, diagnostics, about
+    case general, menubar, notifications, iphone, quiet, vpn, codex, claude, antigravity, data, diagnostics, updates, about
 
     var id: String { rawValue }
 

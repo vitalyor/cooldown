@@ -109,6 +109,7 @@
 "Antigravity прислал ответ в незнакомом формате." = "Antigravity a répondu dans un format inconnu.";
 "Apple доставляет уведомления на этот iPhone с задержкой в минуты. Так бывает на мобильных сетях с ограничениями: телефон подключается к сервису уведомлений Apple только время от времени. Помогает Wi‑Fi или VPN на телефоне." = "Apple livre les notifications à cet iPhone avec des minutes de retard. Cela arrive sur les réseaux mobiles restreints : le téléphone ne joint le service de notifications d’Apple que de temps en temps. Le Wi‑Fi ou un VPN sur le téléphone aide.";
 "Claude Code %@ устарел: при сбое проверки сообщение может уйти. Обновите его (claude update)." = "Claude Code %@ est obsolète : si la vérification échoue, un message peut quand même partir. Mettez-le à jour (claude update).";
+"Claude Code ещё ни разу не запускали: вместо лимитов он показывает первую настройку. Нажмите «Открыть в Терминале», выберите тему и войдите в аккаунт." = "Claude Code n’a jamais été lancé : au lieu des limites, il affiche sa configuration initiale. Cliquez sur « Ouvrir dans Terminal », choisissez un thème et connectez-vous.";
 "Claude Code ждёт разрешения работать в пустой папке Cooldown." = "Claude Code attend l’autorisation de travailler dans le dossier vide de Cooldown.";
 "Claude Code не вошёл в аккаунт. Откройте настройку Cooldown и нажмите «Войти»." = "Claude Code n’est pas connecté. Ouvrez la configuration de Cooldown et appuyez sur Se connecter.";
 "Claude Code не найден. Откройте настройку Cooldown: она установит его по одной кнопке." = "Claude Code est introuvable. Ouvrez la configuration de Cooldown : elle l’installe en un bouton.";
@@ -834,6 +835,7 @@
 "Откройте Codex: он попросит проверить новые хуки — разрешите хуки Cooldown. В терминале то же делает команда /hooks." = "Ouvrez Codex : il vous demandera de vérifier les nouveaux hooks — autorisez ceux de Cooldown. Dans le terminal, la commande /hooks fait la même chose.";
 "Откройте Cooldown на iPhone или просто наведите камеру на код. Код одноразовый и действует 5 минут." = "Ouvrez Cooldown sur l’iPhone ou pointez simplement l’appareil photo vers le code. Le code ne sert qu’une fois, pendant 5 minutes.";
 "Откройте Терминал: нажмите ⌘ и Пробел, введите «Терминал» и нажмите Return." = "Ouvrez Terminal : appuyez sur ⌘ et Espace, tapez « Terminal » et appuyez sur Retour.";
+"Откройте вкладку Claude в Cooldown и нажмите «Открыть в Терминале»." = "Ouvrez l’onglet Claude dans Cooldown et cliquez sur « Ouvrir dans Terminal ».";
 "Откройте любой чат в Claude Desktop и повторите." = "Ouvrez n’importe quel chat dans Claude Desktop et réessayez.";
 "Открывать при входе в систему" = "Ouvrir à l’ouverture de session";
 "Открываю Codex, чтобы продолжить задачу." = "J’ouvre Codex pour poursuivre la tâche.";
@@ -844,6 +846,7 @@
 "Открыть Codex" = "Ouvrir Codex";
 "Открыть Cooldown" = "Ouvrir Cooldown";
 "Открыть в Codex" = "Ouvrir dans Codex";
+"Открыть в Терминале" = "Ouvrir dans Terminal";
 "Открыть журнал" = "Ouvrir le journal";
 "Открыть задачи" = "Ouvrir les tâches";
 "Открыть защиту VPN" = "Ouvrir la protection VPN";
@@ -1033,6 +1036,7 @@
 "Продумать структуру таблицы учёта" = "Concevoir la structure du tableau comptable";
 "Проект съедает много недели" = "Un projet consomme beaucoup de la semaine";
 "Проекты" = "Projets";
+"Пройдите первую настройку Claude Code: выберите тему, войдите в аккаунт и, если спросит, разрешите работать в этой папке. Когда появится поле ввода, наберите /exit." = "Terminez la configuration initiale de Claude Code : choisissez un thème, connectez-vous et, si on vous le demande, autorisez-le à travailler dans ce dossier. Quand le champ de saisie apparaît, tapez /exit.";
 "Проценты рядом с линиями" = "Pourcentages à côté des lignes";
 "Прошлое продолжение не подтвердилось. Откройте диалог и проверьте его — автоматически туда ничего не отправится, пока вы сами не продолжите работу." = "La reprise précédente n’a pas été confirmée. Ouvrez la conversation et vérifiez-la — rien n’y sera envoyé automatiquement tant que vous n’aurez pas repris le travail vous-même.";
 "Пульт Cooldown в кармане" = "La télécommande Cooldown dans votre poche";

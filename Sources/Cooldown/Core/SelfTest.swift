@@ -190,6 +190,8 @@ enum SelfTest {
                                              redraw: nil, now: usageNow)
         expect(cachedOnly?.session == nil && cachedOnly?.weekly?.usedPercent == 2, "cached session is not used")
         // Claude Code 2.1.30x: "Refreshing…" at the bottom until the server answers.
+        expect(ClaudeUsageCLI.firstRun("78WelcometoClaudeCodev2.1.150 Let'sgetstarted. Choosethetextstylethatlooksbestwithyourterminal"), "first-run setup is recognised")
+        expect(!ClaudeUsageCLI.firstRun("Currentsession3%usedResets2:29pm"), "the usage screen is not first-run setup")
         expect(ClaudeUsageCLI.pending("Current session 3% used Resets 2:29pm Usage credits are off Refreshing…\n\nEsc to cancel"),
                "still fetching")
         expect(!ClaudeUsageCLI.pending("Current session 3% used Resets 2:29pm Refreshing… Esc to cancel Last 24h · 97% of your usage was at >150k context "
