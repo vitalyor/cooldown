@@ -77,13 +77,15 @@
 "%@, попыток %@ из %@, %@" = "%@, intentos %@ de %@, %@";
 "%@: автопродолжение остановлено." = "%@: reanudación automática detenida.";
 "%@: адрес %@ вы запретили." = "%@: bloqueaste la dirección %@.";
+"%@: адрес %@ запрещён в настройках защиты." = "%@: la dirección %@ está bloqueada en los ajustes de protección.";
 "%@: задача" = "%@: tarea";
 "%@: задача ждёт проверки" = "%@: la tarea necesita un vistazo";
 "%@: задача ждёт сброса" = "%@: la tarea espera el restablecimiento";
 "%@: задача продолжена" = "%@: tarea reanudada";
 "%@: лимит восстановился, продолжение отправлено." = "%@: el límite se ha restablecido, se envió la reanudación.";
 "%@: лимит кончится около %@" = "%@: el límite se acabará hacia las %@";
-"%@: маршрут идёт мимо VPN. Всё продолжится само, когда VPN вернётся." = "%@: la ruta evita la VPN. Todo continuará solo cuando vuelva la VPN.";
+"%@: маршрут идёт через %@ — мимо VPN." = "%@: la ruta pasa por %@, evitando la VPN.";
+"%@: маршрут не удаётся проверить." = "%@: no se puede comprobar la ruta.";
 "%@: не удалось проверить маршрут." = "%@: no se pudo comprobar la ruta.";
 "%@: осталось %@" = "%@: queda %@";
 "%@: попытки закончились" = "%@: intentos agotados";
@@ -303,8 +305,10 @@
 "Агенты не выходят в сеть мимо VPN" = "Los agentes nunca se conectan sin pasar por la VPN";
 "Агенты не защищены" = "Agentes sin protección";
 "Агенты не устают, а вы — да. Может, на сегодня всё?" = "Los agentes no se cansan, pero tú sí. ¿Lo dejamos por hoy?";
+"Агенты подождут. Когда сеть вернётся, Cooldown проверит маршрут, и всё продолжится." = "Los agentes esperarán. Cuando vuelva la red, Cooldown comprobará la ruta y todo seguirá.";
 "Агенты работают без проверки маршрута." = "Los agentes trabajan sin comprobar la ruta.";
 "Агенты скучают без дела." = "Los agentes se aburren sin nada que hacer.";
+"Адрес %@ запрещён в настройках защиты." = "La dirección %@ está bloqueada en los ajustes de protección.";
 "Адрес запрещён." = "Dirección bloqueada.";
 "Адрес разрешён." = "Dirección permitida.";
 "Адреса выхода" = "Direcciones de salida";
@@ -345,6 +349,7 @@
 "Включаю…" = "Activando…";
 "Включите «Cooldown для iPhone» и нажмите «Добавить iPhone»" = "Activa «Cooldown para iPhone» y haz clic en «Añadir iPhone»";
 "Включить автопродолжение" = "Activar la reanudación automática";
+"Включить её можно в настройках защиты." = "Puedes activarla en los ajustes de protección.";
 "Включить снова" = "Volver a activar";
 "Включённый звук сразу проигрывается, чтобы его можно было услышать." = "El sonido que actives se reproduce enseguida para que lo oigas.";
 "Войдите аккаунтом Claude с подпиской Pro или Max." = "Inicia sesión con una cuenta de Claude con Pro o Max.";
@@ -365,6 +370,7 @@
 "Вставьте ссылку cooldown://, которую показывает Mac." = "Pega el enlace cooldown:// que muestra tu Mac.";
 "Всё же настроить" = "Configurar de todos modos";
 "Всё под контролем. Почти скучно." = "Todo bajo control. Casi aburrido.";
+"Всё продолжится само, когда маршрут придёт в норму." = "Todo continuará solo cuando la ruta vuelva a estar bien.";
 "Всё работает" = "Todo funciona";
 "Всё спокойно — можно выдохнуть." = "Todo tranquilo: respira.";
 "Вход" = "Inicio de sesión";
@@ -722,6 +728,7 @@
 "Не получилось открыть чат «%@». Сообщение не отправлено — откройте его и нажмите ещё раз." = "No se pudo abrir el chat «%@». El mensaje no se envió: ábrelo y vuelve a pulsar.";
 "Не получилось установить автоматически: сервер загрузки не ответил или недоступен из вашей сети. Попробуйте включить VPN и нажать ещё раз, либо откройте подробную инструкцию ниже." = "No se pudo instalar automáticamente: el servidor de descarga no respondió o no está disponible desde tu red. Activa una VPN y vuelve a pulsar, o abre las instrucciones detalladas de abajo.";
 "Не получилось: %@" = "No funcionó: %@";
+"Не получилось: сообщение Claude Code выше. Можно запустить ещё раз кнопкой в Cooldown; это окно можно закрыть." = "No funcionó: el mensaje de Claude Code está arriba. Puedes volver a ejecutarlo con el botón de Cooldown; puedes cerrar esta ventana.";
 "Не проверять" = "No comprobar";
 "Не сохранилось: %@" = "No se guardó: %@";
 "Не удалось" = "Falló";
@@ -774,6 +781,9 @@
 "Нет связи с сервером Cooldown." = "Sin conexión con el servidor de Cooldown.";
 "Нет связи с сервером Cooldown. Откройте приложение и нажмите ещё раз." = "Sin conexión con el servidor de Cooldown. Abre la app y vuelve a pulsar.";
 "Нет связи с сервером — повторю сам" = "Sin conexión con el servidor: lo reintentaré solo";
+"Нет сети" = "Sin red";
+"Нет сети — агенты подождут." = "Sin red: los agentes esperarán.";
+"Нет сети: агенты подождут" = "Sin red: los agentes esperarán";
 "Нет хука разрешений" = "No hay hook de permisos";
 "Ничего не закрыто и не потеряно: приложения продолжат с того же места, когда маршрут придёт в норму." = "Nada se cierra ni se pierde: las apps seguirán donde estaban cuando la ruta vuelva a estar bien.";
 "Ничего не происходит — и это нормально." = "No pasa nada, y está bien.";

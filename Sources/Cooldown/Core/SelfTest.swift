@@ -195,6 +195,41 @@ enum SelfTest {
         expect(ClaudeUsageCLI.apiBilling("ClaudeCodev2.1.330Opus5.5·APIUsageBilling"), "a Console key is recognised")
         expect(RouteExit(ip: "203.0.113.7", country: "NL", colo: "").flag == "🇳🇱", "a country code becomes its flag")
         expect(RouteExit(ip: "203.0.113.7", country: "1x", colo: "").flag == "🌐", "a broken country code gets a globe")
+
+        // The Terminal script for Claude Code: odd folder names arrive whole, "done" only when every step went well.
+        do {
+            let dir = FileManager.default.temporaryDirectory.appendingPathComponent("cooldown selftest it's ы \(UUID().uuidString.prefix(6))") // l10n:skip
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: dir) }
+            let fake = dir.appendingPathComponent("claude")
+            let log = dir.appendingPathComponent("args.txt")
+            // Records its arguments; "login" fails when the folder says so.
+            // The script runs in `dir`, so the stand-in writes there.
+            try? "#!/bin/zsh\nprint -r -- \"$*\" >> args.txt\n[[ \"$2\" == login && -e fail ]] && exit 1\nexit 0\n"
+                .write(to: fake, atomically: true, encoding: .utf8)
+            try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: fake.path)
+            func runScript() -> String {
+                let script = SetupGuide.claudeScript(binary: fake, folder: dir, steps: "steps", runs: [["auth", "logout"], ["auth", "login", "--claudeai"]])
+                    .replacingOccurrences(of: "rm -f \"$0\"", with: "")
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+                process.arguments = ["-c", script]
+                let pipe = Pipe()
+                process.standardOutput = pipe
+                process.standardError = pipe
+                try? process.run()
+                process.waitUntilExit()
+                return String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+            }
+            let good = runScript()
+            let args = (try? String(contentsOf: log, encoding: .utf8)) ?? ""
+            expect(args == "auth logout\nauth login --claudeai\n", "the Terminal script passes every step's arguments whole")
+            expect(good.contains(L("Готово. Вернитесь в Cooldown и нажмите «Проверить снова». Это окно можно закрыть.")), "the Terminal script says done when all went well")
+            FileManager.default.createFile(atPath: dir.appendingPathComponent("fail").path, contents: nil)
+            let bad = runScript()
+            expect(bad.contains(L("Не получилось: сообщение Claude Code выше. Можно запустить ещё раз кнопкой в Cooldown; это окно можно закрыть.")) && !bad.contains(L("Готово. Вернитесь в Cooldown и нажмите «Проверить снова». Это окно можно закрыть.")),
+                   "the Terminal script does not say done after a failed sign-in")
+        }
         expect(!ClaudeUsageCLI.apiBilling("ClaudeCodev2.1.330Opus5.5·ClaudeMax"), "a subscription is not a Console key")
         expect(ClaudeUsageCLI.pending("Current session 3% used Resets 2:29pm Usage credits are off Refreshing…\n\nEsc to cancel"),
                "still fetching")

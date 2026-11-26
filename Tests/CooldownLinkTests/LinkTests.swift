@@ -99,7 +99,7 @@ final class LinkTests: XCTestCase {
         client.start()
         defer { client.stop() }
         XCTAssertEqual(client.status, .connecting)
-        client.writeFailed(URLError(.networkConnectionLost), frame: LinkFrame(t: "env"), on: old)
+        client.writeFailed(URLError(.networkConnectionLost), frame: LinkFrame(t: "env"), queued: Date(), on: old)
         XCTAssertEqual(client.status, .connecting)
     }
 }

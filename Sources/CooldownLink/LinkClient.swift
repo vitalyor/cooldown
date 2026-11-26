@@ -387,16 +387,17 @@ public final class LinkClient {
         send(f)
     }
 
-    private func write(_ frame: LinkFrame, on task: URLSessionWebSocketTask) {
+    /// `queued`: when the frame was first meant to go, kept through resends so its age is the real one.
+    private func write(_ frame: LinkFrame, on task: URLSessionWebSocketTask, queued: Date = Date()) {
         if frame.t == "env", let id = frame.id, !unacked.contains(where: { $0.id == id }) {
-            unacked.append((id, frame, Date()))
+            unacked.append((id, frame, queued))
             if unacked.count > 200 { unacked.removeFirst(unacked.count - 200) }
         }
         guard let data = try? JSONEncoder().encode(frame), let text = String(data: data, encoding: .utf8) else { return }
         task.send(.string(text)) { [weak self] error in
             guard let error else { return }
             Task { @MainActor in
-                self?.writeFailed(error, frame: frame, on: task)
+                self?.writeFailed(error, frame: frame, queued: queued, on: task)
             }
         }
     }
@@ -416,9 +417,9 @@ public final class LinkClient {
         return frame
     }
 
-    func writeFailed(_ error: Error, frame: LinkFrame, on connection: URLSessionWebSocketTask) {
+    func writeFailed(_ error: Error, frame: LinkFrame, queued: Date, on connection: URLSessionWebSocketTask) {
         guard wanted, task === connection else { return }
-        outbox.append((frame, Date()))
+        outbox.append((frame, queued))
         dropped(error.localizedDescription)
     }
 
@@ -529,10 +530,10 @@ public final class LinkClient {
             let fresh = unacked.filter { Date().timeIntervalSince($0.at) < 3600 }
             let queued = Set(outbox.compactMap(\.frame.id))
             let waiting = (fresh.filter { !queued.contains($0.id) }.map { ($0.frame, $0.at) } + outbox)
-                .compactMap { Self.afterOutage($0.0, queued: $0.1) }
+                .compactMap { item in Self.afterOutage(item.0, queued: item.1).map { ($0, item.1) } }
             unacked = []
             outbox = []
-            for f in waiting { write(f, on: t) }
+            for (f, at) in waiting { write(f, on: t, queued: at) }
         } else if frame.t == "ack" || frame.t == "error", let id = frame.id {
             unacked.removeAll { $0.id == id }
         }

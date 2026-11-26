@@ -1522,5 +1522,16 @@
  "в порядке": "correcte",
  "на паузе": "en pause",
  "не защищён": "non protégé",
- "не проверен": "non vérifiée"
+ "не проверен": "non vérifiée",
+ "%@: адрес %@ запрещён в настройках защиты.": "%@ : l’adresse %@ est bloquée dans les réglages de protection.",
+ "%@: маршрут идёт через %@ — мимо VPN.": "%@ : la route passe par %@ — en contournant le VPN.",
+ "%@: маршрут не удаётся проверить.": "%@ : impossible de vérifier la route.",
+ "Агенты подождут. Когда сеть вернётся, Cooldown проверит маршрут, и всё продолжится.": "Les agents attendront. Quand le réseau reviendra, Cooldown vérifiera la route et tout reprendra.",
+ "Адрес %@ запрещён в настройках защиты.": "L’adresse %@ est bloquée dans les réglages de protection.",
+ "Включить её можно в настройках защиты.": "Vous pouvez l’activer dans les réglages de protection.",
+ "Всё продолжится само, когда маршрут придёт в норму.": "Tout reprendra tout seul quand la route sera correcte.",
+ "Не получилось: сообщение Claude Code выше. Можно запустить ещё раз кнопкой в Cooldown; это окно можно закрыть.": "Échec : le message de Claude Code est ci-dessus. Vous pouvez relancer avec le bouton dans Cooldown ; cette fenêtre peut être fermée.",
+ "Нет сети": "Pas de réseau",
+ "Нет сети — агенты подождут.": "Pas de réseau — les agents attendront.",
+ "Нет сети: агенты подождут": "Pas de réseau : les agents attendront"
 }

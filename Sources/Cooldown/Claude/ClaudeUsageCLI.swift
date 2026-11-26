@@ -279,6 +279,8 @@ actor ClaudeUsageCLI {
                 let flat = text.replacingOccurrences(of: " ", with: "")
                 if flat.localizedCaseInsensitiveContains("trustthisfolder") || Self.firstRun(flat) { break }
                 if Self.apiBilling(flat), flat.contains("Estimatedcost") { break }
+                // Not signed in: nothing more will come.
+                if Self.signInWords.contains(where: { flat.localizedCaseInsensitiveContains($0) }) { break }
                 // The usage server says "not now": waiting longer only asks again.
                 if flat.contains("Usageendpointisratelimited") { break }
                 // No numbers of its own yet ("Loading usage data…"): give a slow connection time.
@@ -321,7 +323,10 @@ actor ClaudeUsageCLI {
 
         clearTranscripts()
         let text = plain(bytes)
+        // A resize Claude Code did not answer leaves an empty "redraw": then the whole screen speaks,
+        // so a "could not refresh" in it is not skipped and old numbers are not taken for fresh ones.
         let redraw = redrawFrom.map { plain(bytes.suffix(from: bytes.startIndex + $0)) }
+            .flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
         // What the last drawing says about itself comes first: numbers it could not refresh are old.
         let latest = (redraw ?? text).replacingOccurrences(of: " ", with: "")
         if latest.contains("Usageendpointisratelimited") || text.replacingOccurrences(of: " ", with: "").contains("Usageendpointisratelimited") {
@@ -337,8 +342,7 @@ actor ClaudeUsageCLI {
         if Self.firstRun(flat) { throw UsageError.firstRun }
         if Self.apiBilling(flat) { throw UsageError.apiBilling }
         if stale || flat.contains("Failedtoloadusagedata") || pending(text) { throw UsageError.serverFailed }
-        if ["Notloggedin", "Pleaserun/login", "Authenticationrequired", "Selectloginmethod", "InvalidAPIkey", "OAuthtokenhasexpired"]
-            .contains(where: { flat.localizedCaseInsensitiveContains($0) }) {
+        if Self.signInWords.contains(where: { flat.localizedCaseInsensitiveContains($0) }) {
             throw UsageError.signedOut
         }
         if flat.localizedCaseInsensitiveContains("trustthisfolder") || flat.localizedCaseInsensitiveContains("trustthefiles") { throw UsageError.trust }
@@ -348,6 +352,9 @@ actor ClaudeUsageCLI {
         }
         throw UsageError.unreadable
     }
+
+    /// What Claude Code says when it is not signed in (spaces taken out).
+    static let signInWords = ["Notloggedin", "Pleaserun/login", "Authenticationrequired", "Selectloginmethod", "InvalidAPIkey", "OAuthtokenhasexpired"]
 
     /// Claude Code was never started by hand: it shows its first-run setup (text style, sign-in)
     /// instead of /usage. Only the person can go through it.

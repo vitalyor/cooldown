@@ -300,10 +300,13 @@ enum SetupGuide {
     /// Claude Code run by hand in Terminal, in Cooldown's folder for /usage, once per entry of `runs`.
     static func claudeScript(binary: URL, folder: URL, steps: String, runs: [[String]]) -> String {
         let done = L("Готово. Вернитесь в Cooldown и нажмите «Проверить снова». Это окно можно закрыть.")
+        let failed = L("Не получилось: сообщение Claude Code выше. Можно запустить ещё раз кнопкой в Cooldown; это окно можно закрыть.")
         let path = "PATH=\(quoted(binary.deletingLastPathComponent().path)):\"$PATH\""
-        let commands = runs.map { ([path, quoted(binary.path)] + $0.map(quoted)).joined(separator: " ") }
-        return (["#!/bin/zsh", "clear", "echo \(quoted(steps))", "echo", "cd \(quoted(folder.path))"] + commands
-                + ["echo", "echo \(quoted(done))", "rm -f \"$0\""]).joined(separator: "\n") + "\n"
+        // One after another, and "done" only if every step went well (a cancelled sign-in is not done).
+        let commands = runs.map { ([path, quoted(binary.path)] + $0.map(quoted)).joined(separator: " ") }.joined(separator: " && ")
+        return ["#!/bin/zsh", "clear", "print -r -- \(quoted(steps))", "print", "cd \(quoted(folder.path)) || exit 1",
+                "if \(commands); then", "  print; print -r -- \(quoted(done))", "else", "  print; print -r -- \(quoted(failed))", "fi",
+                "rm -f \"$0\""].joined(separator: "\n") + "\n"
     }
 
     /// What to paste into any AI assistant that can run commands. In English on purpose: every

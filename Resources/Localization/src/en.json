@@ -1522,5 +1522,16 @@
  "в порядке": "fine",
  "на паузе": "paused",
  "не защищён": "not protected",
- "не проверен": "not checked"
+ "не проверен": "not checked",
+ "%@: адрес %@ запрещён в настройках защиты.": "%@: address %@ is blocked in the guard settings.",
+ "%@: маршрут идёт через %@ — мимо VPN.": "%@: the route goes through %@ — bypassing the VPN.",
+ "%@: маршрут не удаётся проверить.": "%@: the route can't be checked.",
+ "Агенты подождут. Когда сеть вернётся, Cooldown проверит маршрут, и всё продолжится.": "The agents will wait. When the network is back, Cooldown checks the route and everything carries on.",
+ "Адрес %@ запрещён в настройках защиты.": "Address %@ is blocked in the guard settings.",
+ "Включить её можно в настройках защиты.": "You can turn it on in the guard settings.",
+ "Всё продолжится само, когда маршрут придёт в норму.": "Everything resumes on its own once the route is right again.",
+ "Не получилось: сообщение Claude Code выше. Можно запустить ещё раз кнопкой в Cooldown; это окно можно закрыть.": "That didn't work: Claude Code's message is above. You can run it again with the button in Cooldown; this window can be closed.",
+ "Нет сети": "No network",
+ "Нет сети — агенты подождут.": "No network — the agents will wait.",
+ "Нет сети: агенты подождут": "No network: the agents will wait"
 }

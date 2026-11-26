@@ -275,9 +275,7 @@ final class RouteGuard: ObservableObject {
 
     // MARK: Asking (any thread)
 
-    private nonisolated static func live(_ now: Date) -> Bool { sample || (Settings.guardEnabled && !Settings.guardPaused(now)) }
-    /// Pictures of the window (`--render --route`): sample readings stand for a running guard.
-    nonisolated(unsafe) static var sample = false
+    private nonisolated static func live(_ now: Date) -> Bool { Settings.guardEnabled && !Settings.guardPaused(now) }
 
     /// Whether Cooldown and the agents may reach `provider` now: both routes right and fresh.
     nonisolated static func allows(_ provider: ProviderID, now: Date = Date()) -> Bool {
@@ -1260,15 +1258,30 @@ enum RouteLook: Int, Comparable {
 extension RouteGuard {
     func look(_ service: GuardService) -> RouteLook {
         if service.off { return .off }
-        guard let reading = readings[service], reading.at != .distantPast else { return .waiting }
+        guard let reading = readings[service] else { return .waiting }
         if stopped(service) { return .held }
         if cliOnly(service) { return .terminalOnly }
+        if reading.at == .distantPast { return .waiting }
         if reading.verdict != .ok || reading.appVerdict != .ok { return .unsure }
         return .ok
     }
 
     /// The worst look among the agents the person uses (`.off` when none is guarded).
-    var overall: RouteLook { GuardService.allCases.filter { ProviderID.shown.contains($0.provider) }.map(look).max() ?? .off }
+    var overall: RouteLook {
+        let looks = GuardService.allCases.filter { ProviderID.shown.contains($0.provider) }.map(look)
+        let worst = looks.max() ?? .off
+        // One agent still being checked (after a network change its apps wait meanwhile): not "fine" yet.
+        return worst == .ok && looks.contains(.waiting) ? .waiting : worst
+    }
+
+    /// The Mac has a network at all (offline every check fails, and that is said as such).
+    var isOnline: Bool { online }
+
+    /// What holds work is only that the Mac is offline: no check can answer, no route is known to be wrong.
+    var offlineOnly: Bool {
+        let held = GuardService.watched.filter { look($0) == .held }
+        return !online && !held.isEmpty && held.allSatisfy { holdReason($0).exit == nil }
+    }
 
     /// Where the guarded agents go out now, one entry per address (apps through a proxy included).
     var exits: [RouteExit] {
@@ -1282,18 +1295,74 @@ extension RouteGuard {
         return seen
     }
 
+    /// Why a service's work is held: the apps' route first (they are what is paused), then the direct one.
+    func holdReason(_ service: GuardService) -> RouteHoldReason {
+        guard let reading = readings[service] else { return .unanswered }
+        for (verdict, exit) in [(reading.appVerdict, reading.appExit), (reading.verdict, reading.exit)] {
+            if verdict == .forbidden, let exit { return .bypass(exit) }
+            if verdict == .refused, let exit { return .refused(exit) }
+        }
+        return .unanswered
+    }
+
     /// When the last finished check of any guarded agent was made.
     var checkedAt: Date? { GuardService.watched.compactMap { readings[$0]?.at }.filter { $0 != .distantPast }.max() }
 
-    /// Sample readings for pictures: never the person's own addresses (documentation ranges).
-    func showSample(held: Bool) {
-        Self.sample = true
-        let netherlands = RouteExit(ip: "203.0.113.7", country: "NL", colo: "AMS")
+    /// Pictures of the window (`--render --route <kind>`): the settings pictures' made-up guard
+    /// (its own settings store, documentation addresses, a made-up time zone), then one state.
+    func showSample(_ kind: String) {
+        showcase()
+        let at = Date().addingTimeInterval(-12)
+        let us = RouteExit(ip: "203.0.113.24", country: "US", colo: "ORD")
         let russia = RouteExit(ip: "198.51.100.23", country: "RU", colo: "")
-        readings[.anthropic] = RouteReading(verdict: held ? .forbidden : .ok, exit: held ? russia : netherlands,
-                                            appVerdict: held ? .forbidden : .ok, appExit: held ? russia : netherlands, at: Date().addingTimeInterval(-12))
-        readings[.openai] = RouteReading(verdict: .ok, exit: netherlands, appVerdict: .ok, appExit: netherlands, at: Date().addingTimeInterval(-12))
-        readings[.google] = RouteReading(verdict: .ok, exit: netherlands, appVerdict: .ok, appExit: netherlands, at: Date().addingTimeInterval(-12))
+        let germany = RouteExit(ip: "198.51.100.77", country: "DE", colo: "FRA")
+        switch kind {
+        case "held":
+            readings[.anthropic] = RouteReading(verdict: .forbidden, exit: russia, appVerdict: .forbidden, appExit: russia, at: at)
+        case "refused":
+            readings[.anthropic] = RouteReading(verdict: .refused, exit: germany, appVerdict: .refused, appExit: germany, at: at)
+        case "unanswered":
+            readings[.anthropic] = RouteReading(verdict: .unchecked, exit: nil, appVerdict: .unchecked, appExit: nil, at: at, misses: 3)
+        case "terminal":
+            readings[.anthropic] = RouteReading(verdict: .forbidden, exit: russia, appVerdict: .ok, appExit: us, at: at, proxied: true)
+        case "unsure":
+            readings[.openai] = RouteReading(verdict: .unchecked, exit: nil, appVerdict: .unchecked, appExit: nil, at: at, misses: 1)
+        case "new":
+            pending = ["anthropic|\(germany.ip)": (.anthropic, germany), "openai|\(germany.ip)": (.openai, germany)]
+        case "paused":
+            Settings.guardPausedUntil = Date().addingTimeInterval(3600)
+        case "waiting":
+            readings = [:]
+        case "off":
+            Settings.guardOff = Set(GuardService.allCases.map(\.rawValue))
+        default:
+            break
+        }
+    }
+}
+
+enum RouteHoldReason {
+    /// The service sees a forbidden country.
+    case bypass(RouteExit)
+    /// An address the person blocked.
+    case refused(RouteExit)
+    /// No answer, more than once.
+    case unanswered
+
+    var exit: RouteExit? {
+        switch self {
+        case .bypass(let exit), .refused(let exit): return exit
+        case .unanswered: return nil
+        }
+    }
+
+    /// One line about `name`'s route, for the window.
+    func line(_ name: String) -> String {
+        switch self {
+        case .bypass(let exit): return L("%@: маршрут идёт через %@ — мимо VPN.", name, exit.countryName)
+        case .refused(let exit): return L("%@: адрес %@ запрещён в настройках защиты.", name, exit.ip)
+        case .unanswered: return L("%@: маршрут не удаётся проверить.", name)
+        }
     }
 }
 

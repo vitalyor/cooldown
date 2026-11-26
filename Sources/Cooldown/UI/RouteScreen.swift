@@ -41,7 +41,7 @@ struct RouteScreen: View {
                     Footnote(text: L("Ничего не закрыто и не потеряно: приложения продолжат с того же места, когда маршрут придёт в норму."))
                 }
             }
-            if let note = route.timeZoneNote {
+            if overall != .off, let note = route.timeZoneNote {
                 SectionTitle(text: L("Часовой пояс"))
                 Well(padding: 12) {
                     Note(symbol: "clock.badge.exclamationmark", text: note, color: Theme.amber)
@@ -56,12 +56,15 @@ struct RouteScreen: View {
     }
 
     private var services: [GuardService] { GuardService.allCases.filter { ProviderID.shown.contains($0.provider) } }
+    /// Switched off in Settings while this screen is open: nothing is guarded, whatever the last readings said.
+    private func look(_ service: GuardService) -> RouteLook { Settings.guardEnabled ? route.look(service) : .off }
+    private var overall: RouteLook { Settings.guardEnabled ? route.overall : .off }
     private var paused: Date? { Settings.guardPausedUntil.flatMap { $0 > now ? $0 : nil } }
 
     // MARK: The state at a glance
 
     private var hero: some View {
-        let look = route.overall
+        let look = overall
         let state = heroState(look)
         let exits = route.exits
         return Well {
@@ -71,7 +74,7 @@ struct RouteScreen: View {
                     Image(systemName: state.symbol)
                         .font(.system(size: 26, weight: .semibold))
                         .foregroundStyle(state.color)
-                        .symbolEffect(.pulse, options: .repeating, isActive: look == .held && paused == nil && !render)
+                        .symbolEffect(.pulse, options: .repeating, isActive: state.color == Theme.signal && !render)
                 }
                 .frame(width: 56, height: 56)
                 .shadow(color: state.color.opacity(0.35), radius: 10)
@@ -85,15 +88,17 @@ struct RouteScreen: View {
                 }
             }
             if paused == nil, look != .off {
-                if look == .held, let exit = services.first(where: { route.look($0) == .held }).flatMap({ route.readings[$0]?.appExit ?? route.readings[$0]?.exit }) {
-                    exitPlate(exit, held: true)
+                if look == .held {
+                    if let exit = services.first(where: { self.look($0) == .held }).flatMap({ route.holdReason($0).exit }) {
+                        exitPlate(exit, held: true)
+                    }
                 } else if exits.count == 1, let exit = exits.first {
                     exitPlate(exit, held: false)
                 } else if exits.count > 1 {
                     Note(symbol: "arrow.triangle.branch", text: L("Агенты выходят через разные адреса — по каждому ниже."))
                 }
             }
-            HStack(spacing: 8) {
+            if Settings.guardEnabled { HStack(spacing: 8) {
                 if paused != nil {
                     Button(L("Включить снова")) { route.pause(nil) }.buttonStyle(.glassProminent).tint(Theme.mint)
                 } else {
@@ -103,7 +108,7 @@ struct RouteScreen: View {
                 }
                 Spacer(minLength: 0)
             }
-            .font(.callout)
+            .font(.callout) }
         }
     }
 
@@ -114,9 +119,13 @@ struct RouteScreen: View {
             return HeroState(symbol: "shield.slash.fill", color: Theme.amber, title: L("Защита выключена до %@", Format.clock(paused)),
                              detail: L("Агенты работают без проверки маршрута."))
         }
-        let held = services.filter { route.look($0) == .held }.map(\.name)
+        let held = services.filter { self.look($0) == .held }.map { route.holdReason($0).line($0.name) }
         switch look {
         case .off:
+            if !Settings.guardEnabled {
+                return HeroState(symbol: "shield.slash", color: .secondary, title: L("Защита VPN выключена"),
+                                 detail: L("Включить её можно в настройках защиты."))
+            }
             return HeroState(symbol: "shield.slash", color: .secondary, title: L("Агенты не защищены"),
                              detail: L("Защита выключена для каждого агента. Включить можно в настройках."))
         case .waiting:
@@ -131,9 +140,13 @@ struct RouteScreen: View {
         case .terminalOnly:
             return HeroState(symbol: "exclamationmark.shield.fill", color: Theme.amber, title: L("Терминал на паузе"),
                              detail: L("Приложения ходят через прокси и работают, а агенты в Терминале идут мимо VPN."))
+        case .held where route.offlineOnly:
+            // Offline every check fails: not a route past the VPN, and nothing can leave anyway.
+            return HeroState(symbol: "wifi.slash", color: Theme.amber, title: L("Нет сети"),
+                             detail: L("Агенты подождут. Когда сеть вернётся, Cooldown проверит маршрут, и всё продолжится."))
         case .held:
             return HeroState(symbol: "exclamationmark.shield.fill", color: Theme.signal, title: L("Работа на паузе"),
-                             detail: L("%@: маршрут идёт мимо VPN. Всё продолжится само, когда VPN вернётся.", held.joined(separator: ", ")))
+                             detail: (held + [L("Всё продолжится само, когда маршрут придёт в норму.")]).joined(separator: "\n"))
         }
     }
 
@@ -174,8 +187,10 @@ struct RouteScreen: View {
     // MARK: Each agent
 
     private func agentRow(_ service: GuardService) -> some View {
-        let look = route.look(service)
+        let look = self.look(service)
         let reading = route.readings[service]
+        // Through a proxy the apps may leave elsewhere than the Terminal: two lines only then.
+        let app = reading.flatMap { $0.proxied && $0.appExit?.ip != $0.exit?.ip ? $0.appExit : nil }
         return VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
                 Circle().fill(Theme.tint(for: service.provider)).frame(width: 8, height: 8)
@@ -184,17 +199,17 @@ struct RouteScreen: View {
                 chip(look)
             }
             if look != .off, let exit = reading?.exit {
-                exitLine(exit, prefix: reading?.proxied == true ? L("Терминал:") : nil)
+                exitLine(exit, service, prefix: app != nil ? L("Терминал:") : nil)
             }
-            if look != .off, let reading, reading.proxied, let app = reading.appExit {
-                exitLine(app, prefix: L("Приложение (прокси):"))
+            if look != .off, let app {
+                exitLine(app, service, prefix: L("Приложение (прокси):"))
             }
         }
         .padding(.vertical, 2)
     }
 
-    private func exitLine(_ exit: RouteExit, prefix: String?) -> some View {
-        let name = RouteGuard.exitName(.anthropic, exit.ip)
+    private func exitLine(_ exit: RouteExit, _ service: GuardService, prefix: String?) -> some View {
+        let name = RouteGuard.exitName(service, exit.ip)
         return HStack(spacing: 5) {
             if let prefix { Text(prefix).foregroundStyle(.secondary) }
             Text(exit.flag)
@@ -238,15 +253,18 @@ struct RouteScreen: View {
         let key = route.pendingKey
         return Well(padding: 12) {
             Label(L("Новый адрес выхода"), systemImage: "arrow.triangle.swap").font(.system(size: 14, weight: .semibold))
-            ForEach(newExits, id: \.exit.ip) { item in
-                HStack(spacing: 5) {
-                    Text(item.service.name).fontWeight(.medium)
-                    Text(item.exit.flag)
-                    Text(item.exit.countryName)
-                    Text("·").foregroundStyle(.tertiary)
-                    Text(item.exit.ip).monospacedDigit()
+            ForEach(Array(Set(newExits.map(\.exit.ip))).sorted(), id: \.self) { ip in
+                let items = newExits.filter { $0.exit.ip == ip }
+                if let exit = items.first?.exit {
+                    HStack(spacing: 5) {
+                        Text(items.map(\.service.name).joined(separator: ", ")).fontWeight(.medium)
+                        Text(exit.flag)
+                        Text(exit.countryName)
+                        Text("·").foregroundStyle(.tertiary)
+                        Text(ip).monospacedDigit()
+                    }
+                    .font(.callout)
                 }
-                .font(.callout)
             }
             Footnote(text: L("Работа не остановлена: страна разрешена. Запомните адрес, если это ваш VPN."))
             HStack(spacing: 8) {
@@ -267,27 +285,30 @@ struct GuardButton: View {
     @Binding var screen: Screen
 
     var body: some View {
-        if enabled || RouteGuard.sample {
+        if enabled || Settings.guardEnabled {
             TimelineView(.periodic(from: .now, by: 5)) { context in
                 let paused = Settings.guardPaused(context.date)
+                let offline = route.offlineOnly
                 let look = route.overall
                 let exits = route.exits
                 Button { screen = .route } label: {
                     ZStack {
                         if !paused, look == .ok, exits.count == 1, let exit = exits.first {
-                            Text(exit.flag).font(.system(size: 17))
+                            // The badge stays inside the round button: the glass clips anything past its edge.
+                            Text(exit.flag).font(.system(size: 16))
+                                .frame(width: 32, height: 32)
                                 .overlay(alignment: .bottomTrailing) {
-                                    Image(systemName: "checkmark.shield.fill")
-                                        .font(.system(size: 9, weight: .bold))
-                                        .foregroundStyle(Theme.mint)
-                                        .background(Circle().fill(.background).padding(-1))
-                                        .offset(x: 5, y: 4)
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .symbolRenderingMode(.palette)
+                                        .foregroundStyle(.white, Theme.mint)
+                                        .padding(4)
                                 }
                         } else {
-                            Image(systemName: symbol(look, paused: paused))
+                            Image(systemName: offline ? "wifi.slash" : symbol(look, paused: paused))
                                 .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(color(look, paused: paused))
-                                .symbolEffect(.pulse, options: .repeating, isActive: look == .held && !paused)
+                                .foregroundStyle(offline ? Theme.amber : color(look, paused: paused))
+                                .symbolEffect(.pulse, options: .repeating, isActive: look == .held && !paused && !offline)
                         }
                     }
                     .frame(width: 32, height: 32)
@@ -295,7 +316,7 @@ struct GuardButton: View {
                 }
                 .buttonStyle(.plain)
                 .glassEffect(.regular.interactive(), in: .circle)
-                .help(help(look, paused: paused, exits: exits))
+                .help(offline ? L("Нет сети: агенты подождут") : help(look, paused: paused, exits: exits))
                 .accessibilityLabel(L("Защита VPN"))
             }
         }
@@ -342,19 +363,25 @@ struct RouteBanner: View {
     var body: some View {
         let service = GuardService.of(provider)
         let look = route.look(service)
-        if (Settings.guardEnabled || RouteGuard.sample), !Settings.guardPaused(Date()), look == .held || look == .terminalOnly {
-            let exit = route.readings[service]?.exit
-            let held = look == .held
+        if Settings.guardEnabled, !Settings.guardPaused(Date()), look == .held || look == .terminalOnly {
+            let reason = route.holdReason(service)
+            let held = look == .held && !route.offlineOnly
             Button { screen = .route } label: {
                 HStack(spacing: 10) {
-                    Image(systemName: "exclamationmark.shield.fill")
+                    Image(systemName: look == .held && route.offlineOnly ? "wifi.slash" : "exclamationmark.shield.fill")
                         .font(.system(size: 20, weight: .semibold))
                         .foregroundStyle(held ? Theme.signal : Theme.amber)
                         .symbolEffect(.pulse, options: .repeating, isActive: held)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(held ? L("%@ на паузе", provider.displayName) : L("%@ в Терминале на паузе", provider.displayName))
+                        Text(look == .held ? L("%@ на паузе", provider.displayName) : L("%@ в Терминале на паузе", provider.displayName))
                             .font(.system(size: 13.5, weight: .semibold))
-                        Text(exit.map { L("Маршрут идёт через %@ %@ — мимо VPN.", $0.flag, $0.countryName) } ?? L("Маршрут не удалось проверить."))
+                        Text({ () -> String in
+                            switch reason {
+                            case .bypass(let exit): return L("Маршрут идёт через %@ %@ — мимо VPN.", exit.flag, exit.countryName)
+                            case .refused(let exit): return L("Адрес %@ запрещён в настройках защиты.", exit.ip)
+                            case .unanswered: return route.isOnline ? L("Маршрут не удалось проверить.") : L("Нет сети — агенты подождут.")
+                            }
+                        }())
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 0)

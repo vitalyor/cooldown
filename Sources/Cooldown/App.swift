@@ -452,7 +452,7 @@ enum RenderMode {
                 exit(0)
             }
             // `--route ok|held`: the VPN guard on sample readings (never the person's own addresses).
-            if let sample = value("--route") { RouteGuard.shared.showSample(held: sample == "held") }
+            if let sample = value("--route") { RouteGuard.shared.showSample(sample) }
             let screen: Screen = value("--screen") == "add" ? .addTask : value("--screen") == "route" ? .route : .home
             let tab = MainTab(rawValue: value("--tab") ?? "") ?? .limits
             let stats = StatsTab(rawValue: value("--stats") ?? "") ?? .limits
