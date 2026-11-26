@@ -15,6 +15,7 @@
 "%@ · отменено" = "%@ · cancelled";
 "%@ · работает" = "%@ · working";
 "%@ в Терминале без прокси пошёл бы напрямую — его сообщения задерживаются. Задайте HTTPS_PROXY в Терминале, и хук пропустит их." = "Without a proxy, %@ in Terminal would go direct — its messages are being held. Set HTTPS_PROXY in Terminal and the hook will let them through.";
+"%@ в Терминале на паузе" = "%@ in Terminal is paused";
 "%@ в запасе" = "%@ in reserve";
 "%@ в неожиданном формате, Cooldown его не трогает." = "%@ has an unexpected format; Cooldown leaves it alone.";
 "%@ в час" = "%@ an hour";
@@ -36,6 +37,7 @@
 "%@ мин назад" = "%@ min ago";
 "%@ млн" = "%@M";
 "%@ млрд" = "%@B";
+"%@ на паузе" = "%@ is paused";
 "%@ не был запущен — открываю." = "%@ was not running — opening it.";
 "%@ не в сети" = "%@ is offline";
 "%@ не в сети · был %@" = "%@ is offline · last seen %@";
@@ -81,6 +83,7 @@
 "%@: задача продолжена" = "%@: task continued";
 "%@: лимит восстановился, продолжение отправлено." = "%@: the limit reset, the continuation was sent.";
 "%@: лимит кончится около %@" = "%@: the limit will run out around %@";
+"%@: маршрут идёт мимо VPN. Всё продолжится само, когда VPN вернётся." = "%@: the route bypasses the VPN. Everything resumes on its own once the VPN is back.";
 "%@: не удалось проверить маршрут." = "%@: couldn’t check the route.";
 "%@: осталось %@" = "%@: %@ left";
 "%@: попытки закончились" = "%@: attempts used up";
@@ -294,9 +297,13 @@
 "Агент отдыхает — можно и вам." = "The agent is resting — you can too.";
 "Агент просит разрешение" = "The agent asks for permission";
 "Агенты" = "Agents";
+"Агенты выходят в сеть через VPN." = "The agents go online through the VPN.";
+"Агенты выходят через разные адреса — по каждому ниже." = "The agents go out through different addresses — see each one below.";
 "Агенты ждут, когда вы вернётесь." = "The agents are waiting for you to come back.";
 "Агенты не выходят в сеть мимо VPN" = "Agents never go online around the VPN";
+"Агенты не защищены" = "Agents aren't protected";
 "Агенты не устают, а вы — да. Может, на сегодня всё?" = "Agents don't get tired, but you do. Call it a day?";
+"Агенты работают без проверки маршрута." = "Agents work without route checks.";
 "Агенты скучают без дела." = "The agents are bored with nothing to do.";
 "Адрес запрещён." = "Address blocked.";
 "Адрес разрешён." = "Address allowed.";
@@ -527,8 +534,13 @@
 "Запущено: «%@»" = "Started: “%@”";
 "Защита VPN" = "VPN Guard";
 "Защита VPN выключена" = "VPN guard is off";
+"Защита VPN выключена на время" = "VPN guard is off for now";
 "Защита VPN сейчас не пускает запросы к Claude" = "The VPN guard is not letting requests to Claude through right now";
 "Защита VPN сейчас не пускает запросы к Codex" = "The VPN guard is not letting requests to Codex through right now";
+"Защита VPN: %@" = "VPN guard: %@";
+"Защита VPN: маршрут в порядке" = "VPN guard: route is fine";
+"Защита VPN: работа на паузе" = "VPN guard: work is paused";
+"Защита выключена для каждого агента. Включить можно в настройках." = "The guard is off for every agent. You can turn it on in Settings.";
 "Защита выключена до %@" = "Protection off until %@";
 "Защита выключена на час." = "Protection is off for an hour.";
 "Защита для %@" = "Guard for %@";
@@ -641,10 +653,14 @@
 "Лицензия" = "License";
 "Лучшие идеи часто приходят утром. Проверим?" = "The best ideas often come in the morning. Want to test that?";
 "Маршрут в норме, всё продолжено." = "Route is back to normal, everything resumed.";
+"Маршрут в порядке" = "Route is fine";
 "Маршрут в порядке." = "The route is fine.";
 "Маршрут всё ещё неправильный: агенты на паузе." = "The route is still wrong: agents are paused.";
+"Маршрут идёт через %@ %@ — мимо VPN." = "The route goes through %@ %@ — bypassing the VPN.";
 "Маршрут к %@ идёт мимо VPN" = "Route to %@ bypasses the VPN";
 "Маршрут к %@ сменился" = "Route to %@ changed";
+"Маршрут не проверен" = "Route not checked";
+"Маршрут не удалось проверить." = "The route couldn't be checked.";
 "Маршрут сейчас" = "Current route";
 "Мелочи подождут, главное — сейчас." = "Small stuff can wait; the main thing is now.";
 "Модели" = "Models";
@@ -683,6 +699,7 @@
 "Настройка агентов…" = "Agent Setup…";
 "Настройки (⌘,)" = "Settings (⌘,)";
 "Настройки Cooldown" = "Cooldown Settings";
+"Настройки защиты" = "Guard settings";
 "Настройки уведомлений" = "Notification Settings";
 "Настройки…" = "Settings…";
 "Не видно, какая задача в диалоге последняя." = "Can't tell which task in the conversation is the latest.";
@@ -758,6 +775,7 @@
 "Нет связи с сервером Cooldown. Откройте приложение и нажмите ещё раз." = "No connection to the Cooldown server. Open the app and press again.";
 "Нет связи с сервером — повторю сам" = "No connection to the server — I’ll retry by myself";
 "Нет хука разрешений" = "No permission hook";
+"Ничего не закрыто и не потеряно: приложения продолжат с того же места, когда маршрут придёт в норму." = "Nothing is closed or lost: the apps carry on where they were once the route is right again.";
 "Ничего не происходит — и это нормально." = "Nothing's happening — and that's fine.";
 "Новая версия загружается и проверяется заранее, а ставится одним нажатием — на карточке или здесь." = "A new version is downloaded and checked in advance, then installed with a single click — on the card or here.";
 "Новая версия подписана не тем же сертификатом — не устанавливаю." = "The new version isn't signed by the same certificate — not installing.";
@@ -769,6 +787,7 @@
 "Новые версии" = "New versions";
 "Новые версии с GitHub" = "New versions from GitHub";
 "Новые входные" = "Fresh input";
+"Новый адрес выхода" = "New exit address";
 "Новый код" = "New Code";
 "Ночная смена? Не забудьте про воду и плечи." = "Night shift? Don't forget water and your shoulders.";
 "Ночью без карточек и баннеров; утром — сводка." = "No cards or banners at night; a summary in the morning.";
@@ -802,6 +821,7 @@
 "Обновлю, когда защита VPN отпустит приложения и команды с телефона выполнятся." = "I will update once the VPN guard lets the apps go and phone commands have run.";
 "Обновляю Cooldown на Mac до %@…" = "Updating Cooldown on the Mac to %@…";
 "Обычно телефон молчит, пока вы за Mac, и включается, когда Mac заблокирован или вас нет у него пару минут." = "Usually the phone stays quiet while you’re at the Mac and takes over when the Mac is locked or you’ve been away for a couple of minutes.";
+"Обычно это меньше секунды." = "Usually under a second.";
 "Один текстовый файл: результаты проверки, версии программ, настройки, лимиты и последние записи журнала. Названия чатов, IP-адреса, почта и имя пользователя из него убраны. Никуда не отправляется: прочитайте его и пришлите разработчику сами." = "One text file: check results, tool versions, settings, limits and the latest log entries. Chat names, IP addresses, e-mail and the user name are taken out. Nothing is sent: read it and send it to the developer yourself.";
 "Одна или две линии, в порядке Codex, Claude, Antigravity. Чтобы выбрать другую, сначала снимите одну из отмеченных." = "One or two lines, in the order Codex, Claude, Antigravity. To pick another, first turn one of the checked ones off.";
 "Одобрить" = "Approve";
@@ -981,6 +1001,7 @@
 "При 5% придёт второе уведомление. На нуле Codex останавливается, а задача переходит в «Ждёт сброса лимита». Ваш Mac можно оставить в покое." = "At 5% a second notification arrives. At zero Codex stops and the task moves to “Waiting for the limit reset”. You can leave your Mac alone.";
 "При таком темпе 5 часов закончатся раньше сброса в %@." = "At this pace the 5 hours will run out before the reset at %@.";
 "При таком темпе 5 часов закончатся раньше сброса в %@. Сейчас осталось %@." = "At this pace the 5 hours will run out before the reset at %@. %@ is left now.";
+"Приложение (прокси):" = "App (proxy):";
 "Приложение Antigravity" = "Antigravity app";
 "Приложение Codex" = "Codex app";
 "Приложение Codex закрыто — продолжу, когда оно откроется." = "The Codex app is closed — I'll continue when it opens.";
@@ -990,6 +1011,7 @@
 "Приложение Codex обновилось, и Cooldown пока не понимает его. Обновите Cooldown; задача ждёт." = "The Codex app was updated and Cooldown does not understand it yet. Update Cooldown; the task is waiting.";
 "Приложение Codex слишком старое. Обновите его." = "The Codex app is too old. Please update it.";
 "Приложения работают через прокси" = "Apps are working through the proxy";
+"Приложения ходят через прокси и работают, а агенты в Терминале идут мимо VPN." = "The apps go through the proxy and work; agents in Terminal bypass the VPN.";
 "Пример · ничего не отправлено" = "Sample · nothing was sent";
 "Пример запроса. На компьютере ничего не запустится." = "A sample request. Nothing will run on any computer.";
 "Пример: на Mac ничего не отправлено" = "Example: nothing was sent to a Mac";
@@ -999,6 +1021,7 @@
 "Пришлёт на iPhone уведомление и покажет, за сколько оно дошло. Каждое уведомление iPhone подтверждает; неподтверждённое сервер отправит ещё раз." = "Sends a notification to the iPhone and shows how long it took. The iPhone confirms every notification; the server sends unconfirmed ones again.";
 "Пробный прогон" = "Rehearsal";
 "Проверена и готова. Установка займёт пару секунд; настройки и история сохранятся." = "Checked and ready. Installing takes a couple of seconds; settings and history are kept.";
+"Проверено %@ назад" = "Checked %@ ago";
 "Проверено: %@" = "Checked: %@";
 "Проверено: %@ готова к установке." = "Checked: %@ is ready to install.";
 "Проверить" = "Check";
@@ -1017,6 +1040,7 @@
 "Проверяю диалог ещё раз." = "Checking the conversation again.";
 "Проверяю диалог." = "Checking the conversation.";
 "Проверяю задачу, для длинных диалогов до 15 секунд." = "Checking the task; up to 15 seconds for long conversations.";
+"Проверяю маршрут…" = "Checking the route…";
 "Проверяю…" = "Checking…";
 "Прогноз на 5 часов" = "5-hour forecast";
 "Программа agy" = "agy program";
@@ -1058,9 +1082,11 @@
 "Пустой ответ не отправлен." = "An empty reply wasn’t sent.";
 "Пустой ответ." = "Empty answer.";
 "Пятичасовое окно начнётся с первым запросом." = "The five-hour window starts with your next request.";
+"Работа на паузе" = "Work is paused";
 "Работа не закончена, но новых шагов нет. Возможно, стоит заглянуть." = "The work isn't finished, but there are no new steps. Maybe worth a look.";
 "Работа не остановлена. Разрешить эти адреса?" = "Work hasn't stopped. Allow these addresses?";
 "Работа не остановлена. Разрешить этот адрес?" = "Work hasn’t been stopped. Allow this address?";
+"Работа не остановлена: страна разрешена. Запомните адрес, если это ваш VPN." = "Work isn't stopped: the country is allowed. Remember the address if it's your VPN.";
 "Работает" = "Works";
 "Работал %@ мин." = "Worked for %@ min.";
 "Работают · последнее событие %@" = "Working · last event %@";
@@ -1104,6 +1130,7 @@
 "Сейчас Cooldown вывел бы Claude вперёд и отправил в открытый чат: «%@»" = "Now Cooldown would bring Claude to the front and send to the open chat: “%@”";
 "Сейчас в %@" = "Now in %@";
 "Сейчас лимит не расходуется." = "The limit isn't being spent right now.";
+"Сейчас на паузе" = "Paused now";
 "Сейчас нельзя: %@. Перезапущу, когда освободится." = "Not now: %@. I will restart it once it is free.";
 "Сейчас ни одна задача не ждёт сброса." = "No task is waiting for a reset right now.";
 "Сейчас он запущен с образа диска или из «Загрузок». Перетащите его в папку «Программы» и откройте оттуда — иначе строка статуса, хуки и обновления не будут работать." = "It is running from the disk image or from Downloads. Drag it to the Applications folder and open it from there — otherwise the status line, hooks and updates will not work.";
@@ -1113,6 +1140,7 @@
 "Сервер Cooldown недоступен: %@" = "The Cooldown server is unavailable: %@";
 "Сервер больше не знает этот Mac. Включите Cooldown для iPhone заново." = "The server no longer knows this Mac. Turn Cooldown for iPhone on again.";
 "Сервер лимитов Claude просит подождать; Cooldown спросит позже." = "The Claude limits server asks to wait; Cooldown will ask later.";
+"Сервис не ответил. Cooldown проверит ещё раз через несколько секунд." = "The service didn't answer. Cooldown will check again in a few seconds.";
 "Сессии Claude Code в терминале или во вкладке Code. После сброса лимита Cooldown продолжит их сам, без вашего нажатия." = "Claude Code sessions in the terminal or the Code tab. After the limit resets Cooldown continues them by itself, without your click.";
 "Сессию кто-то открыл, подождём минуту." = "Someone opened the session; waiting a minute.";
 "Сессия %@" = "Session %@";
@@ -1125,6 +1153,7 @@
 "Сколько стоит задача" = "What a task costs";
 "Скопировано" = "Copied";
 "Скопировать" = "Copy";
+"Скопировать адрес" = "Copy address";
 "Скопировать отчёт" = "Copy report";
 "Скопировать текст для нейросети" = "Copy Text for the Assistant";
 "Скоро лимит %@ восстановится" = "The %@ limit resets soon";
@@ -1179,6 +1208,8 @@
 "Текст длинный или с невидимыми местами — разрешить можно только там, где он виден целиком." = "The text is long or has hidden parts — it can be allowed only where it is shown in full.";
 "Темп бодрый. Может, часть дел отложить на потом?" = "Lively pace. Maybe put a few things off?";
 "Темп отличный, лимит не подведёт." = "Great pace, the limit won't let you down.";
+"Терминал на паузе" = "Terminal paused";
+"Терминал:" = "Terminal:";
 "Тип" = "Type";
 "Тихие часы" = "Quiet hours";
 "Тихо. Даже подозрительно тихо." = "Quiet. Suspiciously quiet.";
@@ -1239,6 +1270,7 @@
 "Хуки Codex" = "Codex hooks";
 "Хуки сообщают, когда Claude Code работает, и приносят его запросы разрешений в карточки, пока вы в другом приложении. В самом терминале он спрашивает как обычно." = "Hooks tell when Claude Code is working and bring its permission requests to cards while you're in another app. In the terminal itself it asks as usual.";
 "Цель диалога не активна — решите, что с ней делать." = "The conversation's goal isn't active — decide what to do with it.";
+"Часовой пояс" = "Time zone";
 "Часовой пояс Mac — %@, а VPN выходит в стране «%@». Приложения и сайты видят и то и другое, и несовпадение заметно." = "The Mac's time zone is %@, but the VPN exits in %@. Apps and sites see both, and the mismatch shows.";
 "Часовой пояс выдаёт VPN" = "The time zone gives the VPN away";
 "Чат Claude" = "Claude chat";
@@ -1281,12 +1313,14 @@
 "адрес %@ запрещён" = "address %@ blocked";
 "без названия" = "untitled";
 "без описания" = "no description";
+"без проверки" = "unchecked";
 "без работы" = "no work";
 "больше всего — «%@»" = "most of all — “%@”";
 "в " = "in ";
 "в лимит упирались %@" = "hit the limit %@";
 "в открытый чат Claude, если он остановлен лимитом" = "to the open Claude chat, if the limit stopped it";
 "в поле ввода Claude есть неотправленный текст" = "Claude's message box has unsent text";
+"в порядке" = "fine";
 "в чат «%@»" = "to the chat “%@”";
 "версия github обновить скачивать" = "version github update download";
 "включён" = "on";
@@ -1332,10 +1366,13 @@
 "лимита" = "of limit";
 "лицензия mit благодарности выйти" = "license mit thanks credits quit";
 "меньше минуты" = "less than a minute";
+"на паузе" = "paused";
 "не ждать «%@»" = "don’t wait for “%@”";
+"не защищён" = "not protected";
 "не найдена" = "not found";
 "не найдено" = "not found";
 "не отслеживать «%@»" = "stop watching “%@”";
+"не проверен" = "not checked";
 "не проверяется" = "not checked";
 "не работает: %@" = "not working: %@";
 "не удалось" = "failed";

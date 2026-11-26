@@ -193,6 +193,8 @@ enum SelfTest {
         expect(ClaudeUsageCLI.firstRun("78WelcometoClaudeCodev2.1.150 Let'sgetstarted. Choosethetextstylethatlooksbestwithyourterminal"), "first-run setup is recognised")
         expect(!ClaudeUsageCLI.firstRun("Currentsession3%usedResets2:29pm"), "the usage screen is not first-run setup")
         expect(ClaudeUsageCLI.apiBilling("ClaudeCodev2.1.330Opus5.5·APIUsageBilling"), "a Console key is recognised")
+        expect(RouteExit(ip: "203.0.113.7", country: "NL", colo: "").flag == "🇳🇱", "a country code becomes its flag")
+        expect(RouteExit(ip: "203.0.113.7", country: "1x", colo: "").flag == "🌐", "a broken country code gets a globe")
         expect(!ClaudeUsageCLI.apiBilling("ClaudeCodev2.1.330Opus5.5·ClaudeMax"), "a subscription is not a Console key")
         expect(ClaudeUsageCLI.pending("Current session 3% used Resets 2:29pm Usage credits are off Refreshing…\n\nEsc to cancel"),
                "still fetching")

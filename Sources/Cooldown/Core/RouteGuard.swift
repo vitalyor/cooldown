@@ -275,7 +275,9 @@ final class RouteGuard: ObservableObject {
 
     // MARK: Asking (any thread)
 
-    private nonisolated static func live(_ now: Date) -> Bool { Settings.guardEnabled && !Settings.guardPaused(now) }
+    private nonisolated static func live(_ now: Date) -> Bool { sample || (Settings.guardEnabled && !Settings.guardPaused(now)) }
+    /// Pictures of the window (`--render --route`): sample readings stand for a running guard.
+    nonisolated(unsafe) static var sample = false
 
     /// Whether Cooldown and the agents may reach `provider` now: both routes right and fresh.
     nonisolated static func allows(_ provider: ProviderID, now: Date = Date()) -> Bool {
@@ -1245,6 +1247,61 @@ final class RouteGuard: ObservableObject {
     private static func write(_ text: String, to url: URL) {
         guard (try? String(contentsOf: url, encoding: .utf8)) != text else { return }
         try? text.write(to: url, atomically: true, encoding: .utf8)
+    }
+}
+
+/// How one service looks in the window, as the guard judges it now (the same rules that freeze
+/// apps and hold prompts, so the window never says "fine" while work is held).
+enum RouteLook: Int, Comparable {
+    case off, waiting, ok, unsure, terminalOnly, held
+    static func < (a: RouteLook, b: RouteLook) -> Bool { a.rawValue < b.rawValue }
+}
+
+extension RouteGuard {
+    func look(_ service: GuardService) -> RouteLook {
+        if service.off { return .off }
+        guard let reading = readings[service], reading.at != .distantPast else { return .waiting }
+        if stopped(service) { return .held }
+        if cliOnly(service) { return .terminalOnly }
+        if reading.verdict != .ok || reading.appVerdict != .ok { return .unsure }
+        return .ok
+    }
+
+    /// The worst look among the agents the person uses (`.off` when none is guarded).
+    var overall: RouteLook { GuardService.allCases.filter { ProviderID.shown.contains($0.provider) }.map(look).max() ?? .off }
+
+    /// Where the guarded agents go out now, one entry per address (apps through a proxy included).
+    var exits: [RouteExit] {
+        var seen: [RouteExit] = []
+        for service in GuardService.watched {
+            guard let reading = readings[service] else { continue }
+            for exit in [reading.exit, reading.proxied ? reading.appExit : nil].compactMap({ $0 }) where !seen.contains(where: { $0.ip == exit.ip }) {
+                seen.append(exit)
+            }
+        }
+        return seen
+    }
+
+    /// When the last finished check of any guarded agent was made.
+    var checkedAt: Date? { GuardService.watched.compactMap { readings[$0]?.at }.filter { $0 != .distantPast }.max() }
+
+    /// Sample readings for pictures: never the person's own addresses (documentation ranges).
+    func showSample(held: Bool) {
+        Self.sample = true
+        let netherlands = RouteExit(ip: "203.0.113.7", country: "NL", colo: "AMS")
+        let russia = RouteExit(ip: "198.51.100.23", country: "RU", colo: "")
+        readings[.anthropic] = RouteReading(verdict: held ? .forbidden : .ok, exit: held ? russia : netherlands,
+                                            appVerdict: held ? .forbidden : .ok, appExit: held ? russia : netherlands, at: Date().addingTimeInterval(-12))
+        readings[.openai] = RouteReading(verdict: .ok, exit: netherlands, appVerdict: .ok, appExit: netherlands, at: Date().addingTimeInterval(-12))
+        readings[.google] = RouteReading(verdict: .ok, exit: netherlands, appVerdict: .ok, appExit: netherlands, at: Date().addingTimeInterval(-12))
+    }
+}
+
+extension RouteExit {
+    /// 🇳🇱 for "NL": the regional indicator letters of the country code.
+    var flag: String {
+        guard country.count == 2, country.allSatisfy({ $0.isASCII && $0.isLetter }) else { return "🌐" }
+        return String(String.UnicodeScalarView(country.uppercased().unicodeScalars.compactMap { UnicodeScalar(127_397 + $0.value) }))
     }
 }
 

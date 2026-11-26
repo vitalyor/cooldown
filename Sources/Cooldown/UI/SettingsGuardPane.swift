@@ -189,7 +189,7 @@ private struct ExitRow: View {
 }
 
 /// "Put the VPN country's time zone" and "my zone back".
-private struct TimeZoneButtons: View {
+struct TimeZoneButtons: View {
     let target: String?
     @State private var busy = false
     @State private var problem: String?

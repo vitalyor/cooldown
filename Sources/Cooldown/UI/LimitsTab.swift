@@ -9,6 +9,7 @@ struct LimitsTab: View {
 
     var body: some View {
         TabScroll(render: render) {
+            RouteBanner(provider: store.id, screen: $screen)
             TimelineView(.periodic(from: .now, by: 30)) { context in
                 content(now: context.date)
             }

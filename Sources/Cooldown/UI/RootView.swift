@@ -5,6 +5,7 @@ enum Screen: Equatable {
     case addTask
     case schedule
     case feed
+    case route
 }
 
 enum MainTab: String, CaseIterable, Identifiable {
@@ -76,6 +77,9 @@ struct RootView: View {
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             case .feed:
                 FeedScreen(screen: $screen)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            case .route:
+                RouteScreen(screen: $screen, render: render)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
@@ -235,6 +239,7 @@ private struct Header: View {
             .frame(width: compact ? nil : 200)
             .frame(maxWidth: compact ? .infinity : nil)
             if !compact { Spacer() }
+            GuardButton(screen: $screen)
             FeedButton(screen: $screen)
             RefreshButton(codex: model.codex, claude: model.claude)
             GlassIconButton(symbol: "gearshape", help: L("Настройки (⌘,)")) { SettingsWindow.shared.show() }

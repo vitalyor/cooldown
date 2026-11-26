@@ -340,7 +340,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         if let provider = value("--provider").flatMap(ProviderID.init(rawValue:)) { AppModel.shared.selected = provider }
         RootView.debugTab = value("--tab").flatMap(MainTab.init(rawValue:))
-        let screens: [String: Screen] = ["add": .addTask, "schedule": .schedule, "feed": .feed]
+        let screens: [String: Screen] = ["add": .addTask, "schedule": .schedule, "feed": .feed, "route": .route]
         RootView.debugScreen = value("--screen").flatMap { screens[$0] }
         if let step = value("--demo").flatMap(Int.init) {
             DemoController.shared.start()
@@ -451,7 +451,9 @@ enum RenderMode {
                 print("ok \(out)")
                 exit(0)
             }
-            let screen: Screen = value("--screen") == "add" ? .addTask : .home
+            // `--route ok|held`: the VPN guard on sample readings (never the person's own addresses).
+            if let sample = value("--route") { RouteGuard.shared.showSample(held: sample == "held") }
+            let screen: Screen = value("--screen") == "add" ? .addTask : value("--screen") == "route" ? .route : .home
             let tab = MainTab(rawValue: value("--tab") ?? "") ?? .limits
             let stats = StatsTab(rawValue: value("--stats") ?? "") ?? .limits
             let range = StatsRange(rawValue: value("--range") ?? "") ?? .day
